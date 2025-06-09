@@ -1,26 +1,171 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+@custom-variant dark (&:is(.dark *));
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+:root {
+  --radius: 0.625rem;
+  --background: oklch(0.98 0.008 25);
+  --foreground: oklch(0.18 0.015 25);
+  --card: oklch(0.99 0.005 25);
+  --card-foreground: oklch(0.18 0.015 25);
+  --popover: oklch(0.99 0.005 25);
+  --popover-foreground: oklch(0.18 0.015 25);
+  --primary: oklch(0.2 0.015 25);
+  --primary-foreground: oklch(0.98 0.008 25);
+  --secondary: oklch(0.96 0.008 25);
+  --secondary-foreground: oklch(0.2 0.015 25);
+  --muted: oklch(0.96 0.008 25);
+  --muted-foreground: oklch(0.55 0.015 25);
+  --accent: oklch(0.96 0.008 25);
+  --accent-foreground: oklch(0.2 0.015 25);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.25 0.015 25 / 12%);
+  --input: oklch(0.25 0.015 25 / 15%);
+  --ring: oklch(0.6 0.02 25);
+  --chart-1: oklch(0.646 0.222 41.116);
+  --chart-2: oklch(0.6 0.118 184.704);
+  --chart-3: oklch(0.398 0.07 227.392);
+  --chart-4: oklch(0.828 0.189 84.429);
+  --chart-5: oklch(0.769 0.188 70.08);
+  --sidebar: oklch(0.99 0.005 25);
+  --sidebar-foreground: oklch(0.18 0.015 25);
+  --sidebar-primary: oklch(0.2 0.015 25);
+  --sidebar-primary-foreground: oklch(0.98 0.008 25);
+  --sidebar-accent: oklch(0.96 0.008 25);
+  --sidebar-accent-foreground: oklch(0.2 0.015 25);
+  --sidebar-border: oklch(0.25 0.015 25 / 12%);
+  --sidebar-ring: oklch(0.6 0.02 25);
+}
+
+.dark {
+  --background: oklch(0.15 0.015 25);
+  --foreground: oklch(0.98 0.005 25);
+  --card: oklch(0.18 0.015 25);
+  --card-foreground: oklch(0.98 0.005 25);
+  --popover: oklch(0.18 0.015 25);
+  --popover-foreground: oklch(0.98 0.005 25);
+  --primary: oklch(0.9 0.01 25);
+  --primary-foreground: oklch(0.18 0.015 25);
+  --secondary: oklch(0.22 0.015 25);
+  --secondary-foreground: oklch(0.98 0.005 25);
+  --muted: oklch(0.22 0.015 25);
+  --muted-foreground: oklch(0.7 0.01 25);
+  --accent: oklch(0.22 0.015 25);
+  --accent-foreground: oklch(0.98 0.005 25);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(0.9 0.01 25 / 10%);
+  --input: oklch(0.9 0.01 25 / 15%);
+  --ring: oklch(0.7 0.015 25);
+  --chart-1: oklch(0.488 0.243 264.376);
+  --chart-2: oklch(0.696 0.17 162.48);
+  --chart-3: oklch(0.769 0.188 70.08);
+  --chart-4: oklch(0.627 0.265 303.9);
+  --chart-5: oklch(0.645 0.246 16.439);
+  --sidebar: oklch(0.18 0.015 25);
+  --sidebar-foreground: oklch(0.98 0.005 25);
+  --sidebar-primary: oklch(0.488 0.243 264.376);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.22 0.015 25);
+  --sidebar-accent-foreground: oklch(0.98 0.005 25);
+  --sidebar-border: oklch(0.9 0.01 25 / 10%);
+  --sidebar-ring: oklch(0.7 0.015 25);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@layer utilities {
+  .scrollbar-hide {
+    /* Hide scrollbar for IE, Edge and Firefox */
+    -ms-overflow-style: none !important;
+    scrollbar-width: none !important;
+  }
+
+  .scrollbar-hide::-webkit-scrollbar {
+    /* Hide scrollbar for Chrome, Safari and Opera */
+    display: none !important;
+    width: 0 !important;
+    background: transparent !important;
+  }
+
+  /* Target all possible Radix ScrollArea elements */
+  .scrollbar-hide * {
+    scrollbar-width: none !important;
+    -ms-overflow-style: none !important;
+  }
+
+  .scrollbar-hide *::-webkit-scrollbar {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
+    background: transparent !important;
+  }
+
+  /* Specific Radix UI selectors */
+  .scrollbar-hide [data-radix-scroll-area-viewport],
+  .scrollbar-hide [data-radix-scroll-area-corner],
+  .scrollbar-hide [data-radix-scroll-area-scrollbar] {
+    scrollbar-width: none !important;
+    -ms-overflow-style: none !important;
+    display: block !important;
+  }
+
+  .scrollbar-hide [data-radix-scroll-area-viewport]::-webkit-scrollbar,
+  .scrollbar-hide [data-radix-scroll-area-corner]::-webkit-scrollbar,
+  .scrollbar-hide [data-radix-scroll-area-scrollbar]::-webkit-scrollbar {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
+  }
+
+  /* Hide the Radix scrollbar track and thumb */
+  .scrollbar-hide [data-radix-scroll-area-scrollbar] {
+    display: none !important;
+  }
 }
