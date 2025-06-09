@@ -5,10 +5,12 @@ import type React from "react"
 import { useState } from "react"
 import { cn } from "@/lib/utils"
 import { useAutoResizeTextarea } from "@/hooks/resize-textarea"
-import { ArrowUpCircle, Paperclip, Globe, ChevronDown } from "lucide-react"
+import { ArrowUpCircle, Paperclip, Globe, ChevronDown, Sparkles, Star } from "lucide-react"
 import { AnimatePresence, motion } from "framer-motion"
 
 interface AIInputProps {
+  value: string;
+  onValueChange: (value: string) => void;
   onSend?: (message: string) => void;
   isTyping?: boolean;
   onAttachmentClick?: () => void;
@@ -16,16 +18,246 @@ interface AIInputProps {
   onRemoveAttachment?: (index: number) => void;
 }
 
-const models = [
-  { id: 'gpt-4', name: 'GPT-4', description: 'Most capable model, best for complex tasks' },
-  { id: 'gpt-3.5', name: 'GPT-3.5', description: 'Fast and efficient for general tasks' },
-  { id: 'claude-3', name: 'Claude 3', description: 'Advanced reasoning and analysis' },
-  { id: 'gemini', name: 'Gemini', description: 'Excellent at creative and visual tasks' },
-] as const;
+interface ModelInfo {
+  id: string;
+  name: string;
+  description: string;
+  category: 'favorites' | 'others';
+  provider: 'gemini' | 'gpt' | 'claude' | 'o-series' | 'llama';
+  features: ('vision' | 'web' | 'code')[];
+  isPro: boolean;
+  isNew?: boolean;
+  isThinking?: boolean;
+}
 
-export default function AIInput({ onSend, isTyping, onAttachmentClick, pendingAttachments = [], onRemoveAttachment }: AIInputProps) {
-  const [value, setValue] = useState("")
-  const [selectedModel, setSelectedModel] = useState<typeof models[number]>(models[0])
+const models: ModelInfo[] = [
+  // Favorites
+  { 
+    id: 'gemini-2.0-flash', 
+    name: 'Gemini 2.0 Flash', 
+    description: 'Latest and fastest model',
+    category: 'favorites',
+    provider: 'gemini',
+    features: ['vision', 'web', 'code'],
+    isPro: false
+  },
+  
+  // Others - Gemini Family
+  { 
+    id: 'gemini-2.0-flash-lite', 
+    name: 'Gemini 2.0 Flash Lite', 
+    description: 'Lightweight version for quick tasks',
+    category: 'others',
+    provider: 'gemini',
+    features: ['vision', 'code'],
+    isPro: false,
+    isNew: true
+  },
+  { 
+    id: 'gemini-2.5-flash', 
+    name: 'Gemini 2.5 Flash', 
+    description: 'Advanced reasoning capabilities',
+    category: 'others',
+    provider: 'gemini',
+    features: ['vision', 'web', 'code'],
+    isPro: false,
+    isThinking: true
+  },
+  { 
+    id: 'gemini-2.5-flash-thinking', 
+    name: 'Gemini 2.5 Flash (Thinking)', 
+    description: 'Deep reasoning and analysis',
+    category: 'others',
+    provider: 'gemini',
+    features: ['vision', 'web', 'code'],
+    isPro: false,
+    isThinking: true
+  },
+  { 
+    id: 'gemini-2.5-pro', 
+    name: 'Gemini 2.5 Pro', 
+    description: 'Most capable model for complex tasks',
+    category: 'others',
+    provider: 'gemini',
+    features: ['vision', 'web', 'code'],
+    isPro: true
+  },
+  
+  // GPT Models
+  { 
+    id: 'gpt-imagegen', 
+    name: 'GPT ImageGen', 
+    description: 'Specialized for image generation',
+    category: 'others',
+    provider: 'gpt',
+    features: ['vision'],
+    isPro: true
+  },
+  { 
+    id: 'gpt-4o-mini', 
+    name: 'GPT 4o-mini', 
+    description: 'Compact and efficient',
+    category: 'others',
+    provider: 'gpt',
+    features: ['vision'],
+    isPro: false
+  },
+  { 
+    id: 'gpt-4o', 
+    name: 'GPT 4o', 
+    description: 'Omni-modal capabilities',
+    category: 'others',
+    provider: 'gpt',
+    features: ['vision'],
+    isPro: false
+  },
+  { 
+    id: 'gpt-4.1', 
+    name: 'GPT 4.1', 
+    description: 'Enhanced reasoning model',
+    category: 'others',
+    provider: 'gpt',
+    features: ['vision'],
+    isPro: false
+  },
+  { 
+    id: 'gpt-4.1-mini', 
+    name: 'GPT 4.1 Mini', 
+    description: 'Lightweight reasoning model',
+    category: 'others',
+    provider: 'gpt',
+    features: ['vision'],
+    isPro: false
+  },
+  { 
+    id: 'gpt-4.1-nano', 
+    name: 'GPT 4.1 Nano', 
+    description: 'Ultra-fast responses',
+    category: 'others',
+    provider: 'gpt',
+    features: ['vision'],
+    isPro: false
+  },
+  
+  // O-Series Models
+  { 
+    id: 'o3-mini', 
+    name: 'o3 mini', 
+    description: 'Advanced reasoning in compact form',
+    category: 'others',
+    provider: 'o-series',
+    features: ['web', 'code'],
+    isPro: false
+  },
+  { 
+    id: 'o4-mini', 
+    name: 'o4 mini', 
+    description: 'Next-gen reasoning model',
+    category: 'others',
+    provider: 'o-series',
+    features: ['vision', 'web'],
+    isPro: false
+  },
+  { 
+    id: 'o3', 
+    name: 'o3', 
+    description: 'Powerful reasoning capabilities',
+    category: 'others',
+    provider: 'o-series',
+    features: ['vision', 'web'],
+    isPro: false
+  },
+  
+  // Claude Models
+  { 
+    id: 'claude-3.5-sonnet', 
+    name: 'Claude 3.5 Sonnet', 
+    description: 'Balanced performance and speed',
+    category: 'others',
+    provider: 'claude',
+    features: ['vision', 'code'],
+    isPro: false
+  },
+  { 
+    id: 'claude-3.7-sonnet', 
+    name: 'Claude 3.7 Sonnet', 
+    description: 'Enhanced writing and analysis',
+    category: 'others',
+    provider: 'claude',
+    features: ['vision', 'code'],
+    isPro: false
+  },
+  { 
+    id: 'claude-3.7-sonnet-reasoning', 
+    name: 'Claude 3.7 Sonnet (Reasoning)', 
+    description: 'Deep analytical thinking',
+    category: 'others',
+    provider: 'claude',
+    features: ['vision', 'code'],
+    isPro: true
+  },
+  { 
+    id: 'claude-4-sonnet', 
+    name: 'Claude 4 Sonnet', 
+    description: 'Latest Claude capabilities',
+    category: 'others',
+    provider: 'claude',
+    features: ['vision', 'code'],
+    isPro: true
+  },
+  { 
+    id: 'claude-4-sonnet-reasoning', 
+    name: 'Claude 4 Sonnet (Reasoning)', 
+    description: 'Advanced reasoning and logic',
+    category: 'others',
+    provider: 'claude',
+    features: ['vision', 'code'],
+    isPro: true
+  },
+  { 
+    id: 'claude-4-opus', 
+    name: 'Claude 4 Opus', 
+    description: 'Most capable Claude model',
+    category: 'others',
+    provider: 'claude',
+    features: ['vision', 'code'],
+    isPro: true
+  },
+  
+  // Llama
+  { 
+    id: 'llama-3.3-70b', 
+    name: 'Llama 3.3 70b', 
+    description: 'Open-source excellence',
+    category: 'others',
+    provider: 'llama',
+    features: ['code'],
+    isPro: false,
+    isNew: true
+  }
+];
+
+const getProviderColor = (provider: string) => {
+  switch (provider) {
+    case 'gemini': return 'from-blue-500 to-purple-500'
+    case 'gpt': return 'from-green-500 to-teal-500'
+    case 'claude': return 'from-purple-500 to-pink-500'
+    case 'o-series': return 'from-orange-500 to-red-500'
+    case 'llama': return 'from-indigo-500 to-blue-500'
+    default: return 'from-gray-500 to-gray-600'
+  }
+}
+
+export default function AIInput({ 
+  value, 
+  onValueChange, 
+  onSend, 
+  isTyping, 
+  onAttachmentClick, 
+  pendingAttachments = [], 
+  onRemoveAttachment 
+}: AIInputProps) {
+  const [selectedModel, setSelectedModel] = useState<ModelInfo>(models[0])
   const [showModelSelect, setShowModelSelect] = useState(false)
   const { textareaRef, adjustHeight } = useAutoResizeTextarea({
     minHeight: 80,
@@ -35,7 +267,7 @@ export default function AIInput({ onSend, isTyping, onAttachmentClick, pendingAt
   const handleSend = () => {
     if (value.trim() && onSend && !isTyping) {
       onSend(value.trim())
-      setValue("")
+      onValueChange("")
       adjustHeight(true)
     }
   }
@@ -46,6 +278,18 @@ export default function AIInput({ onSend, isTyping, onAttachmentClick, pendingAt
       handleSend()
     }
   }
+
+  const favoriteModels = models.filter(model => model.category === 'favorites')
+  const otherModels = models.filter(model => model.category === 'others')
+  
+  // Group other models by provider
+  const groupedModels = otherModels.reduce((acc, model) => {
+    if (!acc[model.provider]) {
+      acc[model.provider] = []
+    }
+    acc[model.provider].push(model)
+    return acc
+  }, {} as Record<string, ModelInfo[]>)
 
   return (
     <div className="relative">
@@ -63,7 +307,7 @@ export default function AIInput({ onSend, isTyping, onAttachmentClick, pendingAt
                   key={index}
                   className="flex items-center gap-2 bg-rose-500/5 dark:bg-rose-300/5 border border-rose-500/20 dark:border-rose-300/20 rounded-lg px-3 py-2 group"
                 >
-                                      <Paperclip className="w-3.5 h-3.5 text-rose-500/70 dark:text-rose-300/70" />
+                  <Paperclip className="w-3.5 h-3.5 text-rose-500/70 dark:text-rose-300/70" />
                   <span className="text-sm text-black dark:text-white truncate max-w-32">{file.name}</span>
                   <button
                     onClick={() => onRemoveAttachment?.(index)}
@@ -84,7 +328,7 @@ export default function AIInput({ onSend, isTyping, onAttachmentClick, pendingAt
             ref={textareaRef}
             value={value}
             onChange={(e) => {
-              setValue(e.target.value)
+              onValueChange(e.target.value)
               adjustHeight()
             }}
             onKeyDown={handleKeyDown}
@@ -118,7 +362,13 @@ export default function AIInput({ onSend, isTyping, onAttachmentClick, pendingAt
                     "hover:bg-black/5 dark:hover:bg-white/5"
                   )}
                 >
-                  <span>{selectedModel.name}</span>
+                  <div className="flex items-center gap-2">
+                    <div className={cn("w-3 h-3 rounded-full bg-gradient-to-r", getProviderColor(selectedModel.provider))}></div>
+                    <span>{selectedModel.name}</span>
+                    {selectedModel.isPro && <Star className="w-3 h-3 text-yellow-500" />}
+                    {selectedModel.isNew && <span className="text-xs bg-green-500/20 text-green-600 dark:text-green-400 px-1.5 py-0.5 rounded">New</span>}
+                    {selectedModel.isThinking && <span className="text-xs bg-purple-500/20 text-purple-600 dark:text-purple-400 px-1.5 py-0.5 rounded">Thinking</span>}
+                  </div>
                   <ChevronDown className={cn(
                     "w-4 h-4 transition-transform duration-200",
                     showModelSelect && "transform rotate-180"
@@ -128,38 +378,133 @@ export default function AIInput({ onSend, isTyping, onAttachmentClick, pendingAt
                 <AnimatePresence>
                   {showModelSelect && (
                     <motion.div
-                      initial={{ opacity: 0, y: -10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -10 }}
-                      transition={{ duration: 0.15 }}
-                      className="absolute z-50 bottom-full mb-2 left-0 bg-white/70 dark:bg-[oklch(0.18_0.015_25)]/30 backdrop-blur-xl rounded-lg border border-rose-500/10 dark:border-white/10 shadow-lg overflow-hidden min-w-[240px]"
-                      style={{
-                        filter: "drop-shadow(0 4px 6px rgba(0, 0, 0, 0.1)) drop-shadow(0 2px 4px rgba(0, 0, 0, 0.06))",
-                        transform: "translateZ(0)"
-                      }}
+                      initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                      transition={{ duration: 0.2, ease: "easeOut" }}
+                      className="absolute z-50 bottom-full mb-2 left-0 bg-white/90 dark:bg-[oklch(0.18_0.015_25)]/95 backdrop-blur-xl rounded-xl border border-rose-500/10 dark:border-white/10 shadow-2xl overflow-hidden min-w-[420px] max-h-[600px]"
                     >
-                      <div className="py-1 bg-white/70 dark:bg-[oklch(0.18_0.015_25)]/30 backdrop-blur-xl">
-                        {models.map((model) => (
-                          <button
-                            key={model.id}
-                            onClick={() => {
-                              setSelectedModel(model)
-                              setShowModelSelect(false)
-                            }}
-                            className={cn(
-                              "w-full px-4 py-2.5 transition-colors",
-                              "hover:bg-black/5 dark:hover:bg-white/5",
-                              selectedModel.id === model.id && "bg-black/5 dark:bg-white/5",
-                              "flex flex-col items-start gap-0.5"
-                            )}
-                          >
-                            <span className="text-sm font-medium text-black dark:text-white">
-                              {model.name}
-                            </span>
-                            <span className="text-xs text-black/60 dark:text-white/60">
-                              {model.description}
-                            </span>
-                          </button>
+                      {/* Header */}
+                      <div className="p-4 border-b border-black/5 dark:border-white/10 bg-gradient-to-r from-rose-500/5 to-purple-500/5 dark:from-rose-500/10 dark:to-purple-500/10">
+                        <div className="flex items-center justify-between">
+                          <h3 className="text-base font-semibold text-black dark:text-white">Select AI Model</h3>
+                          <div className="flex items-center gap-2">
+                            <div className="text-xs bg-rose-500/10 text-rose-600 dark:text-rose-400 px-2 py-1 rounded-full">
+                              Pro $8/month
+                            </div>
+                            <button className="text-xs bg-gradient-to-r from-rose-500 to-purple-500 hover:from-rose-600 hover:to-purple-600 text-white px-3 py-1 rounded-full transition-all duration-200 shadow-sm">
+                              Upgrade
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="max-h-[500px] overflow-y-auto">
+                        {/* Favorites */}
+                        {favoriteModels.length > 0 && (
+                          <div className="p-4 border-b border-black/5 dark:border-white/10">
+                            <div className="flex items-center gap-2 mb-3">
+                              <Star className="w-4 h-4 text-yellow-500" />
+                              <span className="text-sm font-semibold text-black dark:text-white">Favorites</span>
+                            </div>
+                            <div className="space-y-2">
+                              {favoriteModels.map((model) => (
+                                <button
+                                  key={model.id}
+                                  onClick={() => {
+                                    setSelectedModel(model)
+                                    setShowModelSelect(false)
+                                  }}
+                                  className={cn(
+                                    "w-full p-4 rounded-lg transition-all duration-200 text-left border",
+                                    "hover:bg-black/5 dark:hover:bg-white/5",
+                                    selectedModel.id === model.id 
+                                      ? "bg-gradient-to-r from-rose-500/10 to-purple-500/10 border-rose-500/30 dark:border-rose-400/30" 
+                                      : "border-transparent hover:border-black/10 dark:hover:border-white/10"
+                                  )}
+                                >
+                                  <div className="flex items-start gap-3">
+                                    <div className={cn("w-4 h-4 rounded-full bg-gradient-to-r mt-0.5", getProviderColor(model.provider))}></div>
+                                    <div className="flex-1 min-w-0">
+                                      <div className="flex items-center gap-2 mb-1">
+                                        <span className="text-sm font-semibold text-black dark:text-white">
+                                          {model.name}
+                                        </span>
+                                        {model.isPro && <Star className="w-3 h-3 text-yellow-500" />}
+                                        {model.isNew && <span className="text-xs bg-green-500/20 text-green-600 dark:text-green-400 px-1.5 py-0.5 rounded">New</span>}
+                                        {model.isThinking && <span className="text-xs bg-purple-500/20 text-purple-600 dark:text-purple-400 px-1.5 py-0.5 rounded">Thinking</span>}
+                                      </div>
+                                      <p className="text-xs text-black/60 dark:text-white/60 mb-2">
+                                        {model.description}
+                                      </p>
+                                      <div className="flex items-center gap-2">
+                                        <span className="text-xs text-black/40 dark:text-white/40 capitalize">{model.provider}</span>
+                                        <div className="flex items-center gap-1">
+                                          {model.features.map((feature) => (
+                                            <span key={feature} className="text-xs bg-black/5 dark:bg-white/5 text-black/60 dark:text-white/60 px-2 py-0.5 rounded">
+                                              {feature}
+                                            </span>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Grouped by Provider */}
+                        {Object.entries(groupedModels).map(([provider, providerModels]) => (
+                          <div key={provider} className="p-4 border-b border-black/5 dark:border-white/10 last:border-b-0">
+                            <div className="flex items-center gap-2 mb-3">
+                              <div className={cn("w-4 h-4 rounded-full bg-gradient-to-r", getProviderColor(provider))}></div>
+                              <span className="text-sm font-semibold text-black dark:text-white capitalize">{provider}</span>
+                              <span className="text-xs text-black/40 dark:text-white/40">({providerModels.length} models)</span>
+                            </div>
+                            <div className="grid grid-cols-1 gap-2">
+                              {providerModels.map((model) => (
+                                <button
+                                  key={model.id}
+                                  onClick={() => {
+                                    setSelectedModel(model)
+                                    setShowModelSelect(false)
+                                  }}
+                                  className={cn(
+                                    "p-3 rounded-lg transition-all duration-200 text-left border",
+                                    "hover:bg-black/5 dark:hover:bg-white/5",
+                                    selectedModel.id === model.id 
+                                      ? "bg-gradient-to-r from-rose-500/10 to-purple-500/10 border-rose-500/30 dark:border-rose-400/30" 
+                                      : "border-transparent hover:border-black/10 dark:hover:border-white/10"
+                                  )}
+                                >
+                                  <div className="flex items-center justify-between mb-1">
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-sm font-medium text-black dark:text-white">
+                                        {model.name}
+                                      </span>
+                                      {model.isPro && <Star className="w-3 h-3 text-yellow-500" />}
+                                    </div>
+                                    <div className="flex items-center gap-1">
+                                      {model.isNew && <span className="text-xs bg-green-500/20 text-green-600 dark:text-green-400 px-1.5 py-0.5 rounded">New</span>}
+                                      {model.isThinking && <span className="text-xs bg-purple-500/20 text-purple-600 dark:text-purple-400 px-1.5 py-0.5 rounded">Thinking</span>}
+                                    </div>
+                                  </div>
+                                  <p className="text-xs text-black/60 dark:text-white/60 mb-2">
+                                    {model.description}
+                                  </p>
+                                  <div className="flex items-center gap-1">
+                                    {model.features.map((feature) => (
+                                      <span key={feature} className="text-xs bg-black/5 dark:bg-white/5 text-black/60 dark:text-white/60 px-2 py-0.5 rounded">
+                                        {feature}
+                                      </span>
+                                    ))}
+                                  </div>
+                                </button>
+                              ))}
+                            </div>
+                          </div>
                         ))}
                       </div>
                     </motion.div>

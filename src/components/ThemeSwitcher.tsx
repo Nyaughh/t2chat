@@ -18,7 +18,13 @@ const ThemeSwitcher = () => {
   }
 
   const toggleTheme = () => {
-    setTheme(theme === 'dark' ? 'light' : 'dark');
+    if (document.startViewTransition) {
+      document.startViewTransition(() => {
+        setTheme(theme === 'dark' ? 'light' : 'dark');
+      });
+    } else {
+      setTheme(theme === 'dark' ? 'light' : 'dark');
+    }
   };
 
   return (
