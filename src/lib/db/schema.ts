@@ -8,6 +8,7 @@ import {
   boolean,
 } from 'drizzle-orm/pg-core'
 import type { AdapterAccount } from '@auth/core/adapters'
+import { relations } from 'drizzle-orm'
 
 export const user = pgTable('user', {
   id: text('id').primaryKey(),
@@ -18,6 +19,12 @@ export const user = pgTable('user', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 })
+
+export const userRelations = relations(user, ({ many }) => ({
+  conversations: many(conversations),
+  accounts: many(account),
+  sessions: many(session),
+}))
 
 export const session = pgTable('session', {
   id: text('id').primaryKey(),
@@ -31,6 +38,13 @@ export const session = pgTable('session', {
     .notNull()
     .references(() => user.id, { onDelete: 'cascade' }),
 })
+
+export const sessionRelations = relations(session, ({ one }) => ({
+  user: one(user, {
+    fields: [session.userId],
+    references: [user.id],
+  }),
+}))
 
 export const account = pgTable('account', {
   id: text('id').primaryKey(),
@@ -49,6 +63,13 @@ export const account = pgTable('account', {
   createdAt: timestamp('created_at').notNull(),
   updatedAt: timestamp('updated_at').notNull(),
 })
+
+export const accountRelations = relations(account, ({ one }) => ({
+  user: one(user, {
+    fields: [account.userId],
+    references: [user.id],
+  }),
+}))
 
 export const verification = pgTable('verification', {
   id: text('id').primaryKey(),
@@ -69,6 +90,14 @@ export const conversations = pgTable('conversations', {
   lastMessageAt: timestamp('last_message_at').defaultNow().notNull(),
 })
 
+export const conversationsRelations = relations(conversations, ({ one, many }) => ({
+  user: one(user, {
+    fields: [conversations.userId],
+    references: [user.id],
+  }),
+  messages: many(messages),
+}))
+
 export const messages = pgTable('messages', {
   id: uuid('id').defaultRandom().primaryKey(),
   conversationId: uuid('conversation_id')
@@ -78,4 +107,11 @@ export const messages = pgTable('messages', {
   role: text('role', { enum: ['user', 'assistant'] }).notNull(),
   model: text('model'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
-}) 
+})
+
+export const messagesRelations = relations(messages, ({ one }) => ({
+  conversation: one(conversations, {
+    fields: [messages.conversationId],
+    references: [conversations.id],
+  }),
+})) 

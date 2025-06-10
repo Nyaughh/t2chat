@@ -17,6 +17,7 @@ interface AIInputProps {
   onAttachmentClick?: () => void
   pendingAttachments?: File[]
   onRemoveAttachment?: (index: number) => void
+  placeholder?: string
 }
 
 interface ModelInfo {
@@ -247,6 +248,7 @@ export default function AIInput({
   onAttachmentClick,
   pendingAttachments = [],
   onRemoveAttachment,
+  placeholder = 'Ask me anything...',
 }: AIInputProps) {
   const [selectedModel, setSelectedModel] = useState<ModelInfo>(models[0])
   const [showModelSelect, setShowModelSelect] = useState(false)
@@ -342,7 +344,7 @@ export default function AIInput({
               adjustHeight()
             }}
             onKeyDown={handleKeyDown}
-            placeholder="Ask me anything..."
+            placeholder={placeholder}
             disabled={isTyping}
             className="w-full px-4 md:px-5 py-4 resize-none bg-transparent border-0 outline-none text-base md:text-lg min-h-[70px] md:min-h-[80px] leading-relaxed placeholder:text-black/40 dark:placeholder:text-rose-200/30 text-black dark:text-white"
             style={{

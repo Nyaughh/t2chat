@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { Copy, Check, RotateCcw, Paperclip, Edit3, Send, X, ChevronDown } from 'lucide-react'
+import { Copy, Check, Paperclip, Send, X, ChevronDown } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 import AIInput from '@/components/kokonutui/ai-input'
 import MessageRenderer from '@/components/MessageRenderer'
@@ -10,19 +10,13 @@ import WelcomeScreen from '@/components/WelcomeScreen'
 import { useConversations } from '@/hooks/useConversations'
 
 export default function ChatInterface() {
-  const { messages, isTyping, handleSendMessage, stopGeneratingResponse, regenerateResponse, editMessage } =
-    useConversations()
+  const { messages, isTyping, addMessage, isLoading } = useConversations()
 
   const [copiedId, setCopiedId] = useState<string | null>(null)
-  const [pendingAttachments, setPendingAttachments] = useState<File[]>([])
   const [inputValue, setInputValue] = useState('')
-  const [editingMessageId, setEditingMessageId] = useState<string | null>(null)
-  const [editingContent, setEditingContent] = useState('')
   const [showScrollToBottom, setShowScrollToBottom] = useState(false)
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
-  const fileInputRef = useRef<HTMLInputElement>(null)
-  const editInputRef = useRef<HTMLTextAreaElement>(null)
   const scrollAreaRef = useRef<HTMLDivElement>(null)
   const isAtBottomRef = useRef(true)
 
@@ -36,81 +30,16 @@ export default function ChatInterface() {
     }
   }
 
-  const handleFileUpload = (files: FileList | null) => {
-    if (!files || files.length === 0) return
-
-    const fileArray = Array.from(files)
-    setPendingAttachments((prev) => [...prev, ...fileArray])
-  }
-
-  const removeAttachment = (index: number) => {
-    setPendingAttachments((prev) => prev.filter((_, i) => i !== index))
-  }
-
-  const handleSendWithAttachments = (message: string) => {
-    handleSendMessage(message, pendingAttachments)
-    setPendingAttachments([])
-    setInputValue('')
+  const handleSend = (message: string) => {
+    if (message.trim()) {
+      addMessage(message.trim())
+      setInputValue('')
+    }
   }
 
   const handlePromptClick = (prompt: string) => {
     setInputValue(prompt)
   }
-
-  const startEditing = (messageId: string, content: string) => {
-    setEditingMessageId(messageId)
-    setEditingContent(content)
-  }
-
-  const cancelEditing = () => {
-    setEditingMessageId(null)
-    setEditingContent('')
-  }
-
-  const saveEdit = () => {
-    if (editingMessageId && editingContent.trim()) {
-      editMessage(editingMessageId, editingContent.trim())
-      cancelEditing()
-    }
-  }
-
-  const handleEditKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault()
-      saveEdit()
-    } else if (e.key === 'Escape') {
-      e.preventDefault()
-      cancelEditing()
-    }
-  }
-
-  // Focus the edit input when editing starts
-  useEffect(() => {
-    if (editingMessageId && editInputRef.current) {
-      editInputRef.current.focus()
-      // Position cursor at end
-      const length = editingContent.length
-      editInputRef.current.setSelectionRange(length, length)
-    }
-  }, [editingMessageId, editingContent])
-
-  // Handle clicking outside to cancel edit
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (editingMessageId && editInputRef.current && !editInputRef.current.contains(event.target as Node)) {
-        // Check if clicked on save button
-        const target = event.target as HTMLElement
-        if (!target.closest('[data-edit-controls]')) {
-          cancelEditing()
-        }
-      }
-    }
-
-    if (editingMessageId) {
-      document.addEventListener('mousedown', handleClickOutside)
-      return () => document.removeEventListener('mousedown', handleClickOutside)
-    }
-  }, [editingMessageId])
 
   const scrollToBottom = (behavior: 'smooth' | 'auto' = 'smooth') => {
     messagesEndRef.current?.scrollIntoView({ behavior })
@@ -142,13 +71,17 @@ export default function ChatInterface() {
     }
   }, [messages, isTyping])
 
-  const showWelcomeScreen = messages.length === 0 && !isTyping && inputValue === ''
+  const showWelcomeScreen = !isLoading && messages.length === 0 && !isTyping
 
   return (
     <>
-      {/* Welcome Screen or Messages */}
+      {/* Welcome Screen, Loading, or Messages */}
       <AnimatePresence mode="wait">
-        {showWelcomeScreen ? (
+        {isLoading ? (
+          <div key="loading" className="flex items-center justify-center h-full">
+            <div className="text-lg text-black/50 dark:text-white/50">Loading chat...</div>
+          </div>
+        ) : showWelcomeScreen ? (
           <WelcomeScreen key="welcome" onPromptClick={handlePromptClick} />
         ) : (
           <ScrollArea key="messages" className="h-full scrollbar-hide" ref={scrollAreaRef}>
@@ -163,54 +96,10 @@ export default function ChatInterface() {
                           : 'text-black dark:text-white'
                       }`}
                     >
-                      {editingMessageId === message.id ? (
-                        <div className="space-y-2">
-                          <textarea
-                            ref={editInputRef}
-                            value={editingContent}
-                            onChange={(e) => setEditingContent(e.target.value)}
-                            onKeyDown={handleEditKeyDown}
-                            className="w-full bg-transparent border-none outline-none resize-none text-base leading-relaxed break-words overflow-wrap-anywhere"
-                            rows={Math.max(1, editingContent.split('\n').length)}
-                            style={{ minHeight: '1.5rem' }}
-                          />
-                          <div className="flex items-center gap-1 justify-end" data-edit-controls>
-                            <button
-                              onClick={cancelEditing}
-                              className="p-1.5 text-rose-500/70 hover:text-rose-600 dark:text-rose-300/70 dark:hover:text-rose-300 hover:bg-rose-500/5 dark:hover:bg-rose-300/5 rounded transition-colors"
-                              title="Cancel edit"
-                            >
-                              <X className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={saveEdit}
-                              disabled={!editingContent.trim()}
-                              className="p-1.5 text-rose-500/70 hover:text-rose-600 dark:text-rose-300/70 dark:hover:text-rose-300 hover:bg-rose-500/5 dark:hover:bg-rose-300/5 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                              title="Save edit"
-                            >
-                              <Send className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </div>
-                      ) : (
-                        <MessageRenderer
-                          content={message.content}
-                          className="text-base leading-relaxed break-words overflow-wrap-anywhere"
-                        />
-                      )}
-                      {message.attachments && message.attachments.length > 0 && (
-                        <div className="mt-2 flex flex-wrap gap-2">
-                          {message.attachments.map((file, index) => (
-                            <div
-                              key={index}
-                              className="flex items-center gap-2 bg-black/5 dark:bg-white/10 rounded px-2 py-1"
-                            >
-                              <Paperclip className="w-3 h-3" />
-                              <span className="text-xs truncate max-w-32">{file.name}</span>
-                            </div>
-                          ))}
-                        </div>
-                      )}
+                      <MessageRenderer
+                        content={message.content}
+                        className="text-base leading-relaxed break-words overflow-wrap-anywhere"
+                      />
                     </div>
                     {message.role === 'assistant' && (
                       <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -221,41 +110,11 @@ export default function ChatInterface() {
                         >
                           {copiedId === message.id ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                         </button>
-                        <button
-                          onClick={() => regenerateResponse(message.id)}
-                          className="p-1.5 text-rose-500/70 hover:text-rose-600 dark:text-rose-300/70 dark:hover:text-rose-300 hover:bg-rose-500/5 dark:hover:bg-rose-300/5 rounded transition-colors"
-                          title="Regenerate response"
-                        >
-                          <RotateCcw className="w-4 h-4" />
-                        </button>
-                      </div>
-                    )}
-                    {message.role === 'user' && editingMessageId !== message.id && (
-                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button
-                          onClick={() => startEditing(message.id, message.content)}
-                          className="p-1.5 text-rose-500/70 hover:text-rose-600 dark:text-rose-300/70 dark:hover:text-rose-300 hover:bg-rose-500/5 dark:hover:bg-rose-300/5 rounded transition-colors"
-                          title="Edit message"
-                        >
-                          <Edit3 className="w-4 h-4" />
-                        </button>
                       </div>
                     )}
                   </div>
                 </div>
               ))}
-
-              {isTyping && (
-                <div className="flex justify-start">
-                  <div className="text-black dark:text-white px-4 py-3">
-                    <div className="flex gap-1.5 items-center">
-                      <div className="w-2 h-2 bg-rose-500/60 dark:bg-rose-300/60 rounded-full animate-bounce"></div>
-                      <div className="w-2 h-2 bg-rose-500/60 dark:bg-rose-300/60 rounded-full animate-bounce delay-100"></div>
-                      <div className="w-2 h-2 bg-rose-500/60 dark:bg-rose-300/60 rounded-full animate-bounce delay-200"></div>
-                    </div>
-                  </div>
-                </div>
-              )}
               <div ref={messagesEndRef} />
             </div>
           </ScrollArea>
@@ -269,39 +128,27 @@ export default function ChatInterface() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 20 }}
-            transition={{ duration: 0.2, ease: 'easeOut' }}
-            className="fixed bottom-24 md:bottom-28 left-1/2 -translate-x-1/2 z-30"
+            className="absolute bottom-32 right-4 z-20"
           >
             <button
-              onClick={() => scrollToBottom('smooth')}
-              className="group p-2 rounded-full bg-white/80 dark:bg-black/60 backdrop-blur-lg shadow-lg dark:shadow-2xl ring-1 ring-black/5 dark:ring-white/10 hover:scale-110 transition-transform duration-200"
-              title="Scroll to bottom"
+              onClick={() => scrollToBottom()}
+              className="p-2 rounded-full bg-rose-500/10 dark:bg-rose-300/10 text-rose-600 dark:text-rose-300 backdrop-blur-sm shadow-lg"
             >
-              <ChevronDown className="w-5 h-5 text-black/60 dark:text-white/60" />
+              <ChevronDown className="w-5 h-5" />
             </button>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* AI Input */}
-      <div className="fixed md:absolute bottom-0 left-0 right-0 z-30">
-        <input
-          ref={fileInputRef}
-          type="file"
-          multiple
-          className="hidden"
-          onChange={(e) => handleFileUpload(e.target.files)}
-        />
-        <div className="max-w-4xl mx-auto w-full px-4 md:px-4">
+      {/* Input Area */}
+      <div className="absolute bottom-0 left-0 right-0 p-4 bg-transparent pointer-events-none">
+        <div className="max-w-4xl mx-auto pointer-events-auto">
           <AIInput
             value={inputValue}
             onValueChange={setInputValue}
-            onSend={handleSendWithAttachments}
+            onSend={handleSend}
             isTyping={isTyping}
-            onStop={stopGeneratingResponse}
-            onAttachmentClick={() => fileInputRef.current?.click()}
-            pendingAttachments={pendingAttachments}
-            onRemoveAttachment={removeAttachment}
+            placeholder="Ask me anything..."
           />
         </div>
       </div>

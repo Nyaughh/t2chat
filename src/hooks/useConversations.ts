@@ -1,111 +1,158 @@
 'use client'
 
-import { useState, useMemo, useEffect, useCallback, useRef } from 'react'
+import { useState, useMemo, useEffect, useCallback } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
-import { v4 as uuidv4 } from 'uuid'
+import { useSession } from '@/components/SessionProvider'
+import { toast } from 'sonner'
+import type { Conversation as DbConversation, Message } from '@/lib/types'
 
-interface Message {
-  id: string
-  content: string
-  role: 'user' | 'assistant'
-  timestamp: Date
-  attachments?: File[]
-}
-
-interface Conversation {
-  id: string
-  title: string
-  messages: Message[]
-  lastMessage: Date
-}
+// The DB types are slightly different, so we'll map them
+// We will use the DB Conversation type and adapt where needed.
+type StateConversation = DbConversation
 
 const STORAGE_KEY = 't2chat-conversations'
-const CURRENT_CONVERSATION_KEY = 't2chat-current-conversation'
+const MIGRATION_KEY = 't2chat-migrated-to-db'
 
-export function useConversations() {
+export function useConversations({
+  initialConversations,
+}: {
+  initialConversations?: DbConversation[]
+} = {}) {
   const router = useRouter()
   const pathname = usePathname()
-  const [conversations, setConversations] = useState<Conversation[]>([])
+  const { data: session, isPending: isSessionLoading } = useSession()
+
+  const mapDbConversationToState = (
+    dbConvs: DbConversation[],
+  ): StateConversation[] => {
+    return dbConvs.map((c) => ({
+      ...c,
+      createdAt: new Date(c.createdAt),
+      lastMessageAt: new Date(c.lastMessageAt),
+      messages: c.messages.map((m) => ({ ...m, createdAt: new Date(m.createdAt) })),
+    }))
+  }
+
+  const [conversations, setConversations] = useState<StateConversation[]>(
+    initialConversations ? mapDbConversationToState(initialConversations) : []
+  )
   const [currentConversationId, setCurrentConversationId] = useState<string>('')
+  const [isLoading, setIsLoading] = useState(!initialConversations)
   const [isTyping, setIsTyping] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
-  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
-  // Load conversations from localStorage on mount
+  // Effect for initial data loading and migration
   useEffect(() => {
-    if (typeof window === 'undefined') return
+    if (isSessionLoading) return
 
-    try {
-      const savedConversations = localStorage.getItem(STORAGE_KEY)
-      const savedCurrentId = localStorage.getItem(CURRENT_CONVERSATION_KEY)
-
-      if (savedConversations) {
-        const parsed = JSON.parse(savedConversations)
-        // Convert timestamps back to Date objects
-        const conversations = parsed.map((conv: any) => ({
-          ...conv,
-          lastMessage: new Date(conv.lastMessage),
-          messages: conv.messages.map((msg: any) => ({
-            ...msg,
-            timestamp: new Date(msg.timestamp),
-          })),
-        }))
-        setConversations(conversations)
-
-        // Set current conversation based on URL or localStorage
-        const pathMatch = pathname.match(/\/chat\/([^\/]+)/)
-        if (pathMatch) {
-          const urlId = pathMatch[1]
-          if (conversations.find((c: Conversation) => c.id === urlId)) {
-            setCurrentConversationId(urlId)
-          } else {
-            // If URL has invalid ID, redirect to home
-            router.replace('/')
+    const handleInitialLoad = async () => {
+      // Only show loading state if we don't have initial conversations
+      if (!initialConversations) {
+        setIsLoading(true)
+      }
+      
+      if (session?.user) {
+        if (!initialConversations) {
+          // User is logged in, but no initial data was passed. Fetch from DB
+          try {
+            const res = await fetch('/api/conversations')
+            if (!res.ok) throw new Error('Failed to fetch conversations')
+            const dbConvs: DbConversation[] = await res.json()
+            setConversations(mapDbConversationToState(dbConvs))
+          } catch (error) {
+            console.error('Error fetching conversations from DB:', error)
+            toast.error('Could not load your conversations.')
           }
-        } else if (pathname === '/' || pathname === '') {
-          // If we're on home page, don't set any current conversation
-          setCurrentConversationId('')
-        } else if (savedCurrentId && conversations.find((c: Conversation) => c.id === savedCurrentId)) {
-          setCurrentConversationId(savedCurrentId)
-        } else if (conversations.length > 0) {
-          setCurrentConversationId(conversations[0].id)
+        }
+
+        // Migration logic
+        const hasMigrated = localStorage.getItem(MIGRATION_KEY)
+        const localData = localStorage.getItem(STORAGE_KEY)
+
+        if (localData && !hasMigrated) {
+          // Migrate local storage to DB
+          toast.info('Migrating local chats to your account...')
+          try {
+            const localConversations = JSON.parse(localData)
+            const res = await fetch('/api/conversations/migrate', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(localConversations),
+            })
+            if (!res.ok) throw new Error('Migration failed')
+            localStorage.setItem(MIGRATION_KEY, 'true')
+            localStorage.removeItem(STORAGE_KEY) // Clear local data after migration
+            toast.success('Chats migrated successfully!')
+            // Refresh conversations from server after migration
+            const freshRes = await fetch('/api/conversations')
+            const dbConvs: DbConversation[] = await freshRes.json()
+            setConversations(mapDbConversationToState(dbConvs))
+          } catch (error) {
+            console.error('Migration failed:', error)
+            toast.error('Failed to migrate local chats.')
+          }
+        }
+      } else {
+        // User is logged out, use localStorage
+        try {
+          const savedConversations = localStorage.getItem(STORAGE_KEY)
+          if (savedConversations) {
+            const parsed = JSON.parse(savedConversations)
+            const loadedConversations = parsed.map((conv: any) => ({
+              ...conv,
+              createdAt: new Date(conv.createdAt),
+              lastMessageAt: new Date(conv.lastMessageAt),
+              messages: conv.messages.map((msg: any) => ({
+                ...msg,
+                createdAt: new Date(msg.createdAt),
+              })),
+            }))
+            setConversations(loadedConversations)
+          }
+        } catch (error) {
+          console.error('Error loading from localStorage:', error)
         }
       }
-    } catch (error) {
-      console.error('Error loading conversations from localStorage:', error)
+      setIsLoading(false)
     }
-  }, [pathname, router])
+    handleInitialLoad()
+  }, [session, isSessionLoading, initialConversations])
 
-  // Save conversations to localStorage whenever they change
+  // Effect to set current conversation based on URL
   useEffect(() => {
-    if (typeof window === 'undefined' || conversations.length === 0) return
-
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(conversations))
-    } catch (error) {
-      console.error('Error saving conversations to localStorage:', error)
+    const pathMatch = pathname.match(/\/chat\/([^\/]+)/)
+    if (pathMatch) {
+      const urlId = pathMatch[1]
+      if (conversations.find((c) => c.id === urlId)) {
+        setCurrentConversationId(urlId)
+      }
+    } else if (pathname === '/') {
+      setCurrentConversationId('')
     }
-  }, [conversations])
+  }, [pathname, conversations])
 
-  // Save current conversation ID to localStorage
+  // Effect to save to localStorage for logged-out users
   useEffect(() => {
-    if (typeof window === 'undefined' || !currentConversationId) return
-
-    try {
-      localStorage.setItem(CURRENT_CONVERSATION_KEY, currentConversationId)
-    } catch (error) {
-      console.error('Error saving current conversation ID:', error)
+    if (!session?.user && conversations.length > 0 && !isLoading) {
+      try {
+        // Convert dates to ISO strings for JSON compatibility
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(conversations))
+      } catch (error) {
+        console.error('Error saving to localStorage:', error)
+      }
     }
-  }, [currentConversationId])
+  }, [conversations, session, isLoading])
 
   const currentConversation = useMemo(
     () => conversations.find((conv) => conv.id === currentConversationId),
     [conversations, currentConversationId],
   )
+  
+  const messages = useMemo(
+    () => currentConversation?.messages || [],
+    [currentConversation],
+  )
 
-  const messages = useMemo(() => currentConversation?.messages || [], [currentConversation])
-
-  // Only show conversations that have messages
   const conversationsWithMessages = useMemo(
     () => conversations.filter((conv) => conv.messages.length > 0),
     [conversations],
@@ -116,47 +163,11 @@ export function useConversations() {
       conversationsWithMessages.filter(
         (conv) =>
           conv.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          conv.messages.some((msg) => msg.content.toLowerCase().includes(searchQuery.toLowerCase())),
+          conv.messages.some((msg) =>
+            msg.content.toLowerCase().includes(searchQuery.toLowerCase()),
+          ),
       ),
     [conversationsWithMessages, searchQuery],
-  )
-
-  const generateTitle = (firstMessage: string): string => {
-    const words = firstMessage.split(' ').slice(0, 4).join(' ')
-    return words.length > 30 ? words.substring(0, 30) + '...' : words
-  }
-
-  // Modified to navigate to home instead of creating a conversation
-  const createNewConversation = useCallback(() => {
-    // Clear current conversation and navigate to home
-    setCurrentConversationId('')
-    // Also clear from localStorage to prevent auto-loading
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem(CURRENT_CONVERSATION_KEY)
-    }
-    router.push('/')
-  }, [router])
-
-  const deleteConversation = useCallback(
-    (conversationId: string) => {
-      if (conversationsWithMessages.length <= 1) return
-
-      setConversations((prev) => prev.filter((conv) => conv.id !== conversationId))
-
-      if (currentConversationId === conversationId) {
-        const remainingConvs = conversationsWithMessages.filter((conv) => conv.id !== conversationId)
-        if (remainingConvs.length > 0) {
-          const nextId = remainingConvs[0].id
-          setCurrentConversationId(nextId)
-          router.push(`/chat/${nextId}`)
-        } else {
-          // If no conversations left, go to home
-          setCurrentConversationId('')
-          router.push('/')
-        }
-      }
-    },
-    [conversationsWithMessages, currentConversationId, router],
   )
 
   const navigateToConversation = useCallback(
@@ -166,205 +177,238 @@ export function useConversations() {
     },
     [router],
   )
+  
+  const addMessage = useCallback(async (messageContent: string) => {
+    setIsTyping(true)
+    const originalConversations = conversations
+  
+    if (session?.user) {
+        // Optimistic update for logged-in users
+        const tempUserMessageId = crypto.randomUUID()
+        const tempAiMessageId = crypto.randomUUID()
+        const activeConversationId = currentConversationId || crypto.randomUUID()
 
-  const addMessageToCurrentConversation = useCallback(
-    (message: Message) => {
-      setConversations((prev) =>
-        prev.map((conv) => {
-          if (conv.id === currentConversationId) {
-            const updatedMessages = [...conv.messages, message]
-            let title = conv.title
-
-            // Generate title from first user message
-            if (conv.messages.length === 0 && message.role === 'user') {
-              title = generateTitle(message.content)
-            }
-
-            return {
-              ...conv,
-              messages: updatedMessages,
-              lastMessage: new Date(),
-              title,
-            }
-          }
-          return conv
-        }),
-      )
-    },
-    [currentConversationId],
-  )
-
-  const stopGeneratingResponse = useCallback(() => {
-    if (typingTimeoutRef.current) {
-      clearTimeout(typingTimeoutRef.current)
-      typingTimeoutRef.current = null
-    }
-    setIsTyping(false)
-    addMessageToCurrentConversation({
-      id: uuidv4(),
-      role: 'assistant',
-      content: 'Stopped by the user',
-      timestamp: new Date(),
-    })
-  }, [addMessageToCurrentConversation])
-
-  const simulateAIResponse = useCallback(
-    (userMessage: string) => {
-      setIsTyping(true)
-
-      if (typingTimeoutRef.current) {
-        clearTimeout(typingTimeoutRef.current)
-      }
-
-      typingTimeoutRef.current = setTimeout(() => {
-        const responses = [
-          'I understand your question. Let me provide you with a comprehensive answer that addresses your specific needs.',
-          "That's a great question! Based on my analysis, here are some insights that might be helpful for you.",
-          "I've processed your request and I'm ready to assist you with this. Here's what I recommend:",
-          'Excellent! I can definitely help you with that. Let me break this down for you in a clear and actionable way.',
-          "Thank you for that question. I've analyzed the context and here's my detailed response:",
-        ]
-
-        const response = responses[Math.floor(Math.random() * responses.length)]
-
-        const newMessage: Message = {
-          id: uuidv4(),
-          content: response,
-          role: 'assistant',
-          timestamp: new Date(),
+        const userMessage: Message = {
+          id: tempUserMessageId,
+          content: messageContent,
+          role: 'user',
+          createdAt: new Date(),
+          conversationId: activeConversationId,
+          model: null,
         }
 
-        addMessageToCurrentConversation(newMessage)
-        setIsTyping(false)
-        typingTimeoutRef.current = null
-      }, 1200)
-    },
-    [addMessageToCurrentConversation],
-  )
-
-  // Effect to automatically trigger AI response
-  useEffect(() => {
-    const lastMessage = currentConversation?.messages?.[currentConversation.messages.length - 1]
-
-    if (lastMessage?.role === 'user' && !isTyping) {
-      simulateAIResponse(lastMessage.content)
-    }
-  }, [currentConversation, isTyping, simulateAIResponse])
-
-  const regenerateResponse = useCallback(
-    (assistantMessageId: string) => {
-      if (!currentConversation) return
-
-      const messageIndex = currentConversation.messages.findIndex((m) => m.id === assistantMessageId)
-
-      if (messageIndex === -1) return
-
-      // Remove all messages from the one we are regenerating onwards
-      const newMessages = currentConversation.messages.slice(0, messageIndex)
-
-      setConversations((prev) =>
-        prev.map((conv) =>
-          conv.id === currentConversationId ? { ...conv, messages: newMessages, lastMessage: new Date() } : conv,
-        ),
-      )
-    },
-    [currentConversation, currentConversationId],
-  )
-
-  const editMessage = useCallback(
-    (messageId: string, newContent: string) => {
-      if (!currentConversation) return
-
-      const messageIndex = currentConversation.messages.findIndex((m) => m.id === messageId)
-      if (messageIndex === -1) return
-
-      // Update the message content and remove all subsequent messages
-      const updatedMessages = currentConversation.messages.slice(0, messageIndex + 1)
-      updatedMessages[messageIndex] = {
-        ...updatedMessages[messageIndex],
-        content: newContent,
-        timestamp: new Date(),
-      }
-
-      setConversations((prev) =>
-        prev.map((conv) =>
-          conv.id === currentConversationId ? { ...conv, messages: updatedMessages, lastMessage: new Date() } : conv,
-        ),
-      )
-    },
-    [currentConversation, currentConversationId],
-  )
-
-  const handleSendMessage = useCallback(
-    (message: string, attachments: File[] = []) => {
-      if (!message.trim() && attachments.length === 0) return
-
-      const content =
-        message.trim() || (attachments.length > 0 ? `Uploaded files: ${attachments.map((f) => f.name).join(', ')}` : '')
-
-      let conversationId = currentConversationId
-      let isNewConversation = false
-
-      // If no current conversation exists or we're on the home page, create a new conversation
-      if (!conversationId || !currentConversation || pathname === '/') {
-        isNewConversation = true
-        conversationId = uuidv4()
-        const newConv: Conversation = {
-          id: conversationId,
-          title: generateTitle(content), // Set title immediately from first message
-          messages: [],
-          lastMessage: new Date(),
+        const aiPlaceholder: Message = {
+            id: tempAiMessageId,
+            content: '...', // Placeholder content
+            role: 'assistant',
+            createdAt: new Date(),
+            conversationId: activeConversationId,
+            model: 'pending',
         }
-        setConversations((prev) => [newConv, ...prev])
-        setCurrentConversationId(conversationId)
-      }
-
-      const newMessage: Message = {
-        id: uuidv4(),
-        content,
-        role: 'user',
-        timestamp: new Date(),
-        attachments: attachments.length > 0 ? attachments : undefined,
-      }
-
-      // Update the conversations state to add the message
-      setConversations((prev) =>
-        prev.map((conv) => {
-          if (conv.id === conversationId) {
-            const updatedMessages = [...conv.messages, newMessage]
-
-            return {
-              ...conv,
-              messages: updatedMessages,
-              lastMessage: new Date(),
+        
+        if (currentConversationId) {
+            setConversations(prev => prev.map(conv => 
+                conv.id === currentConversationId
+                    ? {
+                        ...conv,
+                        messages: [...conv.messages, userMessage, aiPlaceholder],
+                        lastMessageAt: new Date(),
+                      }
+                    : conv
+            ));
+        } else {
+            const newConversation: StateConversation = {
+                id: activeConversationId,
+                title: messageContent.substring(0, 30),
+                messages: [userMessage, aiPlaceholder],
+                lastMessageAt: new Date(),
+                createdAt: new Date(),
+                userId: session.user.id,
             }
-          }
-          return conv
-        }),
+            setConversations(prev => [newConversation, ...prev]);
+            navigateToConversation(activeConversationId);
+        }
+
+        try {
+            const res = await fetch('/api/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message: { content: messageContent }, conversationId: currentConversationId }),
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'API error');
+
+            const { userMessage: finalUserMessage, aiMessage, conversationId: updatedConvId, newConversationCreated, title } = data;
+            
+            const mappedUserMessage = { ...finalUserMessage, createdAt: new Date(finalUserMessage.createdAt) };
+            const mappedAiMessage = { ...aiMessage, createdAt: new Date(aiMessage.createdAt) };
+
+            if (newConversationCreated) {
+                // The backend created a new conversation, so we replace our temporary one
+                setConversations(prev => {
+                    const otherConvs = prev.filter(c => c.id !== activeConversationId);
+                    const newConversation: StateConversation = {
+                        id: updatedConvId,
+                        title: title,
+                        messages: [ mappedUserMessage, mappedAiMessage ],
+                        lastMessageAt: new Date(aiMessage.createdAt),
+                        userId: session.user.id,
+                        createdAt: new Date(finalUserMessage.createdAt)
+                    };
+                    return [newConversation, ...otherConvs];
+                });
+                if (activeConversationId !== updatedConvId) {
+                  navigateToConversation(updatedConvId)
+                }
+            } else {
+                // The backend updated an existing conversation
+                setConversations(prev => prev.map(conv => 
+                    conv.id === updatedConvId
+                        ? {
+                            ...conv,
+                            // Replace placeholder messages with final ones
+                            messages: conv.messages
+                                .filter(m => m.id !== tempUserMessageId && m.id !== tempAiMessageId)
+                                .concat([mappedUserMessage, mappedAiMessage]),
+                            lastMessageAt: new Date(aiMessage.createdAt)
+                          }
+                        : conv
+                ));
+            }
+        } catch (error) {
+            console.error('Error sending message:', error);
+            toast.error('Failed to send message. Your message has not been saved.');
+            // Rollback on error
+            setConversations(originalConversations);
+        } finally {
+            setIsTyping(false);
+        }
+    } else {
+        // Logged out: use local state
+        const userMessage: Message = {
+          id: crypto.randomUUID(),
+          content: messageContent,
+          role: 'user',
+          createdAt: new Date(),
+          conversationId: currentConversationId,
+          model: null,
+        }
+
+        // This is a simplified local implementation
+        // A full implementation would require a local AI response simulation
+        const aiMessage: Message = {
+            id: crypto.randomUUID(),
+            content: 'AI response for local mode is not implemented.',
+            role: 'assistant',
+            createdAt: new Date(),
+            conversationId: currentConversationId,
+            model: 'local-mock',
+        }
+
+        if (currentConversationId) {
+             setConversations(prev => prev.map(conv => 
+                conv.id === currentConversationId
+                    ? {
+                        ...conv,
+                        messages: [
+                            ...conv.messages,
+                            userMessage,
+                            aiMessage,
+                        ],
+                        lastMessageAt: new Date()
+                      }
+                    : conv
+            ));
+        } else {
+            const newConversation: StateConversation = {
+                id: crypto.randomUUID(),
+                title: messageContent.substring(0, 30),
+                messages: [userMessage, aiMessage],
+                lastMessageAt: new Date(),
+                createdAt: new Date(),
+                userId: '',
+            }
+            setConversations(prev => [newConversation, ...prev]);
+            navigateToConversation(newConversation.id);
+        }
+        setIsTyping(false);
+    }
+  }, [currentConversationId, session, navigateToConversation])
+
+  const createNewConversation = useCallback(() => {
+    if (session?.user) {
+      // For logged-in users, a new conversation is created on the first message
+      // so we just navigate to the home page.
+      router.push('/')
+      setCurrentConversationId('')
+    } else {
+      // For logged-out users, we can create an empty one in local state
+      const newId = crypto.randomUUID()
+      const newConversation: StateConversation = {
+        id: newId,
+        title: 'New Chat',
+        messages: [],
+        lastMessageAt: new Date(),
+        createdAt: new Date(),
+        userId: '',
+      }
+      setConversations((prev) => [newConversation, ...prev])
+      navigateToConversation(newId)
+    }
+  }, [router, session, navigateToConversation])
+
+  const deleteConversation = useCallback(
+    async (conversationId: string) => {
+      // Optimistic deletion
+      const originalConversations = conversations
+      setConversations((prev) =>
+        prev.filter((conv) => conv.id !== conversationId),
       )
 
-      if (isNewConversation) {
-        router.push(`/chat/${conversationId}`)
+      if (currentConversationId === conversationId) {
+        router.push('/')
+        setCurrentConversationId('')
+      }
+
+      toast.info('Conversation deleted.', {
+        action: {
+          label: 'Undo',
+          onClick: () => setConversations(originalConversations),
+        },
+      })
+
+      if (session?.user) {
+        try {
+          const res = await fetch(`/api/conversations/${conversationId}`, {
+            method: 'DELETE',
+          })
+          if (!res.ok) {
+            // Revert on failure
+            setConversations(originalConversations)
+            toast.error('Failed to delete conversation on the server.')
+          }
+        } catch (error) {
+          console.error('Error deleting conversation:', error)
+          setConversations(originalConversations)
+          toast.error('An error occurred while deleting the conversation.')
+        }
       }
     },
-    [currentConversationId, currentConversation, pathname, router],
+    [conversations, currentConversationId, router, session],
   )
 
   return {
-    conversations: conversationsWithMessages, // Only return conversations with messages
-    currentConversationId,
+    conversations: filteredConversations,
     currentConversation,
-    messages,
+    currentConversationId,
+    isLoading,
     isTyping,
     searchQuery,
-    filteredConversations,
-    createNewConversation,
-    setCurrentConversationId: navigateToConversation,
+    messages,
     setSearchQuery,
+    addMessage,
+    navigateToConversation,
+    createNewConversation,
     deleteConversation,
-    handleSendMessage,
-    stopGeneratingResponse,
-    regenerateResponse,
-    editMessage,
   }
 }

@@ -9,12 +9,14 @@ import { useConversations } from '@/hooks/useConversations'
 import { useTouch } from '@/hooks/useTouch'
 import { useState, useEffect } from 'react'
 import { Auth } from './Auth'
+import { type Conversation } from '@/lib/types'
 
 interface ChatLayoutProps {
   children: React.ReactNode
+  initialConversations?: Conversation[]
 }
 
-export default function ChatLayout({ children }: ChatLayoutProps) {
+export default function ChatLayout({ children, initialConversations }: ChatLayoutProps) {
   const [mounted, setMounted] = useState(false)
   const { sidebarOpen, toggleSidebar } = useSidebar()
   const {
@@ -22,12 +24,11 @@ export default function ChatLayout({ children }: ChatLayoutProps) {
     currentConversationId,
     currentConversation,
     searchQuery,
-    filteredConversations,
     createNewConversation,
-    setCurrentConversationId,
+    navigateToConversation,
     setSearchQuery,
     deleteConversation,
-  } = useConversations()
+  } = useConversations({ initialConversations })
 
   const { onTouchStart, onTouchMove, onTouchEnd } = useTouch({
     onSwipeLeft: () => sidebarOpen && toggleSidebar(),
@@ -38,7 +39,7 @@ export default function ChatLayout({ children }: ChatLayoutProps) {
   }, [])
 
   const handleConversationSelect = (conversationId: string) => {
-    setCurrentConversationId(conversationId)
+    navigateToConversation(conversationId)
     if (typeof window !== 'undefined' && window.innerWidth < 768) {
       toggleSidebar()
     }
@@ -72,9 +73,13 @@ export default function ChatLayout({ children }: ChatLayoutProps) {
         className={cn(
           'bg-white/50 dark:bg-[oklch(0.18_0.015_25)]/20 backdrop-blur-sm flex flex-col transition-all duration-300 ease-in-out h-full',
           'md:flex-shrink-0 md:shadow-none',
-          effectiveSidebarOpen ? 'md:w-64 md:opacity-100' : 'md:w-0 md:opacity-0 md:overflow-hidden',
+          effectiveSidebarOpen
+            ? 'md:w-64 md:opacity-100'
+            : 'md:w-0 md:opacity-0 md:overflow-hidden',
           'fixed md:relative z-50 md:z-auto shadow-2xl md:shadow-none',
-          effectiveSidebarOpen ? 'w-80 opacity-100 left-0' : 'w-80 opacity-0 -left-80 overflow-hidden',
+          effectiveSidebarOpen
+            ? 'w-80 opacity-100 left-0'
+            : 'w-80 opacity-0 -left-80 overflow-hidden',
         )}
         onTouchStart={onTouchStart}
         onTouchMove={onTouchMove}
@@ -130,7 +135,7 @@ export default function ChatLayout({ children }: ChatLayoutProps) {
         <div className="flex-1 min-h-0 px-4">
           <div className="h-full overflow-y-auto scrollbar-hide">
             <div className="space-y-1 py-2">
-              {filteredConversations.map((conversation) => (
+              {conversations && conversations.map((conversation) => (
                 <div
                   key={conversation.id}
                   onClick={() => handleConversationSelect(conversation.id)}
@@ -152,7 +157,7 @@ export default function ChatLayout({ children }: ChatLayoutProps) {
                         {conversation.title}
                       </div>
                     </div>
-                    {conversations.length > 1 && (
+                    {conversations && conversations.length > 1 && (
                       <button
                         onClick={(e) => {
                           e.stopPropagation()
@@ -168,10 +173,14 @@ export default function ChatLayout({ children }: ChatLayoutProps) {
               ))}
 
               {/* Show message when no conversations exist */}
-              {conversations.length === 0 && (
+              {(!conversations || conversations.length === 0) && (
                 <div className="text-center py-8 px-4">
-                  <div className="text-black/40 dark:text-white/40 text-base">No conversations yet</div>
-                  <div className="text-black/30 dark:text-white/30 text-sm mt-1">Start a new chat to begin</div>
+                  <div className="text-black/40 dark:text-white/40 text-base">
+                    No conversations yet
+                  </div>
+                  <div className="text-black/30 dark:text-white/30 text-sm mt-1">
+                    Start a new chat to begin
+                  </div>
                 </div>
               )}
             </div>
@@ -232,12 +241,7 @@ export default function ChatLayout({ children }: ChatLayoutProps) {
             <div className="absolute inset-0 -z-10 bg-gradient-to-r from-rose-300/0 via-rose-300/5 to-rose-300/0 rounded-xl blur-xl opacity-0 dark:opacity-30 pointer-events-none"></div>
           </div>
         </div>
-
-        {/* Page Content */}
-        {children}
-
-        {/* Premium subtle glow effect */}
-        <div className="absolute inset-0 -z-10 bg-gradient-to-r from-rose-300/0 via-rose-300/5 to-rose-300/0 rounded-xl blur-xl opacity-0 dark:opacity-30 pointer-events-none"></div>
+        <div className="flex-1 min-h-0">{children}</div>
       </div>
     </div>
   )
