@@ -25,7 +25,7 @@ export default function WelcomeScreen({ onPromptClick }: WelcomeScreenProps) {
         transition: { duration: 0.4, ease: "easeInOut" }
       }}
       transition={{ duration: 0.3, ease: "easeOut" }}
-      className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center -mt-8"
+      className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center pb-24"
     >
       <div className="max-w-md">
         <h1 className="text-4xl font-bold text-foreground">

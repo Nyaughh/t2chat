@@ -235,32 +235,45 @@ export default function ChatInterface() {
 
         {/* Menu and New Chat buttons */}
         <div className={cn(
-          "absolute top-3 left-3 z-30 flex items-center gap-2 transition-all duration-300 ease-in-out",
+          "absolute top-3 left-3 z-30 transition-all duration-300 ease-in-out",
           sidebarOpen 
             ? "md:opacity-0" 
             : "opacity-100"
         )}>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={toggleSidebar}
-            className="text-black/50 dark:text-white/50 hover:text-rose-600 dark:hover:text-rose-300"
-          >
-            <Menu className="w-4 h-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={createNewConversation}
-            className={cn(
-              "text-black/50 dark:text-white/50 hover:text-rose-600 dark:hover:text-rose-300 hover:bg-rose-500/5 dark:hover:bg-rose-300/5 h-8 w-8 rounded-xl transition-all duration-200 hover:scale-110 group",
-              currentConversation && currentConversation.messages.length === 0 && "opacity-30 cursor-not-allowed hover:scale-100"
-            )}
-            title="New conversation"
-            disabled={currentConversation && currentConversation.messages.length === 0}
-          >
-            <Plus className="w-4 h-4 group-hover:rotate-90 transition-transform duration-300" />
-          </Button>
+          <div className="group relative p-2.5 rounded-xl bg-white/70 dark:bg-[oklch(0.18_0.015_25)]/30 backdrop-blur-xl border border-rose-500/10 dark:border-white/10 hover:border-rose-500/20 dark:hover:border-rose-300/20 transition-all duration-300 ease-out shadow-lg shadow-rose-500/5 dark:shadow-lg dark:shadow-black/20 hover:shadow-xl hover:shadow-rose-500/10 dark:hover:shadow-rose-500/10 flex items-center gap-2">
+            {/* Gradient overlays for premium look */}
+            <div className="absolute inset-0 bg-gradient-to-br from-rose-500/5 via-transparent to-rose-500/10 dark:from-rose-500/10 dark:via-transparent dark:to-rose-500/20 pointer-events-none rounded-xl"></div>
+            <div className="absolute inset-0 bg-gradient-to-t from-transparent via-transparent to-white/20 dark:to-white/5 pointer-events-none rounded-xl"></div>
+            
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={toggleSidebar}
+              className="relative z-10 text-rose-600 dark:text-rose-300 hover:text-rose-700 dark:hover:text-rose-200 h-5 w-5 p-0 hover:bg-transparent"
+            >
+              <Menu className="w-4 h-4" />
+            </Button>
+            
+            {/* Vertical divider */}
+            <div className="relative z-10 w-px h-4 bg-rose-500/20 dark:bg-rose-300/20"></div>
+            
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={createNewConversation}
+              className={cn(
+                "relative z-10 text-rose-600 dark:text-rose-300 hover:text-rose-700 dark:hover:text-rose-200 h-5 w-5 p-0 hover:bg-transparent",
+                currentConversation && currentConversation.messages.length === 0 && "opacity-30 cursor-not-allowed"
+              )}
+              title="New conversation"
+              disabled={currentConversation && currentConversation.messages.length === 0}
+            >
+              <Plus className="w-4 h-4" />
+            </Button>
+            
+            {/* Premium glow effect in dark mode */}
+            <div className="absolute inset-0 -z-10 bg-gradient-to-r from-rose-300/0 via-rose-300/5 to-rose-300/0 rounded-xl blur-xl opacity-0 dark:opacity-30 pointer-events-none"></div>
+          </div>
         </div>
         
         {/* Welcome Screen or Messages */}
@@ -349,7 +362,7 @@ export default function ChatInterface() {
         </AnimatePresence>
 
         {/* AI Input */}
-        <div className="absolute bottom-0 left-0 right-0 z-30">
+        <div className="fixed md:absolute bottom-0 left-0 right-0 z-30">
           <input
             ref={fileInputRef}
             type="file"
@@ -357,7 +370,7 @@ export default function ChatInterface() {
             className="hidden"
             onChange={(e) => handleFileUpload(e.target.files)}
           />
-          <div className="max-w-2xl mx-auto w-full p-4 pb-6 md:pb-4">
+          <div className="max-w-2xl mx-auto w-full p-4 pb-4 md:pb-4">
             <AIInput 
               value={inputValue}
               onValueChange={setInputValue}

@@ -5,7 +5,7 @@ import type React from "react"
 import { useState } from "react"
 import { cn } from "@/lib/utils"
 import { useAutoResizeTextarea } from "@/hooks/resize-textarea"
-import { ArrowUpCircle, Paperclip, Globe, ChevronDown, Sparkles, Star } from "lucide-react"
+import { ArrowUpCircle, Paperclip, Globe, ChevronDown, Sparkles, BrainCircuit } from "lucide-react"
 import { AnimatePresence, motion } from "framer-motion"
 
 interface AIInputProps {
@@ -27,7 +27,7 @@ interface ModelInfo {
   features: ('vision' | 'web' | 'code')[];
   isPro: boolean;
   isNew?: boolean;
-  isThinking?: boolean;
+  supportsThinking?: boolean;
 }
 
 const models: ModelInfo[] = [
@@ -39,7 +39,8 @@ const models: ModelInfo[] = [
     category: 'favorites',
     provider: 'gemini',
     features: ['vision', 'web', 'code'],
-    isPro: false
+    isPro: false,
+    supportsThinking: true
   },
   
   // Others - Gemini Family
@@ -61,17 +62,7 @@ const models: ModelInfo[] = [
     provider: 'gemini',
     features: ['vision', 'web', 'code'],
     isPro: false,
-    isThinking: true
-  },
-  { 
-    id: 'gemini-2.5-flash-thinking', 
-    name: 'Gemini 2.5 Flash (Thinking)', 
-    description: 'Deep reasoning and analysis',
-    category: 'others',
-    provider: 'gemini',
-    features: ['vision', 'web', 'code'],
-    isPro: false,
-    isThinking: true
+    supportsThinking: true
   },
   { 
     id: 'gemini-2.5-pro', 
@@ -80,7 +71,8 @@ const models: ModelInfo[] = [
     category: 'others',
     provider: 'gemini',
     features: ['vision', 'web', 'code'],
-    isPro: true
+    isPro: true,
+    supportsThinking: true
   },
   
   // GPT Models
@@ -109,7 +101,8 @@ const models: ModelInfo[] = [
     category: 'others',
     provider: 'gpt',
     features: ['vision'],
-    isPro: false
+    isPro: false,
+    supportsThinking: true
   },
   { 
     id: 'gpt-4.1', 
@@ -118,7 +111,8 @@ const models: ModelInfo[] = [
     category: 'others',
     provider: 'gpt',
     features: ['vision'],
-    isPro: false
+    isPro: false,
+    supportsThinking: true
   },
   { 
     id: 'gpt-4.1-mini', 
@@ -156,7 +150,8 @@ const models: ModelInfo[] = [
     category: 'others',
     provider: 'o-series',
     features: ['vision', 'web'],
-    isPro: false
+    isPro: false,
+    supportsThinking: true
   },
   { 
     id: 'o3', 
@@ -165,7 +160,8 @@ const models: ModelInfo[] = [
     category: 'others',
     provider: 'o-series',
     features: ['vision', 'web'],
-    isPro: false
+    isPro: false,
+    supportsThinking: true
   },
   
   // Claude Models
@@ -176,7 +172,8 @@ const models: ModelInfo[] = [
     category: 'others',
     provider: 'claude',
     features: ['vision', 'code'],
-    isPro: false
+    isPro: false,
+    supportsThinking: true
   },
   { 
     id: 'claude-3.7-sonnet', 
@@ -185,16 +182,8 @@ const models: ModelInfo[] = [
     category: 'others',
     provider: 'claude',
     features: ['vision', 'code'],
-    isPro: false
-  },
-  { 
-    id: 'claude-3.7-sonnet-reasoning', 
-    name: 'Claude 3.7 Sonnet (Reasoning)', 
-    description: 'Deep analytical thinking',
-    category: 'others',
-    provider: 'claude',
-    features: ['vision', 'code'],
-    isPro: true
+    isPro: false,
+    supportsThinking: true
   },
   { 
     id: 'claude-4-sonnet', 
@@ -203,16 +192,8 @@ const models: ModelInfo[] = [
     category: 'others',
     provider: 'claude',
     features: ['vision', 'code'],
-    isPro: true
-  },
-  { 
-    id: 'claude-4-sonnet-reasoning', 
-    name: 'Claude 4 Sonnet (Reasoning)', 
-    description: 'Advanced reasoning and logic',
-    category: 'others',
-    provider: 'claude',
-    features: ['vision', 'code'],
-    isPro: true
+    isPro: true,
+    supportsThinking: true
   },
   { 
     id: 'claude-4-opus', 
@@ -221,7 +202,8 @@ const models: ModelInfo[] = [
     category: 'others',
     provider: 'claude',
     features: ['vision', 'code'],
-    isPro: true
+    isPro: true,
+    supportsThinking: true
   },
   
   // Llama
@@ -233,7 +215,8 @@ const models: ModelInfo[] = [
     provider: 'llama',
     features: ['code'],
     isPro: false,
-    isNew: true
+    isNew: true,
+    supportsThinking: true
   }
 ];
 
@@ -259,6 +242,7 @@ export default function AIInput({
 }: AIInputProps) {
   const [selectedModel, setSelectedModel] = useState<ModelInfo>(models[0])
   const [showModelSelect, setShowModelSelect] = useState(false)
+  const [thinkingEnabled, setThinkingEnabled] = useState(true)
   const { textareaRef, adjustHeight } = useAutoResizeTextarea({
     minHeight: 80,
     maxHeight: 200,
@@ -278,6 +262,21 @@ export default function AIInput({
       handleSend()
     }
   }
+
+  // When thinking mode is toggled, ensure selected model is compatible
+  const handleThinkingToggle = (enabled: boolean) => {
+    setThinkingEnabled(enabled);
+    
+    // If disabling thinking mode and current model requires thinking,
+    // switch to a model that doesn't require thinking
+    if (!enabled && selectedModel.supportsThinking) {
+      // Find the first model that doesn't require thinking
+      const nonThinkingModel = models.find(m => !m.supportsThinking);
+      if (nonThinkingModel) {
+        setSelectedModel(nonThinkingModel);
+      }
+    }
+  };
 
   const favoriteModels = models.filter(model => model.category === 'favorites')
   const otherModels = models.filter(model => model.category === 'others')
@@ -300,20 +299,20 @@ export default function AIInput({
 
         {/* Pending Attachments */}
         {pendingAttachments.length > 0 && (
-          <div className="relative z-10 p-4 pb-2 border-b border-black/10 dark:border-white/10">
+          <div className="relative z-10 p-3 md:p-4 pb-2 border-b border-black/10 dark:border-white/10">
             <div className="flex flex-wrap gap-2">
               {pendingAttachments.map((file, index) => (
                 <div
                   key={index}
-                  className="flex items-center gap-2 bg-rose-500/5 dark:bg-rose-300/5 border border-rose-500/20 dark:border-rose-300/20 rounded-lg px-3 py-2 group"
+                  className="flex items-center gap-2 bg-rose-500/5 dark:bg-rose-300/5 border border-rose-500/20 dark:border-rose-300/20 rounded-lg px-2 md:px-3 py-1.5 md:py-2 group"
                 >
-                  <Paperclip className="w-3.5 h-3.5 text-rose-500/70 dark:text-rose-300/70" />
-                  <span className="text-sm text-black dark:text-white truncate max-w-32">{file.name}</span>
+                  <Paperclip className="w-3 md:w-3.5 h-3 md:h-3.5 text-rose-500/70 dark:text-rose-300/70" />
+                  <span className="text-xs md:text-sm text-black dark:text-white truncate max-w-32">{file.name}</span>
                   <button
                     onClick={() => onRemoveAttachment?.(index)}
                     className="text-black/40 dark:text-white/40 hover:text-red-500 dark:hover:text-red-400 transition-colors"
                   >
-                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-3 md:w-3.5 h-3 md:h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                     </svg>
                   </button>
@@ -334,7 +333,7 @@ export default function AIInput({
             onKeyDown={handleKeyDown}
             placeholder="Ask me anything..."
             disabled={isTyping}
-            className="w-full px-5 py-4 resize-none bg-transparent border-0 outline-none text-base min-h-[80px] leading-relaxed placeholder:text-black/40 dark:placeholder:text-rose-200/30 text-black dark:text-white"
+            className="w-full px-3 md:px-5 py-3 md:py-4 resize-none bg-transparent border-0 outline-none text-sm md:text-base min-h-[60px] md:min-h-[80px] leading-relaxed placeholder:text-black/40 dark:placeholder:text-rose-200/30 text-black dark:text-white"
             style={{
               overflow: "hidden",
               outline: "none",
@@ -346,15 +345,15 @@ export default function AIInput({
           />
         </div>
 
-        <div className="h-16">
-          <div className="absolute left-4 right-4 bottom-4 flex items-center justify-between">
+        <div className="h-12 md:h-16">
+          <div className="absolute left-3 md:left-4 right-3 md:right-4 bottom-3 md:bottom-4 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <div className="relative">
                 <button
                   type="button"
                   onClick={() => setShowModelSelect(!showModelSelect)}
                   className={cn(
-                    "h-10 px-4 text-sm transition-all duration-200 rounded-lg",
+                    "h-8 md:h-10 px-3 md:px-4 text-xs md:text-sm transition-all duration-200 rounded-lg",
                     "bg-white/50 dark:bg-[oklch(0.22_0.015_25)]/40",
                     "flex items-center gap-2",
                     "text-black/70 dark:text-white/70",
@@ -362,15 +361,12 @@ export default function AIInput({
                     "hover:bg-black/5 dark:hover:bg-white/5"
                   )}
                 >
-                  <div className="flex items-center gap-2">
-                    <div className={cn("w-3 h-3 rounded-full bg-gradient-to-r", getProviderColor(selectedModel.provider))}></div>
-                    <span>{selectedModel.name}</span>
-                    {selectedModel.isPro && <Star className="w-3 h-3 text-yellow-500" />}
-                    {selectedModel.isNew && <span className="text-xs bg-green-500/20 text-green-600 dark:text-green-400 px-1.5 py-0.5 rounded">New</span>}
-                    {selectedModel.isThinking && <span className="text-xs bg-purple-500/20 text-purple-600 dark:text-purple-400 px-1.5 py-0.5 rounded">Thinking</span>}
+                  <div className="flex items-center gap-1.5 md:gap-2">
+                    <div className={cn("w-2.5 md:w-3 h-2.5 md:h-3 rounded-full bg-gradient-to-r", getProviderColor(selectedModel.provider))}></div>
+                    <span className="truncate max-w-[100px] md:max-w-none">{selectedModel.name}</span>
                   </div>
                   <ChevronDown className={cn(
-                    "w-4 h-4 transition-transform duration-200",
+                    "w-3.5 md:w-4 h-3.5 md:h-4 transition-transform duration-200",
                     showModelSelect && "transform rotate-180"
                   )} />
                 </button>
@@ -382,32 +378,66 @@ export default function AIInput({
                       animate={{ opacity: 1, y: 0, scale: 1 }}
                       exit={{ opacity: 0, y: -10, scale: 0.95 }}
                       transition={{ duration: 0.2, ease: "easeOut" }}
-                      className="absolute z-50 bottom-full mb-2 left-0 bg-white/90 dark:bg-[oklch(0.18_0.015_25)]/95 backdrop-blur-xl rounded-xl border border-rose-500/10 dark:border-white/10 shadow-2xl overflow-hidden min-w-[420px] max-h-[600px]"
+                      className="absolute z-50 bottom-full mb-2 left-0 bg-white dark:bg-[oklch(0.18_0.015_25)] rounded-lg border border-rose-200/50 dark:border-rose-500/20 shadow-2xl overflow-hidden w-[280px] md:w-[320px] max-h-[400px] md:max-h-[500px]"
                     >
-                      {/* Header */}
-                      <div className="p-4 border-b border-black/5 dark:border-white/10 bg-gradient-to-r from-rose-500/5 to-purple-500/5 dark:from-rose-500/10 dark:to-purple-500/10">
+                      {/* Simplified Header */}
+                      <div className="p-3 border-b border-rose-200/30 dark:border-rose-500/20">
                         <div className="flex items-center justify-between">
-                          <h3 className="text-base font-semibold text-black dark:text-white">Select AI Model</h3>
-                          <div className="flex items-center gap-2">
-                            <div className="text-xs bg-rose-500/10 text-rose-600 dark:text-rose-400 px-2 py-1 rounded-full">
-                              Pro $8/month
-                            </div>
-                            <button className="text-xs bg-gradient-to-r from-rose-500 to-purple-500 hover:from-rose-600 hover:to-purple-600 text-white px-3 py-1 rounded-full transition-all duration-200 shadow-sm">
-                              Upgrade
-                            </button>
-                          </div>
+                          <h3 className="text-sm font-semibold text-rose-900 dark:text-rose-100">Select Model</h3>
+                          <button className="text-xs font-semibold bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-300 px-3 py-1 rounded-full border border-rose-200 dark:border-rose-500/30 hover:bg-rose-200 dark:hover:bg-rose-800/30 transition-all duration-200 shadow-sm">
+                            Go Pro
+                          </button>
                         </div>
                       </div>
 
-                      <div className="max-h-[500px] overflow-y-auto">
-                        {/* Favorites */}
-                        {favoriteModels.length > 0 && (
-                          <div className="p-4 border-b border-black/5 dark:border-white/10">
-                            <div className="flex items-center gap-2 mb-3">
-                              <Star className="w-4 h-4 text-yellow-500" />
-                              <span className="text-sm font-semibold text-black dark:text-white">Favorites</span>
+                      {/* Thinking Mode Toggle */}
+                      <div className="p-3 border-b border-rose-200/30 dark:border-rose-500/20">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleThinkingToggle(!thinkingEnabled);
+                          }}
+                          className={cn(
+                            "w-full flex items-center justify-between p-2 rounded-md transition-colors",
+                            thinkingEnabled 
+                              ? "bg-purple-500/10 text-purple-600 dark:text-purple-400" 
+                              : "hover:bg-rose-100/50 dark:hover:bg-rose-900/20 text-rose-600/70 dark:text-rose-300/70"
+                          )}
+                        >
+                          <div className="flex items-center gap-2">
+                            <div className="relative">
+                              <BrainCircuit className={cn(
+                                "w-4 h-4 transition-opacity",
+                                thinkingEnabled ? "opacity-100" : "opacity-70"
+                              )} />
+                              {thinkingEnabled && (
+                                <span className="absolute top-0 left-0 w-full h-full flex items-center justify-center">
+                                  <span className="animate-ping absolute h-2 w-2 rounded-full bg-purple-400 opacity-75"></span>
+                                  <span className="relative rounded-full h-1.5 w-1.5 bg-purple-500"></span>
+                                </span>
+                              )}
                             </div>
-                            <div className="space-y-2">
+                            <span className="text-xs font-medium">Thinking Mode</span>
+                          </div>
+                          <div className={cn(
+                            "text-xs px-2 py-0.5 rounded-full transition-colors",
+                            thinkingEnabled 
+                              ? "bg-purple-500/20 text-purple-600 dark:text-purple-400" 
+                              : "bg-rose-500/10 dark:bg-rose-500/20 text-rose-600/60 dark:text-rose-300/60"
+                          )}>
+                            {thinkingEnabled ? "On" : "Off"}
+                          </div>
+                        </button>
+                      </div>
+
+                      <div className="max-h-[340px] md:max-h-[440px] overflow-y-auto scrollbar-hide [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+                        {/* Favorites - Simplified */}
+                        {favoriteModels.length > 0 && (
+                          <div className="p-3 border-b border-rose-200/30 dark:border-rose-500/20">
+                            <div className="flex items-center gap-2 mb-2">
+                              <span className="text-xs font-medium text-rose-500/70 dark:text-rose-300/70">Favorites</span>
+                            </div>
+                            <div className="space-y-1">
                               {favoriteModels.map((model) => (
                                 <button
                                   key={model.id}
@@ -416,38 +446,40 @@ export default function AIInput({
                                     setShowModelSelect(false)
                                   }}
                                   className={cn(
-                                    "w-full p-4 rounded-lg transition-all duration-200 text-left border",
-                                    "hover:bg-black/5 dark:hover:bg-white/5",
+                                    "w-full p-2.5 rounded-md transition-all duration-200 text-left border",
+                                    "hover:bg-rose-100/50 dark:hover:bg-rose-900/20",
                                     selectedModel.id === model.id 
-                                      ? "bg-gradient-to-r from-rose-500/10 to-purple-500/10 border-rose-500/30 dark:border-rose-400/30" 
-                                      : "border-transparent hover:border-black/10 dark:hover:border-white/10"
+                                      ? "bg-rose-100/50 dark:bg-rose-900/30 border-rose-500/50" 
+                                      : "border-transparent",
+                                    !thinkingEnabled && model.supportsThinking && "opacity-40 cursor-not-allowed"
                                   )}
+                                  disabled={!thinkingEnabled && model.supportsThinking}
                                 >
-                                  <div className="flex items-start gap-3">
-                                    <div className={cn("w-4 h-4 rounded-full bg-gradient-to-r mt-0.5", getProviderColor(model.provider))}></div>
+                                  <div className="flex items-center gap-2">
+                                    <div className={cn("w-3 h-3 rounded-full bg-gradient-to-r", getProviderColor(model.provider))}></div>
                                     <div className="flex-1 min-w-0">
-                                      <div className="flex items-center gap-2 mb-1">
-                                        <span className="text-sm font-semibold text-black dark:text-white">
+                                      <div className="flex items-center gap-1">
+                                        <span className="text-sm font-medium text-rose-900 dark:text-rose-100 truncate">
                                           {model.name}
                                         </span>
-                                        {model.isPro && <Star className="w-3 h-3 text-yellow-500" />}
-                                        {model.isNew && <span className="text-xs bg-green-500/20 text-green-600 dark:text-green-400 px-1.5 py-0.5 rounded">New</span>}
-                                        {model.isThinking && <span className="text-xs bg-purple-500/20 text-purple-600 dark:text-purple-400 px-1.5 py-0.5 rounded">Thinking</span>}
-                                      </div>
-                                      <p className="text-xs text-black/60 dark:text-white/60 mb-2">
-                                        {model.description}
-                                      </p>
-                                      <div className="flex items-center gap-2">
-                                        <span className="text-xs text-black/40 dark:text-white/40 capitalize">{model.provider}</span>
-                                        <div className="flex items-center gap-1">
-                                          {model.features.map((feature) => (
-                                            <span key={feature} className="text-xs bg-black/5 dark:bg-white/5 text-black/60 dark:text-white/60 px-2 py-0.5 rounded">
-                                              {feature}
-                                            </span>
-                                          ))}
-                                        </div>
                                       </div>
                                     </div>
+                                    {model.supportsThinking && (
+                                      <div className="flex-shrink-0 relative">
+                                        <BrainCircuit className={cn(
+                                          "w-3 h-3",
+                                          thinkingEnabled && selectedModel.id === model.id 
+                                            ? "text-purple-500" 
+                                            : "text-rose-400/60 dark:text-rose-500/60"
+                                        )} />
+                                        {thinkingEnabled && selectedModel.id === model.id && (
+                                          <span className="absolute top-0 left-0 w-full h-full flex items-center justify-center">
+                                            <span className="animate-ping absolute h-1.5 w-1.5 rounded-full bg-purple-400 opacity-75"></span>
+                                            <span className="relative rounded-full h-1 w-1 bg-purple-500"></span>
+                                          </span>
+                                        )}
+                                      </div>
+                                    )}
                                   </div>
                                 </button>
                               ))}
@@ -455,15 +487,15 @@ export default function AIInput({
                           </div>
                         )}
 
-                        {/* Grouped by Provider */}
+                        {/* Grouped by Provider - Simplified */}
                         {Object.entries(groupedModels).map(([provider, providerModels]) => (
-                          <div key={provider} className="p-4 border-b border-black/5 dark:border-white/10 last:border-b-0">
-                            <div className="flex items-center gap-2 mb-3">
-                              <div className={cn("w-4 h-4 rounded-full bg-gradient-to-r", getProviderColor(provider))}></div>
-                              <span className="text-sm font-semibold text-black dark:text-white capitalize">{provider}</span>
-                              <span className="text-xs text-black/40 dark:text-white/40">({providerModels.length} models)</span>
+                          <div key={provider} className="p-3 border-b border-rose-200/30 dark:border-rose-500/20 last:border-b-0">
+                            <div className="flex items-center gap-2 mb-2">
+                              <div className={cn("w-3 h-3 rounded-full bg-gradient-to-r", getProviderColor(provider))}></div>
+                              <span className="text-xs font-medium text-rose-500/70 dark:text-rose-300/70 capitalize">{provider}</span>
+                              <span className="text-xs text-rose-400/60 dark:text-rose-400/60">({providerModels.length})</span>
                             </div>
-                            <div className="grid grid-cols-1 gap-2">
+                            <div className="space-y-1">
                               {providerModels.map((model) => (
                                 <button
                                   key={model.id}
@@ -472,34 +504,38 @@ export default function AIInput({
                                     setShowModelSelect(false)
                                   }}
                                   className={cn(
-                                    "p-3 rounded-lg transition-all duration-200 text-left border",
-                                    "hover:bg-black/5 dark:hover:bg-white/5",
+                                    "w-full p-2 rounded-md transition-all duration-200 text-left border",
+                                    "hover:bg-rose-100/50 dark:hover:bg-rose-900/20",
                                     selectedModel.id === model.id 
-                                      ? "bg-gradient-to-r from-rose-500/10 to-purple-500/10 border-rose-500/30 dark:border-rose-400/30" 
-                                      : "border-transparent hover:border-black/10 dark:hover:border-white/10"
+                                      ? "bg-rose-100/50 dark:bg-rose-900/30 border-rose-500/50" 
+                                      : "border-transparent",
+                                    !thinkingEnabled && model.supportsThinking && "opacity-40 cursor-not-allowed"
                                   )}
+                                  disabled={!thinkingEnabled && model.supportsThinking}
                                 >
-                                  <div className="flex items-center justify-between mb-1">
-                                    <div className="flex items-center gap-2">
-                                      <span className="text-sm font-medium text-black dark:text-white">
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                                      <span className="text-sm text-rose-900 dark:text-rose-100 truncate">
                                         {model.name}
                                       </span>
-                                      {model.isPro && <Star className="w-3 h-3 text-yellow-500" />}
                                     </div>
-                                    <div className="flex items-center gap-1">
-                                      {model.isNew && <span className="text-xs bg-green-500/20 text-green-600 dark:text-green-400 px-1.5 py-0.5 rounded">New</span>}
-                                      {model.isThinking && <span className="text-xs bg-purple-500/20 text-purple-600 dark:text-purple-400 px-1.5 py-0.5 rounded">Thinking</span>}
-                                    </div>
-                                  </div>
-                                  <p className="text-xs text-black/60 dark:text-white/60 mb-2">
-                                    {model.description}
-                                  </p>
-                                  <div className="flex items-center gap-1">
-                                    {model.features.map((feature) => (
-                                      <span key={feature} className="text-xs bg-black/5 dark:bg-white/5 text-black/60 dark:text-white/60 px-2 py-0.5 rounded">
-                                        {feature}
-                                      </span>
-                                    ))}
+                                    
+                                    {model.supportsThinking && (
+                                      <div className="flex-shrink-0 relative">
+                                        <BrainCircuit className={cn(
+                                          "w-3 h-3",
+                                          thinkingEnabled && selectedModel.id === model.id 
+                                            ? "text-purple-500" 
+                                            : "text-rose-400/60 dark:text-rose-500/60"
+                                        )} />
+                                        {thinkingEnabled && selectedModel.id === model.id && (
+                                          <span className="absolute top-0 left-0 w-full h-full flex items-center justify-center">
+                                            <span className="animate-ping absolute h-1.5 w-1.5 rounded-full bg-purple-400 opacity-75"></span>
+                                            <span className="relative rounded-full h-1 w-1 bg-purple-500"></span>
+                                          </span>
+                                        )}
+                                      </div>
+                                    )}
                                   </div>
                                 </button>
                               ))}
@@ -514,15 +550,15 @@ export default function AIInput({
               <button
                 type="button"
                 onClick={onAttachmentClick}
-                className="p-2.5 text-rose-500/60 dark:text-rose-300/60 hover:text-rose-600 dark:hover:text-rose-300 transition-all duration-200 rounded-lg bg-white/50 dark:bg-[oklch(0.22_0.015_25)]/40 hover:bg-rose-500/5 dark:hover:bg-white/5"
+                className="p-2 md:p-2.5 text-rose-500/60 dark:text-rose-300/60 hover:text-rose-600 dark:hover:text-rose-300 transition-all duration-200 rounded-lg bg-white/50 dark:bg-[oklch(0.22_0.015_25)]/40 hover:bg-rose-500/5 dark:hover:bg-white/5"
               >
-                <Paperclip className="w-4 h-4" />
+                <Paperclip className="w-3.5 md:w-4 h-3.5 md:h-4" />
               </button>
               <button
                 type="button"
-                className="p-2.5 text-rose-500/60 dark:text-rose-300/60 hover:text-rose-600 dark:hover:text-rose-300 transition-all duration-200 rounded-lg bg-white/50 dark:bg-[oklch(0.22_0.015_25)]/40 hover:bg-rose-500/5 dark:hover:bg-white/5"
+                className="p-2 md:p-2.5 text-rose-500/60 dark:text-rose-300/60 hover:text-rose-600 dark:hover:text-rose-300 transition-all duration-200 rounded-lg bg-white/50 dark:bg-[oklch(0.22_0.015_25)]/40 hover:bg-rose-500/5 dark:hover:bg-white/5"
               >
-                <Globe className="w-4 h-4" />
+                <Globe className="w-3.5 md:w-4 h-3.5 md:h-4" />
               </button>
             </div>
             <button
@@ -530,7 +566,7 @@ export default function AIInput({
               onClick={handleSend}
               disabled={(!value.trim() && pendingAttachments.length === 0) || isTyping}
               className={cn(
-                "p-2.5 transition-all duration-300 rounded-full",
+                "p-2 md:p-2.5 transition-all duration-300 rounded-full",
                 (value.trim() || pendingAttachments.length > 0) && !isTyping
                   ? "text-rose-500 dark:text-rose-300 hover:shadow-md hover:shadow-rose-500/20 dark:hover:shadow-rose-500/20 scale-100"
                   : "text-black/30 dark:text-rose-300/30 scale-95",
@@ -538,7 +574,7 @@ export default function AIInput({
             >
               <ArrowUpCircle
                 className={cn(
-                  "w-6 h-6 transition-transform duration-300",
+                  "w-5 md:w-6 h-5 md:h-6 transition-transform duration-300",
                   (value.trim() || pendingAttachments.length > 0) && !isTyping && "hover:translate-y-[-2px]",
                 )}
               />
