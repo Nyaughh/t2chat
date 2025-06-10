@@ -37,6 +37,7 @@ import {
 } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Button } from '@/components/ui/button'
+import { useIsMobile } from '@/hooks/use-mobile'
 
 interface SettingsPageProps {
   isOpen: boolean
@@ -759,7 +760,102 @@ export default function SettingsPage({ isOpen, onClose }: SettingsPageProps) {
     }
   }
 
+  const isMobile = useIsMobile()
+
   if (!isOpen) return null
+
+  const SettingsPanelContent = () => (
+    <>
+      <header className="flex items-center justify-between p-4 border-b border-black/10 dark:border-white/10 flex-shrink-0">
+        <div className="flex items-center gap-3">
+          <Settings className="w-5 h-5 text-rose-600 dark:text-rose-400" />
+          <h2 className="text-lg font-bold text-black/80 dark:text-white/80">Settings</h2>
+        </div>
+        <Button variant="ghost" size="icon" onClick={onClose} className="text-black/50 dark:text-white/50">
+          <X className="w-5 h-5" />
+        </Button>
+      </header>
+
+      <div className={cn(
+        "flex flex-1 min-h-0",
+        isMobile && "flex-col"
+      )}>
+        {/* Sidebar for Desktop, Tabs for Mobile */}
+        <aside className={cn(
+          "flex-shrink-0",
+          isMobile 
+            ? "p-2 border-b border-black/10 dark:border-white/10" 
+            : "w-56 p-4 border-r border-black/10 dark:border-white/10"
+        )}>
+          <nav className={cn(
+            "flex",
+            isMobile 
+              ? "flex-row space-x-1 overflow-x-auto scrollbar-hide" 
+              : "flex-col space-y-1"
+          )}>
+            {settingsSections.map((section) => (
+              <button
+                key={section.id}
+                onClick={() => setActiveSection(section.id as SettingsSection)}
+                className={cn(
+                  'flex-shrink-0 flex items-center gap-2.5 px-3 py-2 text-sm rounded-lg transition-colors',
+                  activeSection === section.id
+                    ? 'bg-rose-500/10 text-rose-600 dark:bg-rose-300/10 dark:text-rose-300 font-semibold'
+                    : 'text-black/70 dark:text-white/70 hover:bg-black/5 dark:hover:bg-white/5',
+                  isMobile ? "justify-center" : "w-full text-left"
+                )}
+              >
+                <section.icon className="w-4 h-4" />
+                <span>{section.label}</span>
+              </button>
+            ))}
+          </nav>
+        </aside>
+
+        {/* Main Content */}
+        <main className="flex-1 p-6 overflow-y-auto">
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={activeSection}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.15 }}
+            >
+              {renderContent()}
+            </motion.div>
+          </AnimatePresence>
+        </main>
+      </div>
+    </>
+  )
+
+  if (isMobile) {
+    return (
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/30 dark:bg-black/60 z-50 flex items-center justify-center"
+            onClick={onClose}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 20 }}
+              transition={{ duration: 0.2, ease: 'easeOut' }}
+              className="bg-white dark:bg-[oklch(0.15_0.02_25)] w-[90vw] h-[90vh] rounded-2xl flex flex-col overflow-hidden shadow-2xl border border-black/10 dark:border-white/10"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <SettingsPanelContent />
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    )
+  }
 
   return (
     <AnimatePresence>
@@ -780,54 +876,7 @@ export default function SettingsPage({ isOpen, onClose }: SettingsPageProps) {
             className="fixed inset-y-0 right-0 w-full max-w-3xl bg-white/70 dark:bg-[oklch(0.18_0.015_25)]/30 backdrop-blur-xl border-l border-rose-500/10 dark:border-white/10 z-50 shadow-2xl flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Header */}
-            <header className="flex items-center justify-between p-4 border-b border-black/10 dark:border-white/10 flex-shrink-0">
-              <div className="flex items-center gap-3">
-                <Settings className="w-5 h-5 text-rose-600 dark:text-rose-400" />
-                <h2 className="text-lg font-bold text-black/80 dark:text-white/80">Settings</h2>
-              </div>
-              <Button variant="ghost" size="icon" onClick={onClose} className="text-black/50 dark:text-white/50">
-                <X className="w-5 h-5" />
-              </Button>
-            </header>
-
-            <div className="flex flex-1 min-h-0">
-              {/* Sidebar */}
-              <aside className="w-56 p-4 border-r border-black/10 dark:border-white/10 overflow-y-auto">
-                <nav className="space-y-1">
-                  {settingsSections.map((section) => (
-                    <button
-                      key={section.id}
-                      onClick={() => setActiveSection(section.id as SettingsSection)}
-                      className={cn(
-                        'w-full flex items-center gap-2.5 px-2.5 py-2 text-sm text-left rounded-lg transition-colors',
-                        activeSection === section.id
-                          ? 'bg-rose-500/10 text-rose-600 dark:bg-rose-300/10 dark:text-rose-300 font-semibold'
-                          : 'text-black/70 dark:text-white/70 hover:bg-black/5 dark:hover:bg-white/5'
-                      )}
-                    >
-                      <section.icon className="w-4 h-4" />
-                      <span>{section.label}</span>
-                    </button>
-                  ))}
-                </nav>
-              </aside>
-
-              {/* Main Content */}
-              <main className="flex-1 p-6 overflow-y-auto">
-                <AnimatePresence mode="wait">
-                  <motion.div
-                    key={activeSection}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -10 }}
-                    transition={{ duration: 0.15 }}
-                  >
-                    {renderContent()}
-                  </motion.div>
-                </AnimatePresence>
-              </main>
-            </div>
+            <SettingsPanelContent />
           </motion.div>
         </>
       )}
