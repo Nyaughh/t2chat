@@ -2,6 +2,8 @@ import type { Metadata } from 'next'
 import { Inter, Inter_Tight } from 'next/font/google'
 import './globals.css'
 import { ThemeProvider } from 'next-themes'
+import { SessionProvider } from '@/components/SessionProvider'
+import { cn } from '@/lib/utils'
 
 const inter = Inter({
   variable: '--font-inter',
@@ -25,17 +27,20 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <head>
-        {/* <script
-          crossOrigin="anonymous"
-          async
-          src="//unpkg.com/react-scan/dist/auto.global.js"
-        />
-        rest of your scripts go under */}
-      </head>
-      <body className={`${inter.variable} ${interTight.variable} antialiased`} suppressHydrationWarning>
-        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-          {children}
+      <body
+        className={cn(
+          'min-h-screen bg-background font-sans antialiased',
+          inter.variable,
+          interTight.variable,
+        )}
+      >
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          enableSystem
+          disableTransitionOnChange
+        >
+          <SessionProvider>{children}</SessionProvider>
         </ThemeProvider>
       </body>
     </html>

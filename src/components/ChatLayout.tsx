@@ -8,6 +8,7 @@ import { useSidebar } from '@/hooks/useSidebar'
 import { useConversations } from '@/hooks/useConversations'
 import { useTouch } from '@/hooks/useTouch'
 import { useState, useEffect } from 'react'
+import { Auth } from './Auth'
 
 interface ChatLayoutProps {
   children: React.ReactNode
@@ -178,26 +179,7 @@ export default function ChatLayout({ children }: ChatLayoutProps) {
         </div>
 
         <div className="p-4 flex-shrink-0">
-          <Button
-            variant="ghost"
-            className="group w-full justify-start h-auto px-3 py-2 bg-gradient-to-r from-rose-500/5 via-transparent to-rose-500/5 dark:from-rose-300/5 dark:via-transparent dark:to-rose-300/5 hover:from-rose-500/10 hover:to-rose-500/10 dark:hover:from-rose-300/10 dark:hover:to-rose-300/10 border border-rose-500/10 dark:border-rose-300/10 hover:border-rose-500/20 dark:hover:border-rose-300/20 transition-all duration-300 rounded-lg backdrop-blur-sm"
-          >
-            <div className="flex items-center gap-3 w-full">
-              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-rose-500/20 to-rose-600/20 dark:from-rose-300/20 dark:to-rose-400/20 flex items-center justify-center flex-shrink-0">
-                <div className="w-4 h-4 rounded-full bg-rose-500/30 dark:bg-rose-300/30"></div>
-              </div>
-              <div className="flex-1 text-center min-w-0">
-                <div className="text-base font-medium text-black/80 dark:text-white/80 group-hover:text-rose-600 dark:group-hover:text-rose-300 transition-colors">
-                  Sign in
-                </div>
-              </div>
-              <div className="w-4 h-4 text-black/40 dark:text-white/40 group-hover:text-rose-500 dark:group-hover:text-rose-300 transition-colors flex-shrink-0">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
-              </div>
-            </div>
-          </Button>
+          <Auth />
         </div>
       </div>
 
