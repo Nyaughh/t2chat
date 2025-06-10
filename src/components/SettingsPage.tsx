@@ -464,7 +464,7 @@ export default function SettingsPage({ isOpen, onClose }: SettingsPageProps) {
          </div>
 
                  {/* Quick Actions */}
-         <div className="flex gap-2.5 pt-1">
+         <div className="flex gap-3 pt-4 border-t border-rose-500/10 dark:border-white/10 mt-6">
            <button
              onClick={() => {
                setModelSettings(prev => {
@@ -475,7 +475,7 @@ export default function SettingsPage({ isOpen, onClose }: SettingsPageProps) {
                  return updated
                })
              }}
-             className="px-3 py-1.5 text-xs bg-rose-500/90 text-white rounded hover:bg-rose-500 transition-colors"
+             className="px-4 py-2 text-sm font-semibold bg-gradient-to-r from-rose-500 to-rose-600 text-white rounded-lg hover:from-rose-600 hover:to-rose-700 shadow-md hover:shadow-lg transition-all"
            >
              Enable All Models
            </button>
@@ -489,7 +489,7 @@ export default function SettingsPage({ isOpen, onClose }: SettingsPageProps) {
                  return updated
                })
              }}
-             className="px-3 py-1.5 text-xs bg-gray-200 dark:bg-gray-700 text-black dark:text-white rounded hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+             className="px-4 py-2 text-sm font-medium bg-rose-500/10 dark:bg-rose-300/10 text-rose-600 dark:text-rose-300 rounded-lg hover:bg-rose-500/20 dark:hover:bg-rose-300/20 transition-colors"
            >
              Disable All
            </button>
@@ -527,10 +527,10 @@ export default function SettingsPage({ isOpen, onClose }: SettingsPageProps) {
     };
 
     return (
-      <div className="space-y-8">
+      <div className="space-y-6">
         {/* User Personalization */}
         <div>
-          <h3 className="text-lg font-semibold text-black dark:text-white mb-4">Customize T3 Chat</h3>
+          <h3 className="text-base font-semibold text-black dark:text-white mb-3">Customize T3 Chat</h3>
           
           <div className="space-y-5">
             {/* User Name */}
@@ -673,7 +673,7 @@ export default function SettingsPage({ isOpen, onClose }: SettingsPageProps) {
 
         {/* Visual Options */}
         <div>
-          <h3 className="text-lg font-semibold text-black dark:text-white mb-4">Visual Options</h3>
+          <h3 className="text-base font-semibold text-black dark:text-white mb-3">Visual Options</h3>
           
           <div className="space-y-5">
 
@@ -781,7 +781,7 @@ export default function SettingsPage({ isOpen, onClose }: SettingsPageProps) {
         
         {/* Behavior */}
         <div>
-          <h3 className="text-lg font-semibold text-black dark:text-white mb-4">Behavior</h3>
+          <h3 className="text-base font-semibold text-black dark:text-white mb-3">Behavior</h3>
           
           <div className="space-y-5">
             {/* Send Behavior */}
@@ -853,7 +853,7 @@ export default function SettingsPage({ isOpen, onClose }: SettingsPageProps) {
 
 
         {/* Reset Button */}
-        <div className="flex justify-end">
+        <div className="flex justify-end pt-4 border-t border-rose-500/10 dark:border-white/10 mt-8">
           <button
             onClick={() => setCustomization({
               // User Personalization
@@ -872,7 +872,7 @@ export default function SettingsPage({ isOpen, onClose }: SettingsPageProps) {
               autoSave: true,
               showTimestamps: true
             })}
-            className="px-3 py-1.5 text-xs bg-gray-200 dark:bg-gray-700 text-black dark:text-white rounded hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+            className="px-4 py-2 text-sm font-medium bg-rose-500/10 dark:bg-rose-300/10 text-rose-600 dark:text-rose-300 rounded-lg hover:bg-rose-500/20 dark:hover:bg-rose-300/20 transition-colors"
           >
             Reset to Defaults
           </button>
@@ -882,10 +882,10 @@ export default function SettingsPage({ isOpen, onClose }: SettingsPageProps) {
   }
 
   const renderDataSection = () => (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <div>
-        <h3 className="text-lg font-semibold text-black dark:text-white mb-4">Data Management</h3>
-        <div className="space-y-3">
+        <h3 className="text-base font-semibold text-black dark:text-white mb-3">Data Management</h3>
+        <div className="space-y-2">
           <button className="w-full flex items-center justify-between p-3 rounded-lg bg-white/30 dark:bg-[oklch(0.22_0.015_25)]/20 hover:bg-white/50 dark:hover:bg-[oklch(0.22_0.015_25)]/40 transition-colors">
             <div className="flex items-center gap-3">
               <Download className="w-5 h-5 text-black/60 dark:text-white/60" />
@@ -1100,8 +1100,8 @@ export default function SettingsPage({ isOpen, onClose }: SettingsPageProps) {
             <div className="absolute inset-0 bg-gradient-to-t from-transparent via-transparent to-white/20 dark:to-white/5 pointer-events-none"></div>
 
             {/* Sidebar */}
-            <div className="w-80 border-r border-rose-500/10 dark:border-white/10 p-6 relative z-10">
-              <div className="flex items-center justify-between mb-8">
+            <div className="w-64 border-r border-rose-500/10 dark:border-white/10 p-4 relative z-10">
+              <div className="flex items-center justify-between mb-6">
                 <h2 className="text-2xl font-bold bg-gradient-to-r from-rose-600 via-rose-500 to-rose-600 dark:from-rose-300 dark:via-rose-200 dark:to-rose-300 bg-clip-text text-transparent">
                   Settings
                 </h2>
@@ -1119,14 +1119,36 @@ export default function SettingsPage({ isOpen, onClose }: SettingsPageProps) {
                     key={section.id}
                     onClick={() => setActiveSection(section.id)}
                     className={cn(
-                      'w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 text-left',
+                      'w-full flex items-center gap-3 px-3 py-2 transition-all duration-200 text-left relative overflow-hidden',
                       activeSection === section.id
-                        ? 'bg-rose-500/10 dark:bg-rose-300/10 text-rose-600 dark:text-rose-300 shadow-lg'
-                        : 'text-black/70 dark:text-white/70 hover:bg-rose-500/5 dark:hover:bg-white/5 hover:text-rose-600 dark:hover:text-rose-300'
+                        ? 'text-rose-600 dark:text-rose-300'
+                        : 'text-black/70 dark:text-white/70 hover:text-rose-600 dark:hover:text-rose-300'
                     )}
                   >
-                    <section.icon className="w-5 h-5" />
-                    <span className="font-medium">{section.label}</span>
+                    {/* Premium background for active state */}
+                    {activeSection === section.id && (
+                      <>
+                        {/* Main gradient background with sharp edges */}
+                        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-rose-500/15 dark:via-rose-300/15 to-transparent"></div>
+                        
+                        {/* Top shadow lighting */}
+                        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-rose-500/40 dark:via-rose-300/40 to-transparent"></div>
+                        
+                        {/* Bottom shadow lighting */}
+                        <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-rose-500/40 dark:via-rose-300/40 to-transparent"></div>
+                        
+                        {/* Premium inner glow */}
+                        <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-4 bg-gradient-to-r from-transparent via-rose-500/10 dark:via-rose-300/10 to-transparent blur-sm"></div>
+                      </>
+                    )}
+                    
+                    {/* Hover effect for non-active items */}
+                    {activeSection !== section.id && (
+                      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-rose-500/5 dark:via-rose-300/5 to-transparent opacity-0 hover:opacity-100 transition-opacity duration-200 rounded-lg"></div>
+                    )}
+                    
+                    <section.icon className="w-5 h-5 relative z-10" />
+                    <span className="font-medium relative z-10">{section.label}</span>
                   </button>
                 ))}
               </nav>

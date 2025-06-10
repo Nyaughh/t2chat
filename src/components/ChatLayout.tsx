@@ -149,21 +149,38 @@ export default function ChatLayout({ children }: ChatLayoutProps) {
                 <div
                   key={conversation.id}
                   onClick={() => handleConversationSelect(conversation.id)}
-                  className={`group px-3 py-3 rounded-lg cursor-pointer transition-colors duration-200 ${
+                  className={cn(
+                    'group px-3 py-3 cursor-pointer transition-all duration-200 relative overflow-hidden',
                     conversation.id === currentConversationId
-                      ? 'bg-rose-500/8 dark:bg-rose-300/8'
-                      : 'hover:bg-rose-500/5 dark:hover:bg-white/5 active:bg-rose-500/10 dark:active:bg-white/10'
-                  }`}
+                      ? 'text-rose-600 dark:text-rose-300'
+                      : 'hover:text-rose-600 dark:hover:text-rose-300 text-black/70 dark:text-white/70'
+                  )}
                 >
-                  <div className="flex items-center justify-between">
+                  {/* Premium background for active state */}
+                  {conversation.id === currentConversationId && (
+                    <>
+                      {/* Main gradient background with sharp edges */}
+                      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-rose-500/8 dark:via-rose-300/8 to-transparent"></div>
+                      
+                      {/* Top shadow lighting */}
+                      <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-rose-500/30 dark:via-rose-300/30 to-transparent"></div>
+                      
+                      {/* Bottom shadow lighting */}
+                      <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-rose-500/30 dark:via-rose-300/30 to-transparent"></div>
+                      
+                      {/* Premium inner glow */}
+                      <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-4 bg-gradient-to-r from-transparent via-rose-500/5 dark:via-rose-300/5 to-transparent blur-sm"></div>
+                    </>
+                  )}
+                  
+                  {/* Hover effect for non-active items */}
+                  {conversation.id !== currentConversationId && (
+                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-rose-500/3 dark:via-rose-300/3 to-transparent opacity-0 hover:opacity-100 transition-opacity duration-200"></div>
+                  )}
+
+                  <div className="flex items-center justify-between relative z-10">
                     <div className="flex-1 min-w-0">
-                      <div
-                        className={`text-base truncate ${
-                          conversation.id === currentConversationId
-                            ? 'text-rose-600 dark:text-rose-300'
-                            : 'text-black/70 dark:text-white/70'
-                        }`}
-                      >
+                      <div className="text-base truncate">
                         {conversation.title}
                       </div>
                     </div>
@@ -231,14 +248,14 @@ export default function ChatLayout({ children }: ChatLayoutProps) {
                     transition={{ duration: 0.3, ease: 'easeOut' }}
                     className="flex items-center gap-3 w-full"
                   >
-                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-rose-500/20 to-rose-600/20 dark:from-rose-300/20 dark:to-rose-400/20 flex items-center justify-center flex-shrink-0">
-                      <div className="w-4 h-4 rounded-full bg-rose-500/30 dark:bg-rose-300/30"></div>
-                    </div>
-                    <div className="flex-1 text-center min-w-0">
-                      <div className="text-base font-medium text-black/80 dark:text-white/80 group-hover:text-rose-600 dark:group-hover:text-rose-300 transition-colors">
-                        Sign in
-                      </div>
-                    </div>
+              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-rose-500/20 to-rose-600/20 dark:from-rose-300/20 dark:to-rose-400/20 flex items-center justify-center flex-shrink-0">
+                <div className="w-4 h-4 rounded-full bg-rose-500/30 dark:bg-rose-300/30"></div>
+              </div>
+              <div className="flex-1 text-center min-w-0">
+                <div className="text-base font-medium text-black/80 dark:text-white/80 group-hover:text-rose-600 dark:group-hover:text-rose-300 transition-colors">
+                  Sign in
+                </div>
+              </div>
                   </motion.div>
                 )}
               </AnimatePresence>
