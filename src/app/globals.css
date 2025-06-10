@@ -1,4 +1,4 @@
-@import "tailwindcss";
+@import 'tailwindcss';
 
 @custom-variant dark (&:is(.dark *));
 
@@ -170,12 +170,11 @@
   }
 }
 
-
 ::view-transition-group(root) {
   animation-duration: 0.7s;
   animation-timing-function: var(--expo-out);
 }
-      
+
 ::view-transition-new(root) {
   animation-name: reveal-light;
 }

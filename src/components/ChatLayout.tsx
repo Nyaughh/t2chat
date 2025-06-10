@@ -1,22 +1,22 @@
-"use client";
+'use client'
 
-import { Button } from "@/components/ui/button";
-import { Plus, Menu, Search, X } from "lucide-react";
-import { cn } from "@/lib/utils";
-import ThemeSwitcher from "@/components/ThemeSwitcher";
-import { useSidebar } from "@/hooks/useSidebar";
-import { useConversations } from "@/hooks/useConversations";
-import { useTouch } from "@/hooks/useTouch";
-import { useState, useEffect } from "react";
+import { Button } from '@/components/ui/button'
+import { Plus, Menu, Search, X } from 'lucide-react'
+import { cn } from '@/lib/utils'
+import ThemeSwitcher from '@/components/ThemeSwitcher'
+import { useSidebar } from '@/hooks/useSidebar'
+import { useConversations } from '@/hooks/useConversations'
+import { useTouch } from '@/hooks/useTouch'
+import { useState, useEffect } from 'react'
 
 interface ChatLayoutProps {
-  children: React.ReactNode;
+  children: React.ReactNode
 }
 
 export default function ChatLayout({ children }: ChatLayoutProps) {
-  const [mounted, setMounted] = useState(false);
-  const { sidebarOpen, toggleSidebar } = useSidebar();
-  const { 
+  const [mounted, setMounted] = useState(false)
+  const { sidebarOpen, toggleSidebar } = useSidebar()
+  const {
     conversations,
     currentConversationId,
     currentConversation,
@@ -25,57 +25,55 @@ export default function ChatLayout({ children }: ChatLayoutProps) {
     createNewConversation,
     setCurrentConversationId,
     setSearchQuery,
-    deleteConversation
-  } = useConversations();
+    deleteConversation,
+  } = useConversations()
 
   const { onTouchStart, onTouchMove, onTouchEnd } = useTouch({
-    onSwipeLeft: () => sidebarOpen && toggleSidebar()
-  });
+    onSwipeLeft: () => sidebarOpen && toggleSidebar(),
+  })
 
   useEffect(() => {
-    setMounted(true);
-  }, []);
+    setMounted(true)
+  }, [])
 
   const handleConversationSelect = (conversationId: string) => {
-    setCurrentConversationId(conversationId);
-    if (typeof window !== "undefined" && window.innerWidth < 768) {
-      toggleSidebar();
+    setCurrentConversationId(conversationId)
+    if (typeof window !== 'undefined' && window.innerWidth < 768) {
+      toggleSidebar()
     }
-  };
+  }
 
   const createNewChat = () => {
-    createNewConversation();
-    if (typeof window !== "undefined" && window.innerWidth < 768) {
-      toggleSidebar();
+    createNewConversation()
+    if (typeof window !== 'undefined' && window.innerWidth < 768) {
+      toggleSidebar()
     }
-  };
+  }
 
   // Use a consistent sidebar state for SSR
-  const effectiveSidebarOpen = mounted ? sidebarOpen : false;
+  const effectiveSidebarOpen = mounted ? sidebarOpen : false
 
   // Check if we're on home page (no current conversation)
-  const isOnHomePage = !currentConversationId;
+  const isOnHomePage = !currentConversationId
 
   return (
     <div className="flex h-[100dvh] bg-background overflow-hidden">
       {/* Mobile Backdrop */}
       {effectiveSidebarOpen && (
-        <div 
+        <div
           className="fixed inset-0 bg-black/20 dark:bg-black/40 z-40 md:hidden transition-opacity duration-300"
           onClick={() => toggleSidebar()}
         />
       )}
-      
+
       {/* Sidebar */}
-      <div 
+      <div
         className={cn(
-          "bg-white/50 dark:bg-[oklch(0.18_0.015_25)]/20 backdrop-blur-sm flex flex-col transition-all duration-300 ease-in-out h-full",
-          "md:flex-shrink-0 md:shadow-none",
-          effectiveSidebarOpen ? "md:w-64 md:opacity-100" : "md:w-0 md:opacity-0 md:overflow-hidden",
-          "fixed md:relative z-50 md:z-auto shadow-2xl md:shadow-none",
-          effectiveSidebarOpen 
-            ? "w-80 opacity-100 left-0" 
-            : "w-80 opacity-0 -left-80 overflow-hidden"
+          'bg-white/50 dark:bg-[oklch(0.18_0.015_25)]/20 backdrop-blur-sm flex flex-col transition-all duration-300 ease-in-out h-full',
+          'md:flex-shrink-0 md:shadow-none',
+          effectiveSidebarOpen ? 'md:w-64 md:opacity-100' : 'md:w-0 md:opacity-0 md:overflow-hidden',
+          'fixed md:relative z-50 md:z-auto shadow-2xl md:shadow-none',
+          effectiveSidebarOpen ? 'w-80 opacity-100 left-0' : 'w-80 opacity-0 -left-80 overflow-hidden',
         )}
         onTouchStart={onTouchStart}
         onTouchMove={onTouchMove}
@@ -91,22 +89,26 @@ export default function ChatLayout({ children }: ChatLayoutProps) {
             >
               <Menu className="w-5 h-5 group-hover:rotate-180 transition-transform duration-300" />
             </Button>
-            <h1 className="text-2xl font-bold bg-gradient-to-r from-rose-600 via-rose-500 to-rose-600 dark:from-rose-300 dark:via-rose-200 dark:to-rose-300 bg-clip-text text-transparent tracking-tight leading-none">T2Chat</h1>
+            <h1 className="text-2xl font-bold bg-gradient-to-r from-rose-600 via-rose-500 to-rose-600 dark:from-rose-300 dark:via-rose-200 dark:to-rose-300 bg-clip-text text-transparent tracking-tight leading-none">
+              T2Chat
+            </h1>
           </div>
-          
+
           <div className="space-y-2">
-            <Button 
+            <Button
               onClick={createNewChat}
               className={cn(
-                "group w-full relative overflow-hidden bg-gradient-to-br from-rose-500/12 via-rose-500/8 to-rose-500/12 dark:from-rose-300/12 dark:via-rose-300/8 dark:to-rose-300/12 text-rose-600 dark:text-rose-300 h-12 text-base font-semibold rounded-xl shadow-lg hover:shadow-xl shadow-rose-500/10 hover:shadow-rose-500/20 dark:shadow-rose-500/10 dark:hover:shadow-rose-500/20 transition-all duration-300 ease-out backdrop-blur-sm",
-                isOnHomePage && "opacity-50 cursor-not-allowed"
+                'group w-full relative overflow-hidden bg-gradient-to-br from-rose-500/12 via-rose-500/8 to-rose-500/12 dark:from-rose-300/12 dark:via-rose-300/8 dark:to-rose-300/12 text-rose-600 dark:text-rose-300 h-12 text-base font-semibold rounded-xl shadow-lg hover:shadow-xl shadow-rose-500/10 hover:shadow-rose-500/20 dark:shadow-rose-500/10 dark:hover:shadow-rose-500/20 transition-all duration-300 ease-out backdrop-blur-sm',
+                isOnHomePage && 'opacity-50 cursor-not-allowed',
               )}
               variant="ghost"
               disabled={isOnHomePage}
             >
               <div className="absolute inset-0 bg-gradient-to-br from-white/20 via-transparent to-transparent dark:from-white/10 rounded-xl"></div>
               <Plus className="w-5 h-5 mr-2 group-hover:rotate-90 transition-transform duration-300" />
-              <span className="relative z-10 tracking-[0.5px] group-hover:tracking-wide transition-all duration-300 ease-out">New chat</span>
+              <span className="relative z-10 tracking-[0.5px] group-hover:tracking-wide transition-all duration-300 ease-out">
+                New chat
+              </span>
             </Button>
 
             <div className="relative">
@@ -120,10 +122,10 @@ export default function ChatLayout({ children }: ChatLayoutProps) {
               />
             </div>
           </div>
-          
+
           <div className="h-px bg-black/10 dark:bg-white/10 mt-4"></div>
         </div>
-        
+
         <div className="flex-1 min-h-0 px-4">
           <div className="h-full overflow-y-auto scrollbar-hide">
             <div className="space-y-1 py-2">
@@ -133,25 +135,27 @@ export default function ChatLayout({ children }: ChatLayoutProps) {
                   onClick={() => handleConversationSelect(conversation.id)}
                   className={`group px-3 py-3 rounded-lg cursor-pointer transition-colors duration-200 ${
                     conversation.id === currentConversationId
-                      ? "bg-rose-500/8 dark:bg-rose-300/8"
-                      : "hover:bg-rose-500/5 dark:hover:bg-white/5 active:bg-rose-500/10 dark:active:bg-white/10"
+                      ? 'bg-rose-500/8 dark:bg-rose-300/8'
+                      : 'hover:bg-rose-500/5 dark:hover:bg-white/5 active:bg-rose-500/10 dark:active:bg-white/10'
                   }`}
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex-1 min-w-0">
-                      <div className={`text-base truncate ${
-                        conversation.id === currentConversationId
-                          ? "text-rose-600 dark:text-rose-300"
-                          : "text-black/70 dark:text-white/70"
-                      }`}>
+                      <div
+                        className={`text-base truncate ${
+                          conversation.id === currentConversationId
+                            ? 'text-rose-600 dark:text-rose-300'
+                            : 'text-black/70 dark:text-white/70'
+                        }`}
+                      >
                         {conversation.title}
                       </div>
                     </div>
                     {conversations.length > 1 && (
                       <button
                         onClick={(e) => {
-                          e.stopPropagation();
-                          deleteConversation(conversation.id);
+                          e.stopPropagation()
+                          deleteConversation(conversation.id)
                         }}
                         className="opacity-0 group-hover:opacity-100 p-1 -m-1 text-black/40 dark:text-white/40 hover:text-red-500 dark:hover:text-red-400 transition-all duration-200"
                       >
@@ -161,16 +165,12 @@ export default function ChatLayout({ children }: ChatLayoutProps) {
                   </div>
                 </div>
               ))}
-              
+
               {/* Show message when no conversations exist */}
               {conversations.length === 0 && (
                 <div className="text-center py-8 px-4">
-                  <div className="text-black/40 dark:text-white/40 text-base">
-                    No conversations yet
-                  </div>
-                  <div className="text-black/30 dark:text-white/30 text-sm mt-1">
-                    Start a new chat to begin
-                  </div>
+                  <div className="text-black/40 dark:text-white/40 text-base">No conversations yet</div>
+                  <div className="text-black/30 dark:text-white/30 text-sm mt-1">Start a new chat to begin</div>
                 </div>
               )}
             </div>
@@ -209,17 +209,17 @@ export default function ChatLayout({ children }: ChatLayoutProps) {
         </div>
 
         {/* Menu and New Chat buttons for mobile/collapsed sidebar */}
-        <div className={cn(
-          "absolute top-3 left-3 z-30 transition-all duration-300 ease-in-out",
-          effectiveSidebarOpen 
-            ? "md:opacity-0" 
-            : "opacity-100"
-        )}>
+        <div
+          className={cn(
+            'absolute top-3 left-3 z-30 transition-all duration-300 ease-in-out',
+            effectiveSidebarOpen ? 'md:opacity-0' : 'opacity-100',
+          )}
+        >
           <div className="group relative p-2.5 rounded-xl bg-white/70 dark:bg-[oklch(0.18_0.015_25)]/30 backdrop-blur-xl border border-rose-500/10 dark:border-white/10 hover:border-rose-500/20 dark:hover:border-rose-300/20 transition-all duration-300 ease-out shadow-lg shadow-rose-500/5 dark:shadow-lg dark:shadow-black/20 hover:shadow-xl hover:shadow-rose-500/10 dark:hover:shadow-rose-500/10 flex items-center gap-2">
             {/* Gradient overlays for premium look */}
             <div className="absolute inset-0 bg-gradient-to-br from-rose-500/5 via-transparent to-rose-500/10 dark:from-rose-500/10 dark:via-transparent dark:to-rose-500/20 pointer-events-none rounded-xl"></div>
             <div className="absolute inset-0 bg-gradient-to-t from-transparent via-transparent to-white/20 dark:to-white/5 pointer-events-none rounded-xl"></div>
-            
+
             <Button
               variant="ghost"
               size="icon"
@@ -228,24 +228,24 @@ export default function ChatLayout({ children }: ChatLayoutProps) {
             >
               <Menu className="w-5 h-5" />
             </Button>
-            
+
             {/* Vertical divider */}
             <div className="relative z-10 w-px h-5 bg-rose-500/20 dark:bg-rose-300/20"></div>
-            
+
             <Button
               variant="ghost"
               size="icon"
               onClick={createNewConversation}
               className={cn(
-                "relative z-10 text-rose-600 dark:text-rose-300 hover:text-rose-700 dark:hover:text-rose-200 h-6 w-6 p-0 hover:bg-transparent",
-                isOnHomePage && "opacity-30 cursor-not-allowed"
+                'relative z-10 text-rose-600 dark:text-rose-300 hover:text-rose-700 dark:hover:text-rose-200 h-6 w-6 p-0 hover:bg-transparent',
+                isOnHomePage && 'opacity-30 cursor-not-allowed',
               )}
               title="New conversation"
               disabled={isOnHomePage}
             >
               <Plus className="w-5 h-5" />
             </Button>
-            
+
             {/* Premium glow effect in dark mode */}
             <div className="absolute inset-0 -z-10 bg-gradient-to-r from-rose-300/0 via-rose-300/5 to-rose-300/0 rounded-xl blur-xl opacity-0 dark:opacity-30 pointer-events-none"></div>
           </div>
@@ -258,5 +258,5 @@ export default function ChatLayout({ children }: ChatLayoutProps) {
         <div className="absolute inset-0 -z-10 bg-gradient-to-r from-rose-300/0 via-rose-300/5 to-rose-300/0 rounded-xl blur-xl opacity-0 dark:opacity-30 pointer-events-none"></div>
       </div>
     </div>
-  );
-} 
+  )
+}

@@ -1,38 +1,38 @@
-"use client";
+'use client'
 
-import React from 'react';
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-import { oneDark, oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism';
-import { useTheme } from 'next-themes';
+import React from 'react'
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
+import { oneDark, oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism'
+import { useTheme } from 'next-themes'
 
 interface MessageRendererProps {
-  content: string;
-  className?: string;
+  content: string
+  className?: string
 }
 
-const MessageRenderer: React.FC<MessageRendererProps> = ({ content, className = "" }) => {
-  const { theme } = useTheme();
-  
+const MessageRenderer: React.FC<MessageRendererProps> = ({ content, className = '' }) => {
+  const { theme } = useTheme()
+
   // Function to parse and render message content with code highlighting
   const parseContent = (text: string) => {
-    const parts = [];
-    let lastIndex = 0;
-    
+    const parts = []
+    let lastIndex = 0
+
     // Regex to match code blocks (```language\ncode\n```)
-    const codeBlockRegex = /```(\w+)?\n?([\s\S]*?)```/g;
-    
-    let match;
+    const codeBlockRegex = /```(\w+)?\n?([\s\S]*?)```/g
+
+    let match
     while ((match = codeBlockRegex.exec(text)) !== null) {
       // Add text before code block
       if (match.index > lastIndex) {
-        const beforeText = text.slice(lastIndex, match.index);
-        parts.push(renderTextWithInlineCode(beforeText, parts.length));
+        const beforeText = text.slice(lastIndex, match.index)
+        parts.push(renderTextWithInlineCode(beforeText, parts.length))
       }
-      
+
       // Add code block
-      const language = match[1] || 'text';
-      const code = match[2].trim();
-      
+      const language = match[1] || 'text'
+      const code = match[2].trim()
+
       parts.push(
         <div key={parts.length} className="my-4 group relative">
           <div className="flex items-center justify-between bg-black/5 dark:bg-white/5 px-4 py-2 rounded-t-lg border-b border-black/10 dark:border-white/10">
@@ -64,37 +64,37 @@ const MessageRenderer: React.FC<MessageRendererProps> = ({ content, className = 
               {code}
             </SyntaxHighlighter>
           </div>
-        </div>
-      );
-      
-      lastIndex = match.index + match[0].length;
+        </div>,
+      )
+
+      lastIndex = match.index + match[0].length
     }
-    
+
     // Add remaining text
     if (lastIndex < text.length) {
-      const remainingText = text.slice(lastIndex);
-      parts.push(renderTextWithInlineCode(remainingText, parts.length));
+      const remainingText = text.slice(lastIndex)
+      parts.push(renderTextWithInlineCode(remainingText, parts.length))
     }
-    
-    return parts.length > 0 ? parts : [renderTextWithInlineCode(text, 0)];
-  };
-  
+
+    return parts.length > 0 ? parts : [renderTextWithInlineCode(text, 0)]
+  }
+
   // Function to handle inline code (`code`)
   const renderTextWithInlineCode = (text: string, keyPrefix: number) => {
-    const parts = [];
-    let lastIndex = 0;
-    
+    const parts = []
+    let lastIndex = 0
+
     // Regex to match inline code (`code`)
-    const inlineCodeRegex = /`([^`]+)`/g;
-    
-    let match;
+    const inlineCodeRegex = /`([^`]+)`/g
+
+    let match
     while ((match = inlineCodeRegex.exec(text)) !== null) {
       // Add text before inline code
       if (match.index > lastIndex) {
-        const beforeText = text.slice(lastIndex, match.index);
-        parts.push(renderPlainText(beforeText, `${keyPrefix}-${parts.length}`));
+        const beforeText = text.slice(lastIndex, match.index)
+        parts.push(renderPlainText(beforeText, `${keyPrefix}-${parts.length}`))
       }
-      
+
       // Add inline code
       parts.push(
         <code
@@ -102,25 +102,21 @@ const MessageRenderer: React.FC<MessageRendererProps> = ({ content, className = 
           className="px-1.5 py-0.5 text-sm bg-black/8 dark:bg-white/10 text-rose-600 dark:text-rose-300 rounded font-mono"
         >
           {match[1]}
-        </code>
-      );
-      
-      lastIndex = match.index + match[0].length;
+        </code>,
+      )
+
+      lastIndex = match.index + match[0].length
     }
-    
+
     // Add remaining text
     if (lastIndex < text.length) {
-      const remainingText = text.slice(lastIndex);
-      parts.push(renderPlainText(remainingText, `${keyPrefix}-${parts.length}`));
+      const remainingText = text.slice(lastIndex)
+      parts.push(renderPlainText(remainingText, `${keyPrefix}-${parts.length}`))
     }
-    
-    return parts.length > 0 ? (
-      <span key={keyPrefix}>{parts}</span>
-    ) : (
-      renderPlainText(text, keyPrefix.toString())
-    );
-  };
-  
+
+    return parts.length > 0 ? <span key={keyPrefix}>{parts}</span> : renderPlainText(text, keyPrefix.toString())
+  }
+
   // Function to render plain text with line breaks
   const renderPlainText = (text: string, key: string) => {
     return (
@@ -132,14 +128,10 @@ const MessageRenderer: React.FC<MessageRendererProps> = ({ content, className = 
           </React.Fragment>
         ))}
       </span>
-    );
-  };
-  
-  return (
-    <div className={className}>
-      {parseContent(content)}
-    </div>
-  );
-};
+    )
+  }
 
-export default MessageRenderer; 
+  return <div className={className}>{parseContent(content)}</div>
+}
+
+export default MessageRenderer

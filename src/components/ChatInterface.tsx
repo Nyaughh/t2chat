@@ -1,154 +1,148 @@
-"use client";
+'use client'
 
-import { useState, useRef, useEffect, useCallback } from "react";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Copy, Check, RotateCcw, Paperclip, Edit3, Send, X, ChevronDown } from "lucide-react";
-import { AnimatePresence, motion } from 'framer-motion';
-import AIInput from "@/components/kokonutui/ai-input";
-import MessageRenderer from "@/components/MessageRenderer";
-import WelcomeScreen from "@/components/WelcomeScreen";
-import { useConversations } from "@/hooks/useConversations";
+import { useState, useRef, useEffect, useCallback } from 'react'
+import { ScrollArea } from '@/components/ui/scroll-area'
+import { Copy, Check, RotateCcw, Paperclip, Edit3, Send, X, ChevronDown } from 'lucide-react'
+import { AnimatePresence, motion } from 'framer-motion'
+import AIInput from '@/components/kokonutui/ai-input'
+import MessageRenderer from '@/components/MessageRenderer'
+import WelcomeScreen from '@/components/WelcomeScreen'
+import { useConversations } from '@/hooks/useConversations'
 
 export default function ChatInterface() {
-  const { 
-    messages,
-    isTyping,
-    handleSendMessage,
-    stopGeneratingResponse,
-    regenerateResponse,
-    editMessage
-  } = useConversations();
-  
-  const [copiedId, setCopiedId] = useState<string | null>(null);
-  const [pendingAttachments, setPendingAttachments] = useState<File[]>([]);
-  const [inputValue, setInputValue] = useState("");
-  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
-  const [editingContent, setEditingContent] = useState("");
-  const [showScrollToBottom, setShowScrollToBottom] = useState(false);
-  
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const editInputRef = useRef<HTMLTextAreaElement>(null);
-  const scrollAreaRef = useRef<HTMLDivElement>(null);
-  const isAtBottomRef = useRef(true);
+  const { messages, isTyping, handleSendMessage, stopGeneratingResponse, regenerateResponse, editMessage } =
+    useConversations()
+
+  const [copiedId, setCopiedId] = useState<string | null>(null)
+  const [pendingAttachments, setPendingAttachments] = useState<File[]>([])
+  const [inputValue, setInputValue] = useState('')
+  const [editingMessageId, setEditingMessageId] = useState<string | null>(null)
+  const [editingContent, setEditingContent] = useState('')
+  const [showScrollToBottom, setShowScrollToBottom] = useState(false)
+
+  const messagesEndRef = useRef<HTMLDivElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const editInputRef = useRef<HTMLTextAreaElement>(null)
+  const scrollAreaRef = useRef<HTMLDivElement>(null)
+  const isAtBottomRef = useRef(true)
 
   const handleCopy = async (text: string, messageId: string) => {
     try {
-      await navigator.clipboard.writeText(text);
-      setCopiedId(messageId);
-      setTimeout(() => setCopiedId(null), 2000);
+      await navigator.clipboard.writeText(text)
+      setCopiedId(messageId)
+      setTimeout(() => setCopiedId(null), 2000)
     } catch (err) {
-      console.error('Failed to copy text: ', err);
+      console.error('Failed to copy text: ', err)
     }
-  };
+  }
 
   const handleFileUpload = (files: FileList | null) => {
-    if (!files || files.length === 0) return;
-    
-    const fileArray = Array.from(files);
-    setPendingAttachments(prev => [...prev, ...fileArray]);
-  };
+    if (!files || files.length === 0) return
+
+    const fileArray = Array.from(files)
+    setPendingAttachments((prev) => [...prev, ...fileArray])
+  }
 
   const removeAttachment = (index: number) => {
-    setPendingAttachments(prev => prev.filter((_, i) => i !== index));
-  };
+    setPendingAttachments((prev) => prev.filter((_, i) => i !== index))
+  }
 
   const handleSendWithAttachments = (message: string) => {
-    handleSendMessage(message, pendingAttachments);
-    setPendingAttachments([]);
-    setInputValue("");
-  };
+    handleSendMessage(message, pendingAttachments)
+    setPendingAttachments([])
+    setInputValue('')
+  }
 
   const handlePromptClick = (prompt: string) => {
-    setInputValue(prompt);
-  };
+    setInputValue(prompt)
+  }
 
   const startEditing = (messageId: string, content: string) => {
-    setEditingMessageId(messageId);
-    setEditingContent(content);
-  };
+    setEditingMessageId(messageId)
+    setEditingContent(content)
+  }
 
   const cancelEditing = () => {
-    setEditingMessageId(null);
-    setEditingContent("");
-  };
+    setEditingMessageId(null)
+    setEditingContent('')
+  }
 
   const saveEdit = () => {
     if (editingMessageId && editingContent.trim()) {
-      editMessage(editingMessageId, editingContent.trim());
-      cancelEditing();
+      editMessage(editingMessageId, editingContent.trim())
+      cancelEditing()
     }
-  };
+  }
 
   const handleEditKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      saveEdit();
+      e.preventDefault()
+      saveEdit()
     } else if (e.key === 'Escape') {
-      e.preventDefault();
-      cancelEditing();
+      e.preventDefault()
+      cancelEditing()
     }
-  };
+  }
 
   // Focus the edit input when editing starts
   useEffect(() => {
     if (editingMessageId && editInputRef.current) {
-      editInputRef.current.focus();
+      editInputRef.current.focus()
       // Position cursor at end
-      const length = editingContent.length;
-      editInputRef.current.setSelectionRange(length, length);
+      const length = editingContent.length
+      editInputRef.current.setSelectionRange(length, length)
     }
-  }, [editingMessageId, editingContent]);
+  }, [editingMessageId, editingContent])
 
   // Handle clicking outside to cancel edit
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (editingMessageId && editInputRef.current && !editInputRef.current.contains(event.target as Node)) {
         // Check if clicked on save button
-        const target = event.target as HTMLElement;
+        const target = event.target as HTMLElement
         if (!target.closest('[data-edit-controls]')) {
-          cancelEditing();
+          cancelEditing()
         }
       }
-    };
+    }
 
     if (editingMessageId) {
-      document.addEventListener('mousedown', handleClickOutside);
-      return () => document.removeEventListener('mousedown', handleClickOutside);
+      document.addEventListener('mousedown', handleClickOutside)
+      return () => document.removeEventListener('mousedown', handleClickOutside)
     }
-  }, [editingMessageId]);
+  }, [editingMessageId])
 
   const scrollToBottom = (behavior: 'smooth' | 'auto' = 'smooth') => {
-    messagesEndRef.current?.scrollIntoView({ behavior });
-  };
+    messagesEndRef.current?.scrollIntoView({ behavior })
+  }
 
   const handleScroll = useCallback(() => {
-    const viewport = scrollAreaRef.current?.querySelector('div[data-radix-scroll-area-viewport]');
+    const viewport = scrollAreaRef.current?.querySelector('div[data-radix-scroll-area-viewport]')
     if (viewport) {
-      const { scrollTop, scrollHeight, clientHeight } = viewport;
-      const isAtBottom = scrollHeight - scrollTop - clientHeight < 200;
-      isAtBottomRef.current = isAtBottom;
-      setShowScrollToBottom(!isAtBottom);
+      const { scrollTop, scrollHeight, clientHeight } = viewport
+      const isAtBottom = scrollHeight - scrollTop - clientHeight < 200
+      isAtBottomRef.current = isAtBottom
+      setShowScrollToBottom(!isAtBottom)
     }
-  }, []);
+  }, [])
 
   useEffect(() => {
-    const viewport = scrollAreaRef.current?.querySelector('div[data-radix-scroll-area-viewport]');
+    const viewport = scrollAreaRef.current?.querySelector('div[data-radix-scroll-area-viewport]')
     if (viewport) {
-      viewport.addEventListener('scroll', handleScroll);
-      handleScroll(); // Initial check
-      return () => viewport.removeEventListener('scroll', handleScroll);
+      viewport.addEventListener('scroll', handleScroll)
+      handleScroll() // Initial check
+      return () => viewport.removeEventListener('scroll', handleScroll)
     }
-  }, [handleScroll]);
+  }, [handleScroll])
 
   // Auto-scroll on new messages or typing start
   useEffect(() => {
     if (isAtBottomRef.current) {
-      setTimeout(() => scrollToBottom('smooth'), 100);
+      setTimeout(() => scrollToBottom('smooth'), 100)
     }
-  }, [messages, isTyping]);
-  
-  const showWelcomeScreen = messages.length === 0 && !isTyping && inputValue === "";
+  }, [messages, isTyping])
+
+  const showWelcomeScreen = messages.length === 0 && !isTyping && inputValue === ''
 
   return (
     <>
@@ -160,16 +154,13 @@ export default function ChatInterface() {
           <ScrollArea key="messages" className="h-full scrollbar-hide" ref={scrollAreaRef}>
             <div className="pt-16 px-4 md:px-4 pb-48 md:pb-40 space-y-4 max-w-4xl mx-auto">
               {messages.map((message) => (
-                <div
-                  key={message.id}
-                  className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
-                >
+                <div key={message.id} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                   <div className="group flex flex-col gap-2 max-w-[85%] min-w-0">
                     <div
                       className={`px-4 py-3 break-words overflow-wrap-anywhere ${
-                        message.role === "user"
-                          ? "bg-rose-500/5 dark:bg-rose-300/5 text-black dark:text-white rounded-lg"
-                          : "text-black dark:text-white"
+                        message.role === 'user'
+                          ? 'bg-rose-500/5 dark:bg-rose-300/5 text-black dark:text-white rounded-lg'
+                          : 'text-black dark:text-white'
                       }`}
                     >
                       {editingMessageId === message.id ? (
@@ -202,8 +193,8 @@ export default function ChatInterface() {
                           </div>
                         </div>
                       ) : (
-                        <MessageRenderer 
-                          content={message.content} 
+                        <MessageRenderer
+                          content={message.content}
                           className="text-base leading-relaxed break-words overflow-wrap-anywhere"
                         />
                       )}
@@ -221,18 +212,14 @@ export default function ChatInterface() {
                         </div>
                       )}
                     </div>
-                    {message.role === "assistant" && (
+                    {message.role === 'assistant' && (
                       <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                         <button
                           onClick={() => handleCopy(message.content, message.id)}
                           className="p-1.5 text-rose-500/70 hover:text-rose-600 dark:text-rose-300/70 dark:hover:text-rose-300 hover:bg-rose-500/5 dark:hover:bg-rose-300/5 rounded transition-colors"
                           title="Copy message"
                         >
-                          {copiedId === message.id ? (
-                            <Check className="w-4 h-4" />
-                          ) : (
-                            <Copy className="w-4 h-4" />
-                          )}
+                          {copiedId === message.id ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                         </button>
                         <button
                           onClick={() => regenerateResponse(message.id)}
@@ -243,7 +230,7 @@ export default function ChatInterface() {
                         </button>
                       </div>
                     )}
-                    {message.role === "user" && editingMessageId !== message.id && (
+                    {message.role === 'user' && editingMessageId !== message.id && (
                       <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                         <button
                           onClick={() => startEditing(message.id, message.content)}
@@ -319,5 +306,5 @@ export default function ChatInterface() {
         </div>
       </div>
     </>
-  );
-} 
+  )
+}

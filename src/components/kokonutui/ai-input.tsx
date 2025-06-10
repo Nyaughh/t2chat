@@ -1,246 +1,252 @@
-"use client"
+'use client'
 
-import type React from "react"
+import type React from 'react'
 
-import { useState } from "react"
-import { cn } from "@/lib/utils"
-import { useAutoResizeTextarea } from "@/hooks/resize-textarea"
-import { ArrowUpCircle, Paperclip, Globe, ChevronDown, Sparkles, Lightbulb, Plus, Square } from "lucide-react"
-import { AnimatePresence, motion } from "framer-motion"
+import { useState } from 'react'
+import { cn } from '@/lib/utils'
+import { useAutoResizeTextarea } from '@/hooks/resize-textarea'
+import { ArrowUpCircle, Paperclip, Globe, ChevronDown, Sparkles, Lightbulb, Plus, Square } from 'lucide-react'
+import { AnimatePresence, motion } from 'framer-motion'
 
 interface AIInputProps {
-  value: string;
-  onValueChange: (value: string) => void;
-  onSend?: (message: string) => void;
-  isTyping?: boolean;
-  onStop?: () => void;
-  onAttachmentClick?: () => void;
-  pendingAttachments?: File[];
-  onRemoveAttachment?: (index: number) => void;
+  value: string
+  onValueChange: (value: string) => void
+  onSend?: (message: string) => void
+  isTyping?: boolean
+  onStop?: () => void
+  onAttachmentClick?: () => void
+  pendingAttachments?: File[]
+  onRemoveAttachment?: (index: number) => void
 }
 
 interface ModelInfo {
-  id: string;
-  name: string;
-  description: string;
-  category: 'favorites' | 'others';
-  provider: 'gemini' | 'gpt' | 'claude' | 'o-series' | 'llama';
-  features: ('vision' | 'web' | 'code')[];
-  isPro: boolean;
-  isNew?: boolean;
-  supportsThinking?: boolean;
+  id: string
+  name: string
+  description: string
+  category: 'favorites' | 'others'
+  provider: 'gemini' | 'gpt' | 'claude' | 'o-series' | 'llama'
+  features: ('vision' | 'web' | 'code')[]
+  isPro: boolean
+  isNew?: boolean
+  supportsThinking?: boolean
 }
 
 const models: ModelInfo[] = [
   // Favorites
-  { 
-    id: 'gemini-2.0-flash', 
-    name: 'Gemini 2.0 Flash', 
+  {
+    id: 'gemini-2.0-flash',
+    name: 'Gemini 2.0 Flash',
     description: 'Latest and fastest model',
     category: 'favorites',
     provider: 'gemini',
     features: ['vision', 'web', 'code'],
     isPro: false,
-    supportsThinking: true
+    supportsThinking: true,
   },
-  
+
   // Others - Gemini Family
-  { 
-    id: 'gemini-2.0-flash-lite', 
-    name: 'Gemini 2.0 Flash Lite', 
+  {
+    id: 'gemini-2.0-flash-lite',
+    name: 'Gemini 2.0 Flash Lite',
     description: 'Lightweight version for quick tasks',
     category: 'others',
     provider: 'gemini',
     features: ['vision', 'code'],
     isPro: false,
-    isNew: true
+    isNew: true,
   },
-  { 
-    id: 'gemini-2.5-flash', 
-    name: 'Gemini 2.5 Flash', 
+  {
+    id: 'gemini-2.5-flash',
+    name: 'Gemini 2.5 Flash',
     description: 'Advanced reasoning capabilities',
     category: 'others',
     provider: 'gemini',
     features: ['vision', 'web', 'code'],
     isPro: false,
-    supportsThinking: true
+    supportsThinking: true,
   },
-  { 
-    id: 'gemini-2.5-pro', 
-    name: 'Gemini 2.5 Pro', 
+  {
+    id: 'gemini-2.5-pro',
+    name: 'Gemini 2.5 Pro',
     description: 'Most capable model for complex tasks',
     category: 'others',
     provider: 'gemini',
     features: ['vision', 'web', 'code'],
     isPro: true,
-    supportsThinking: true
+    supportsThinking: true,
   },
-  
+
   // GPT Models
-  { 
-    id: 'gpt-imagegen', 
-    name: 'GPT ImageGen', 
+  {
+    id: 'gpt-imagegen',
+    name: 'GPT ImageGen',
     description: 'Specialized for image generation',
     category: 'others',
     provider: 'gpt',
     features: ['vision'],
-    isPro: true
+    isPro: true,
   },
-  { 
-    id: 'gpt-4o-mini', 
-    name: 'GPT 4o-mini', 
+  {
+    id: 'gpt-4o-mini',
+    name: 'GPT 4o-mini',
     description: 'Compact and efficient',
     category: 'others',
     provider: 'gpt',
     features: ['vision'],
-    isPro: false
+    isPro: false,
   },
-  { 
-    id: 'gpt-4o', 
-    name: 'GPT 4o', 
+  {
+    id: 'gpt-4o',
+    name: 'GPT 4o',
     description: 'Omni-modal capabilities',
     category: 'others',
     provider: 'gpt',
     features: ['vision'],
     isPro: false,
-    supportsThinking: true
+    supportsThinking: true,
   },
-  { 
-    id: 'gpt-4.1', 
-    name: 'GPT 4.1', 
+  {
+    id: 'gpt-4.1',
+    name: 'GPT 4.1',
     description: 'Enhanced reasoning model',
     category: 'others',
     provider: 'gpt',
     features: ['vision'],
     isPro: false,
-    supportsThinking: true
+    supportsThinking: true,
   },
-  { 
-    id: 'gpt-4.1-mini', 
-    name: 'GPT 4.1 Mini', 
+  {
+    id: 'gpt-4.1-mini',
+    name: 'GPT 4.1 Mini',
     description: 'Lightweight reasoning model',
     category: 'others',
     provider: 'gpt',
     features: ['vision'],
-    isPro: false
+    isPro: false,
   },
-  { 
-    id: 'gpt-4.1-nano', 
-    name: 'GPT 4.1 Nano', 
+  {
+    id: 'gpt-4.1-nano',
+    name: 'GPT 4.1 Nano',
     description: 'Ultra-fast responses',
     category: 'others',
     provider: 'gpt',
     features: ['vision'],
-    isPro: false
+    isPro: false,
   },
-  
+
   // O-Series Models
-  { 
-    id: 'o3-mini', 
-    name: 'o3 mini', 
+  {
+    id: 'o3-mini',
+    name: 'o3 mini',
     description: 'Advanced reasoning in compact form',
     category: 'others',
     provider: 'o-series',
     features: ['web', 'code'],
-    isPro: false
+    isPro: false,
   },
-  { 
-    id: 'o4-mini', 
-    name: 'o4 mini', 
+  {
+    id: 'o4-mini',
+    name: 'o4 mini',
     description: 'Next-gen reasoning model',
     category: 'others',
     provider: 'o-series',
     features: ['vision', 'web'],
     isPro: false,
-    supportsThinking: true
+    supportsThinking: true,
   },
-  { 
-    id: 'o3', 
-    name: 'o3', 
+  {
+    id: 'o3',
+    name: 'o3',
     description: 'Powerful reasoning capabilities',
     category: 'others',
     provider: 'o-series',
     features: ['vision', 'web'],
     isPro: false,
-    supportsThinking: true
+    supportsThinking: true,
   },
-  
+
   // Claude Models
-  { 
-    id: 'claude-3.5-sonnet', 
-    name: 'Claude 3.5 Sonnet', 
+  {
+    id: 'claude-3.5-sonnet',
+    name: 'Claude 3.5 Sonnet',
     description: 'Balanced performance and speed',
     category: 'others',
     provider: 'claude',
     features: ['vision', 'code'],
     isPro: false,
-    supportsThinking: true
+    supportsThinking: true,
   },
-  { 
-    id: 'claude-3.7-sonnet', 
-    name: 'Claude 3.7 Sonnet', 
+  {
+    id: 'claude-3.7-sonnet',
+    name: 'Claude 3.7 Sonnet',
     description: 'Enhanced writing and analysis',
     category: 'others',
     provider: 'claude',
     features: ['vision', 'code'],
     isPro: false,
-    supportsThinking: true
+    supportsThinking: true,
   },
-  { 
-    id: 'claude-4-sonnet', 
-    name: 'Claude 4 Sonnet', 
+  {
+    id: 'claude-4-sonnet',
+    name: 'Claude 4 Sonnet',
     description: 'Latest Claude capabilities',
     category: 'others',
     provider: 'claude',
     features: ['vision', 'code'],
     isPro: true,
-    supportsThinking: true
+    supportsThinking: true,
   },
-  { 
-    id: 'claude-4-opus', 
-    name: 'Claude 4 Opus', 
+  {
+    id: 'claude-4-opus',
+    name: 'Claude 4 Opus',
     description: 'Most capable Claude model',
     category: 'others',
     provider: 'claude',
     features: ['vision', 'code'],
     isPro: true,
-    supportsThinking: true
+    supportsThinking: true,
   },
-  
+
   // Llama
-  { 
-    id: 'llama-3.3-70b', 
-    name: 'Llama 3.3 70b', 
+  {
+    id: 'llama-3.3-70b',
+    name: 'Llama 3.3 70b',
     description: 'Open-source excellence',
     category: 'others',
     provider: 'llama',
     features: ['code'],
     isPro: false,
     isNew: true,
-    supportsThinking: true
-  }
-];
+    supportsThinking: true,
+  },
+]
 
 const getProviderColor = (provider: string) => {
   switch (provider) {
-    case 'gemini': return 'from-blue-500 to-purple-500'
-    case 'gpt': return 'from-green-500 to-teal-500'
-    case 'claude': return 'from-purple-500 to-pink-500'
-    case 'o-series': return 'from-orange-500 to-red-500'
-    case 'llama': return 'from-indigo-500 to-blue-500'
-    default: return 'from-gray-500 to-gray-600'
+    case 'gemini':
+      return 'from-blue-500 to-purple-500'
+    case 'gpt':
+      return 'from-green-500 to-teal-500'
+    case 'claude':
+      return 'from-purple-500 to-pink-500'
+    case 'o-series':
+      return 'from-orange-500 to-red-500'
+    case 'llama':
+      return 'from-indigo-500 to-blue-500'
+    default:
+      return 'from-gray-500 to-gray-600'
   }
 }
 
-export default function AIInput({ 
-  value, 
-  onValueChange, 
-  onSend, 
-  isTyping, 
+export default function AIInput({
+  value,
+  onValueChange,
+  onSend,
+  isTyping,
   onStop,
-  onAttachmentClick, 
-  pendingAttachments = [], 
-  onRemoveAttachment 
+  onAttachmentClick,
+  pendingAttachments = [],
+  onRemoveAttachment,
 }: AIInputProps) {
   const [selectedModel, setSelectedModel] = useState<ModelInfo>(models[0])
   const [showModelSelect, setShowModelSelect] = useState(false)
@@ -253,13 +259,13 @@ export default function AIInput({
   const handleSend = () => {
     if (value.trim() && onSend && !isTyping) {
       onSend(value.trim())
-      onValueChange("")
+      onValueChange('')
       adjustHeight(true)
     }
   }
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === "Enter" && !e.shiftKey) {
+    if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
       handleSend()
     }
@@ -267,30 +273,33 @@ export default function AIInput({
 
   // When thinking mode is toggled, ensure selected model is compatible
   const handleThinkingToggle = (enabled: boolean) => {
-    setThinkingEnabled(enabled);
-    
+    setThinkingEnabled(enabled)
+
     // If disabling thinking mode and current model requires thinking,
     // switch to a model that doesn't require thinking
     if (!enabled && selectedModel.supportsThinking) {
       // Find the first model that doesn't require thinking
-      const nonThinkingModel = models.find(m => !m.supportsThinking);
+      const nonThinkingModel = models.find((m) => !m.supportsThinking)
       if (nonThinkingModel) {
-        setSelectedModel(nonThinkingModel);
+        setSelectedModel(nonThinkingModel)
       }
     }
-  };
+  }
 
-  const favoriteModels = models.filter(model => model.category === 'favorites')
-  const otherModels = models.filter(model => model.category === 'others')
-  
+  const favoriteModels = models.filter((model) => model.category === 'favorites')
+  const otherModels = models.filter((model) => model.category === 'others')
+
   // Group other models by provider
-  const groupedModels = otherModels.reduce((acc, model) => {
-    if (!acc[model.provider]) {
-      acc[model.provider] = []
-    }
-    acc[model.provider].push(model)
-    return acc
-  }, {} as Record<string, ModelInfo[]>)
+  const groupedModels = otherModels.reduce(
+    (acc, model) => {
+      if (!acc[model.provider]) {
+        acc[model.provider] = []
+      }
+      acc[model.provider].push(model)
+      return acc
+    },
+    {} as Record<string, ModelInfo[]>,
+  )
 
   return (
     <div className="relative">
@@ -337,12 +346,12 @@ export default function AIInput({
             disabled={isTyping}
             className="w-full px-4 md:px-5 py-4 resize-none bg-transparent border-0 outline-none text-base md:text-lg min-h-[70px] md:min-h-[80px] leading-relaxed placeholder:text-black/40 dark:placeholder:text-rose-200/30 text-black dark:text-white"
             style={{
-              overflow: "hidden",
-              outline: "none",
-              border: "none",
-              boxShadow: "none",
-              WebkitAppearance: "none",
-              fontFamily: "inherit",
+              overflow: 'hidden',
+              outline: 'none',
+              border: 'none',
+              boxShadow: 'none',
+              WebkitAppearance: 'none',
+              fontFamily: 'inherit',
             }}
           />
         </div>
@@ -355,31 +364,38 @@ export default function AIInput({
                   type="button"
                   onClick={() => setShowModelSelect(!showModelSelect)}
                   className={cn(
-                    "h-8 md:h-10 px-3 md:px-4 text-sm md:text-base transition-all duration-200 rounded-lg",
-                    "bg-white/50 dark:bg-[oklch(0.22_0.015_25)]/40",
-                    "flex items-center gap-1.5 md:gap-2",
-                    "text-black/70 dark:text-white/70",
-                    "hover:text-black dark:hover:text-white",
-                    "hover:bg-black/5 dark:hover:bg-white/5"
+                    'h-8 md:h-10 px-3 md:px-4 text-sm md:text-base transition-all duration-200 rounded-lg',
+                    'bg-white/50 dark:bg-[oklch(0.22_0.015_25)]/40',
+                    'flex items-center gap-1.5 md:gap-2',
+                    'text-black/70 dark:text-white/70',
+                    'hover:text-black dark:hover:text-white',
+                    'hover:bg-black/5 dark:hover:bg-white/5',
                   )}
                 >
                   <div className="flex items-center gap-1.5 md:gap-2">
-                    <div className={cn("w-2.5 md:w-3 h-2.5 md:h-3 rounded-full bg-gradient-to-r", getProviderColor(selectedModel.provider))}></div>
+                    <div
+                      className={cn(
+                        'w-2.5 md:w-3 h-2.5 md:h-3 rounded-full bg-gradient-to-r',
+                        getProviderColor(selectedModel.provider),
+                      )}
+                    ></div>
                     <span className="truncate max-w-[100px] md:max-w-none">{selectedModel.name}</span>
                   </div>
-                  <ChevronDown className={cn(
-                    "w-3.5 md:w-4 h-3.5 md:h-4 transition-transform duration-200",
-                    showModelSelect && "transform rotate-180"
-                  )} />
+                  <ChevronDown
+                    className={cn(
+                      'w-3.5 md:w-4 h-3.5 md:h-4 transition-transform duration-200',
+                      showModelSelect && 'transform rotate-180',
+                    )}
+                  />
                 </button>
-                
+
                 <AnimatePresence>
                   {showModelSelect && (
                     <motion.div
                       initial={{ opacity: 0, y: -10, scale: 0.95 }}
                       animate={{ opacity: 1, y: 0, scale: 1 }}
                       exit={{ opacity: 0, y: -10, scale: 0.95 }}
-                      transition={{ duration: 0.2, ease: "easeOut" }}
+                      transition={{ duration: 0.2, ease: 'easeOut' }}
                       className="absolute z-50 bottom-full mb-2 left-0 bg-white dark:bg-[oklch(0.18_0.015_25)] rounded-lg border border-rose-200/50 dark:border-rose-500/20 shadow-2xl overflow-hidden w-[320px] max-h-[500px]"
                     >
                       {/* Header */}
@@ -390,12 +406,12 @@ export default function AIInput({
                             {/* Gradient overlays for premium look */}
                             <div className="absolute inset-0 bg-gradient-to-br from-rose-500/5 via-transparent to-rose-500/10 dark:from-rose-500/10 dark:via-transparent dark:to-rose-500/20 pointer-events-none rounded-xl"></div>
                             <div className="absolute inset-0 bg-gradient-to-t from-transparent via-transparent to-white/20 dark:to-white/5 pointer-events-none rounded-xl"></div>
-                            
+
                             <div className="relative z-10 flex items-center gap-1.5">
                               <span className="text-sm font-medium text-rose-600 dark:text-rose-300">Pro</span>
                               <Plus className="w-3.5 h-3.5 text-rose-600 dark:text-rose-300" />
                             </div>
-                            
+
                             {/* Premium glow effect in dark mode */}
                             <div className="absolute inset-0 -z-10 bg-gradient-to-r from-rose-300/0 via-rose-300/5 to-rose-300/0 rounded-xl blur-xl opacity-0 dark:opacity-30 pointer-events-none"></div>
                           </button>
@@ -406,27 +422,27 @@ export default function AIInput({
                       <div className="p-3 border-b border-rose-200/30 dark:border-rose-500/20">
                         <button
                           onClick={(e) => {
-                            e.stopPropagation();
-                            handleThinkingToggle(!thinkingEnabled);
+                            e.stopPropagation()
+                            handleThinkingToggle(!thinkingEnabled)
                           }}
                           className={cn(
-                            "group w-full relative overflow-hidden bg-gradient-to-br from-rose-500/12 via-rose-500/8 to-rose-500/12 dark:from-rose-300/12 dark:via-rose-300/8 dark:to-rose-300/12 text-rose-600 dark:text-rose-300 h-12 text-base font-semibold rounded-xl shadow-lg hover:shadow-xl shadow-rose-500/10 hover:shadow-rose-500/20 dark:shadow-rose-500/10 dark:hover:shadow-rose-500/20 transition-all duration-300 ease-out backdrop-blur-sm",
-                            !thinkingEnabled && "opacity-50"
+                            'group w-full relative overflow-hidden bg-gradient-to-br from-rose-500/12 via-rose-500/8 to-rose-500/12 dark:from-rose-300/12 dark:via-rose-300/8 dark:to-rose-300/12 text-rose-600 dark:text-rose-300 h-12 text-base font-semibold rounded-xl shadow-lg hover:shadow-xl shadow-rose-500/10 hover:shadow-rose-500/20 dark:shadow-rose-500/10 dark:hover:shadow-rose-500/20 transition-all duration-300 ease-out backdrop-blur-sm',
+                            !thinkingEnabled && 'opacity-50',
                           )}
                         >
                           <div className="absolute inset-0 bg-gradient-to-br from-white/20 via-transparent to-transparent dark:from-white/10 rounded-xl"></div>
                           <div className="relative z-10 flex items-center justify-center gap-2">
                             <Lightbulb className="w-5 h-5" />
-                            <span className="tracking-[0.5px] transition-all duration-300 ease-out">
-                              Thinking Mode
-                            </span>
-                            <div className={cn(
-                              "text-sm px-2 py-0.5 rounded-full transition-colors ml-1",
-                              thinkingEnabled 
-                                ? "bg-rose-500/20 text-rose-600 dark:text-rose-400" 
-                                : "bg-rose-500/10 text-rose-600/60 dark:text-rose-300/60"
-                            )}>
-                              {thinkingEnabled ? "On" : "Off"}
+                            <span className="tracking-[0.5px] transition-all duration-300 ease-out">Thinking Mode</span>
+                            <div
+                              className={cn(
+                                'text-sm px-2 py-0.5 rounded-full transition-colors ml-1',
+                                thinkingEnabled
+                                  ? 'bg-rose-500/20 text-rose-600 dark:text-rose-400'
+                                  : 'bg-rose-500/10 text-rose-600/60 dark:text-rose-300/60',
+                              )}
+                            >
+                              {thinkingEnabled ? 'On' : 'Off'}
                             </div>
                           </div>
                         </button>
@@ -435,11 +451,20 @@ export default function AIInput({
                       <div className="max-h-[340px] md:max-h-[440px] overflow-y-auto scrollbar-hide [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
                         {/* Grouped by Provider */}
                         {Object.entries(groupedModels).map(([provider, providerModels]) => (
-                          <div key={provider} className="p-3 border-b border-rose-200/30 dark:border-rose-500/20 last:border-b-0">
+                          <div
+                            key={provider}
+                            className="p-3 border-b border-rose-200/30 dark:border-rose-500/20 last:border-b-0"
+                          >
                             <div className="flex items-center gap-2 mb-2">
-                              <div className={cn("w-3 h-3 rounded-full bg-gradient-to-r", getProviderColor(provider))}></div>
-                              <span className="text-sm font-medium text-rose-500/70 dark:text-rose-300/70 capitalize">{provider}</span>
-                              <span className="text-xs text-rose-400/60 dark:text-rose-400/60">({providerModels.length})</span>
+                              <div
+                                className={cn('w-3 h-3 rounded-full bg-gradient-to-r', getProviderColor(provider))}
+                              ></div>
+                              <span className="text-sm font-medium text-rose-500/70 dark:text-rose-300/70 capitalize">
+                                {provider}
+                              </span>
+                              <span className="text-xs text-rose-400/60 dark:text-rose-400/60">
+                                ({providerModels.length})
+                              </span>
                             </div>
                             <div className="space-y-1">
                               {providerModels.map((model) => (
@@ -450,12 +475,12 @@ export default function AIInput({
                                     setShowModelSelect(false)
                                   }}
                                   className={cn(
-                                    "w-full p-2 rounded-md transition-all duration-200 text-left border",
-                                    "hover:bg-rose-100/50 dark:hover:bg-rose-900/20",
-                                    selectedModel.id === model.id 
-                                      ? "bg-rose-100/50 dark:bg-rose-900/30 border-rose-500/50" 
-                                      : "border-transparent",
-                                    !thinkingEnabled && model.supportsThinking && "opacity-40 cursor-not-allowed"
+                                    'w-full p-2 rounded-md transition-all duration-200 text-left border',
+                                    'hover:bg-rose-100/50 dark:hover:bg-rose-900/20',
+                                    selectedModel.id === model.id
+                                      ? 'bg-rose-100/50 dark:bg-rose-900/30 border-rose-500/50'
+                                      : 'border-transparent',
+                                    !thinkingEnabled && model.supportsThinking && 'opacity-40 cursor-not-allowed',
                                   )}
                                   disabled={!thinkingEnabled && model.supportsThinking}
                                 >
@@ -465,15 +490,17 @@ export default function AIInput({
                                         {model.name}
                                       </span>
                                     </div>
-                                    
+
                                     {model.supportsThinking && (
                                       <div className="flex-shrink-0 relative">
-                                        <Lightbulb className={cn(
-                                          "w-4 h-4",
-                                          thinkingEnabled && selectedModel.id === model.id 
-                                            ? "text-rose-500" 
-                                            : "text-rose-400/60 dark:text-rose-500/60"
-                                        )} />
+                                        <Lightbulb
+                                          className={cn(
+                                            'w-4 h-4',
+                                            thinkingEnabled && selectedModel.id === model.id
+                                              ? 'text-rose-500'
+                                              : 'text-rose-400/60 dark:text-rose-500/60',
+                                          )}
+                                        />
                                       </div>
                                     )}
                                   </div>
@@ -504,21 +531,21 @@ export default function AIInput({
             <AnimatePresence>
               <div className="flex-shrink-0 self-end">
                 <motion.button
-                  key={isTyping ? "stop" : "send"}
+                  key={isTyping ? 'stop' : 'send'}
                   onClick={isTyping ? onStop : handleSend}
                   disabled={isTyping ? false : !value.trim()}
                   className={cn(
-                    "group rounded-full transition-all duration-300 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-rose-100 dark:focus-visible:ring-offset-rose-900",
+                    'group rounded-full transition-all duration-300 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-rose-100 dark:focus-visible:ring-offset-rose-900',
                     isTyping
-                      ? "w-8 h-8 md:w-10 md:h-10 bg-rose-500/20 hover:bg-rose-500/30 dark:bg-rose-300/20 dark:hover:bg-rose-300/30 text-rose-600 dark:text-rose-300 focus-visible:ring-rose-500"
+                      ? 'w-8 h-8 md:w-10 md:h-10 bg-rose-500/20 hover:bg-rose-500/30 dark:bg-rose-300/20 dark:hover:bg-rose-300/30 text-rose-600 dark:text-rose-300 focus-visible:ring-rose-500'
                       : value.trim()
-                        ? "w-8 h-8 md:w-10 md:h-10 bg-gradient-to-br from-rose-500 to-rose-600 dark:from-rose-300 dark:to-rose-400 text-white shadow-lg hover:shadow-xl shadow-rose-500/20 dark:shadow-rose-500/10 transition-all duration-300 ease-out"
-                        : "w-8 h-8 md:w-10 md:h-10 bg-black/5 dark:bg-white/10 text-black/30 dark:text-white/30 cursor-not-allowed"
+                        ? 'w-8 h-8 md:w-10 md:h-10 bg-gradient-to-br from-rose-500 to-rose-600 dark:from-rose-300 dark:to-rose-400 text-white shadow-lg hover:shadow-xl shadow-rose-500/20 dark:shadow-rose-500/10 transition-all duration-300 ease-out'
+                        : 'w-8 h-8 md:w-10 md:h-10 bg-black/5 dark:bg-white/10 text-black/30 dark:text-white/30 cursor-not-allowed',
                   )}
                   initial={{ opacity: 0, scale: 0.5 }}
                   animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0, scale: 0.5 }}
-                  transition={{ duration: 0.2, ease: "circOut" }}
+                  transition={{ duration: 0.2, ease: 'circOut' }}
                 >
                   {isTyping ? (
                     <Square className="w-4 md:w-5 h-4 md:h-5 mx-auto" />
