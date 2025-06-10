@@ -28,10 +28,10 @@ export default function WelcomeScreen({ onPromptClick }: WelcomeScreenProps) {
       className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center pb-24"
     >
       <div className="max-w-md">
-        <h1 className="text-4xl font-bold text-foreground">
+        <h1 className="text-3xl md:text-4xl font-bold text-foreground">
           How can I help you?
         </h1>
-        <p className="mt-4 text-muted-foreground">
+        <p className="mt-4 text-base md:text-lg text-muted-foreground">
           Here are some prompts to help you get started.
         </p>
         
@@ -40,9 +40,9 @@ export default function WelcomeScreen({ onPromptClick }: WelcomeScreenProps) {
             <button
               key={i}
               onClick={() => onPromptClick(prompt)}
-              className="w-full text-left p-4 rounded-lg bg-secondary/50 hover:bg-accent transition-colors duration-200 border border-border/50 hover:border-border"
+              className="w-full text-left p-3 md:p-4 rounded-lg bg-secondary/50 hover:bg-accent transition-colors duration-200 border border-border/50 hover:border-border"
             >
-              <span className="text-foreground">{prompt}</span>
+              <span className="text-foreground text-sm md:text-base">{prompt}</span>
             </button>
           ))}
         </div>
