@@ -5,7 +5,7 @@ import type React from "react"
 import { useState } from "react"
 import { cn } from "@/lib/utils"
 import { useAutoResizeTextarea } from "@/hooks/resize-textarea"
-import { ArrowUpCircle, Paperclip, Globe, ChevronDown, Sparkles, BrainCircuit } from "lucide-react"
+import { ArrowUpCircle, Paperclip, Globe, ChevronDown, Sparkles, Lightbulb, Plus } from "lucide-react"
 import { AnimatePresence, motion } from "framer-motion"
 
 interface AIInputProps {
@@ -380,12 +380,22 @@ export default function AIInput({
                       transition={{ duration: 0.2, ease: "easeOut" }}
                       className="absolute z-50 bottom-full mb-2 left-0 bg-white dark:bg-[oklch(0.18_0.015_25)] rounded-lg border border-rose-200/50 dark:border-rose-500/20 shadow-2xl overflow-hidden w-[280px] md:w-[320px] max-h-[400px] md:max-h-[500px]"
                     >
-                      {/* Simplified Header */}
+                      {/* Header */}
                       <div className="p-3 border-b border-rose-200/30 dark:border-rose-500/20">
                         <div className="flex items-center justify-between">
                           <h3 className="text-sm font-semibold text-rose-900 dark:text-rose-100">Select Model</h3>
-                          <button className="text-xs font-semibold bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-300 px-3 py-1 rounded-full border border-rose-200 dark:border-rose-500/30 hover:bg-rose-200 dark:hover:bg-rose-800/30 transition-all duration-200 shadow-sm">
-                            Go Pro
+                          <button className="group relative p-2 rounded-xl bg-white/70 dark:bg-[oklch(0.18_0.015_25)]/30 backdrop-blur-xl border border-rose-500/10 dark:border-white/10 hover:border-rose-500/20 dark:hover:border-rose-300/20 transition-all duration-300 ease-out shadow-lg shadow-rose-500/5 dark:shadow-lg dark:shadow-black/20 hover:shadow-xl hover:shadow-rose-500/10 dark:hover:shadow-rose-500/10">
+                            {/* Gradient overlays for premium look */}
+                            <div className="absolute inset-0 bg-gradient-to-br from-rose-500/5 via-transparent to-rose-500/10 dark:from-rose-500/10 dark:via-transparent dark:to-rose-500/20 pointer-events-none rounded-xl"></div>
+                            <div className="absolute inset-0 bg-gradient-to-t from-transparent via-transparent to-white/20 dark:to-white/5 pointer-events-none rounded-xl"></div>
+                            
+                            <div className="relative z-10 flex items-center gap-1.5">
+                              <span className="text-xs font-medium text-rose-600 dark:text-rose-300">Pro</span>
+                              <Plus className="w-3 h-3 text-rose-600 dark:text-rose-300" />
+                            </div>
+                            
+                            {/* Premium glow effect in dark mode */}
+                            <div className="absolute inset-0 -z-10 bg-gradient-to-r from-rose-300/0 via-rose-300/5 to-rose-300/0 rounded-xl blur-xl opacity-0 dark:opacity-30 pointer-events-none"></div>
                           </button>
                         </div>
                       </div>
@@ -398,96 +408,30 @@ export default function AIInput({
                             handleThinkingToggle(!thinkingEnabled);
                           }}
                           className={cn(
-                            "w-full flex items-center justify-between p-2 rounded-md transition-colors",
-                            thinkingEnabled 
-                              ? "bg-purple-500/10 text-purple-600 dark:text-purple-400" 
-                              : "hover:bg-rose-100/50 dark:hover:bg-rose-900/20 text-rose-600/70 dark:text-rose-300/70"
+                            "group w-full relative overflow-hidden bg-gradient-to-br from-rose-500/12 via-rose-500/8 to-rose-500/12 dark:from-rose-300/12 dark:via-rose-300/8 dark:to-rose-300/12 text-rose-600 dark:text-rose-300 h-10 text-sm font-semibold rounded-xl shadow-lg hover:shadow-xl shadow-rose-500/10 hover:shadow-rose-500/20 dark:shadow-rose-500/10 dark:hover:shadow-rose-500/20 transition-all duration-300 ease-out backdrop-blur-sm",
+                            !thinkingEnabled && "opacity-50"
                           )}
                         >
-                          <div className="flex items-center gap-2">
-                            <div className="relative">
-                              <BrainCircuit className={cn(
-                                "w-4 h-4 transition-opacity",
-                                thinkingEnabled ? "opacity-100" : "opacity-70"
-                              )} />
-                              {thinkingEnabled && (
-                                <span className="absolute top-0 left-0 w-full h-full flex items-center justify-center">
-                                  <span className="animate-ping absolute h-2 w-2 rounded-full bg-purple-400 opacity-75"></span>
-                                  <span className="relative rounded-full h-1.5 w-1.5 bg-purple-500"></span>
-                                </span>
-                              )}
+                          <div className="absolute inset-0 bg-gradient-to-br from-white/20 via-transparent to-transparent dark:from-white/10 rounded-xl"></div>
+                          <div className="relative z-10 flex items-center justify-center gap-2">
+                            <Lightbulb className="w-4 h-4" />
+                            <span className="tracking-[0.5px] transition-all duration-300 ease-out">
+                              Thinking Mode
+                            </span>
+                            <div className={cn(
+                              "text-xs px-2 py-0.5 rounded-full transition-colors ml-1",
+                              thinkingEnabled 
+                                ? "bg-rose-500/20 text-rose-600 dark:text-rose-400" 
+                                : "bg-rose-500/10 text-rose-600/60 dark:text-rose-300/60"
+                            )}>
+                              {thinkingEnabled ? "On" : "Off"}
                             </div>
-                            <span className="text-xs font-medium">Thinking Mode</span>
-                          </div>
-                          <div className={cn(
-                            "text-xs px-2 py-0.5 rounded-full transition-colors",
-                            thinkingEnabled 
-                              ? "bg-purple-500/20 text-purple-600 dark:text-purple-400" 
-                              : "bg-rose-500/10 dark:bg-rose-500/20 text-rose-600/60 dark:text-rose-300/60"
-                          )}>
-                            {thinkingEnabled ? "On" : "Off"}
                           </div>
                         </button>
                       </div>
 
                       <div className="max-h-[340px] md:max-h-[440px] overflow-y-auto scrollbar-hide [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-                        {/* Favorites - Simplified */}
-                        {favoriteModels.length > 0 && (
-                          <div className="p-3 border-b border-rose-200/30 dark:border-rose-500/20">
-                            <div className="flex items-center gap-2 mb-2">
-                              <span className="text-xs font-medium text-rose-500/70 dark:text-rose-300/70">Favorites</span>
-                            </div>
-                            <div className="space-y-1">
-                              {favoriteModels.map((model) => (
-                                <button
-                                  key={model.id}
-                                  onClick={() => {
-                                    setSelectedModel(model)
-                                    setShowModelSelect(false)
-                                  }}
-                                  className={cn(
-                                    "w-full p-2.5 rounded-md transition-all duration-200 text-left border",
-                                    "hover:bg-rose-100/50 dark:hover:bg-rose-900/20",
-                                    selectedModel.id === model.id 
-                                      ? "bg-rose-100/50 dark:bg-rose-900/30 border-rose-500/50" 
-                                      : "border-transparent",
-                                    !thinkingEnabled && model.supportsThinking && "opacity-40 cursor-not-allowed"
-                                  )}
-                                  disabled={!thinkingEnabled && model.supportsThinking}
-                                >
-                                  <div className="flex items-center gap-2">
-                                    <div className={cn("w-3 h-3 rounded-full bg-gradient-to-r", getProviderColor(model.provider))}></div>
-                                    <div className="flex-1 min-w-0">
-                                      <div className="flex items-center gap-1">
-                                        <span className="text-sm font-medium text-rose-900 dark:text-rose-100 truncate">
-                                          {model.name}
-                                        </span>
-                                      </div>
-                                    </div>
-                                    {model.supportsThinking && (
-                                      <div className="flex-shrink-0 relative">
-                                        <BrainCircuit className={cn(
-                                          "w-3 h-3",
-                                          thinkingEnabled && selectedModel.id === model.id 
-                                            ? "text-purple-500" 
-                                            : "text-rose-400/60 dark:text-rose-500/60"
-                                        )} />
-                                        {thinkingEnabled && selectedModel.id === model.id && (
-                                          <span className="absolute top-0 left-0 w-full h-full flex items-center justify-center">
-                                            <span className="animate-ping absolute h-1.5 w-1.5 rounded-full bg-purple-400 opacity-75"></span>
-                                            <span className="relative rounded-full h-1 w-1 bg-purple-500"></span>
-                                          </span>
-                                        )}
-                                      </div>
-                                    )}
-                                  </div>
-                                </button>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Grouped by Provider - Simplified */}
+                        {/* Grouped by Provider */}
                         {Object.entries(groupedModels).map(([provider, providerModels]) => (
                           <div key={provider} className="p-3 border-b border-rose-200/30 dark:border-rose-500/20 last:border-b-0">
                             <div className="flex items-center gap-2 mb-2">
@@ -522,18 +466,12 @@ export default function AIInput({
                                     
                                     {model.supportsThinking && (
                                       <div className="flex-shrink-0 relative">
-                                        <BrainCircuit className={cn(
+                                        <Lightbulb className={cn(
                                           "w-3 h-3",
                                           thinkingEnabled && selectedModel.id === model.id 
-                                            ? "text-purple-500" 
+                                            ? "text-rose-500" 
                                             : "text-rose-400/60 dark:text-rose-500/60"
                                         )} />
-                                        {thinkingEnabled && selectedModel.id === model.id && (
-                                          <span className="absolute top-0 left-0 w-full h-full flex items-center justify-center">
-                                            <span className="animate-ping absolute h-1.5 w-1.5 rounded-full bg-purple-400 opacity-75"></span>
-                                            <span className="relative rounded-full h-1 w-1 bg-purple-500"></span>
-                                          </span>
-                                        )}
                                       </div>
                                     )}
                                   </div>
