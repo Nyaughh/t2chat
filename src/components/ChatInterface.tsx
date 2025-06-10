@@ -7,11 +7,61 @@ import { AnimatePresence, motion } from 'framer-motion'
 import AIInput from '@/components/kokonutui/ai-input'
 import MessageRenderer from '@/components/MessageRenderer'
 import WelcomeScreen from '@/components/WelcomeScreen'
-import { useConversations } from '@/hooks/useConversations'
+import { useAuth } from '@workos-inc/authkit-nextjs/components'
+import { useMutation } from 'convex/react'
+import { api } from '@/../convex/_generated/api'
+import { db } from '@/lib/db'
+import { useAuthenticatedChat, useUnauthenticatedChat } from '@/hooks/use-chat'
+import { Message } from '@/lib/types'
+import { Id } from '@/../convex/_generated/dataModel'
+import { cn } from '@/lib/utils'
 
-export default function ChatInterface() {
-  const { messages, isTyping, handleSendMessage, stopGeneratingResponse, regenerateResponse, editMessage } =
-    useConversations()
+interface ChatInterfaceProps {
+  conversationId?: string
+}
+
+export default function ChatInterface({ conversationId }: ChatInterfaceProps) {
+  const { user, loading } = useAuth()
+  const getOrCreateUser = useMutation(api.users.getOrCreateUser)
+  const migrateMessages = useMutation(api.messages.migrateMessages)
+
+  useEffect(() => {
+    if (user) {
+      const handleFirstSignIn = async () => {
+        const convexUser = await getOrCreateUser({
+          workosId: user.id,
+          email: user.email ?? '',
+        })
+
+        const localMessages = await db.messages.toArray()
+        if (localMessages.length > 0) {
+          await migrateMessages({
+            userId: convexUser,
+            messages: localMessages.map(({ content, role }) => ({ content, role })),
+          })
+          await db.messages.clear()
+        }
+      }
+      handleFirstSignIn()
+    }
+  }, [user, getOrCreateUser, migrateMessages])
+  
+  const authenticatedChat = useAuthenticatedChat({
+      conversationId: conversationId as Id<'conversations'> | undefined,
+  })
+  const unauthenticatedChat = useUnauthenticatedChat()
+
+  const {
+    messages,
+    isTyping,
+    handleSendMessage,
+    editMessage,
+    regenerateResponse,
+    stopGeneratingResponse,
+    canSendMessage,
+    messageCount,
+    limit,
+  } = user ? authenticatedChat : unauthenticatedChat
 
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const [pendingAttachments, setPendingAttachments] = useState<File[]>([])
@@ -38,7 +88,6 @@ export default function ChatInterface() {
 
   const handleFileUpload = (files: FileList | null) => {
     if (!files || files.length === 0) return
-
     const fileArray = Array.from(files)
     setPendingAttachments((prev) => [...prev, ...fileArray])
   }
@@ -144,6 +193,15 @@ export default function ChatInterface() {
 
   const showWelcomeScreen = messages.length === 0 && !isTyping && inputValue === ''
 
+  const handleSend = (message: string) => {
+    handleSendMessage(message)
+    setInputValue('')
+  }
+
+  if (loading) {
+    return <div>Loading...</div>
+  }
+
   return (
     <>
       {/* Welcome Screen or Messages */}
@@ -153,8 +211,8 @@ export default function ChatInterface() {
         ) : (
           <ScrollArea key="messages" className="h-full scrollbar-hide" ref={scrollAreaRef}>
             <div className="pt-16 px-4 md:px-4 pb-48 md:pb-40 space-y-4 max-w-4xl mx-auto">
-              {messages.map((message) => (
-                <div key={message.id} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+              {messages.map((message: Message) => (
+                <div key={message._id as string} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                   <div className="group flex flex-col gap-2 max-w-[85%] min-w-0">
                     <div
                       className={`px-4 py-3 break-words overflow-wrap-anywhere ${
@@ -163,7 +221,7 @@ export default function ChatInterface() {
                           : 'text-black dark:text-white'
                       }`}
                     >
-                      {editingMessageId === message.id ? (
+                      {editingMessageId === message._id ? (
                         <div className="space-y-2">
                           <textarea
                             ref={editInputRef}
@@ -200,7 +258,7 @@ export default function ChatInterface() {
                       )}
                       {message.attachments && message.attachments.length > 0 && (
                         <div className="mt-2 flex flex-wrap gap-2">
-                          {message.attachments.map((file, index) => (
+                          {message.attachments.map((file: any, index: number) => (
                             <div
                               key={index}
                               className="flex items-center gap-2 bg-black/5 dark:bg-white/10 rounded px-2 py-1"
@@ -215,14 +273,14 @@ export default function ChatInterface() {
                     {message.role === 'assistant' && (
                       <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                         <button
-                          onClick={() => handleCopy(message.content, message.id)}
+                          onClick={() => handleCopy(message.content, message._id as string)}
                           className="p-1.5 text-rose-500/70 hover:text-rose-600 dark:text-rose-300/70 dark:hover:text-rose-300 hover:bg-rose-500/5 dark:hover:bg-rose-300/5 rounded transition-colors"
                           title="Copy message"
                         >
-                          {copiedId === message.id ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                          {copiedId === message._id ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                         </button>
                         <button
-                          onClick={() => regenerateResponse(message.id)}
+                          onClick={() => regenerateResponse(message._id)}
                           className="p-1.5 text-rose-500/70 hover:text-rose-600 dark:text-rose-300/70 dark:hover:text-rose-300 hover:bg-rose-500/5 dark:hover:bg-rose-300/5 rounded transition-colors"
                           title="Regenerate response"
                         >
@@ -230,10 +288,10 @@ export default function ChatInterface() {
                         </button>
                       </div>
                     )}
-                    {message.role === 'user' && editingMessageId !== message.id && (
+                    {message.role === 'user' && editingMessageId !== message._id && (
                       <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                         <button
-                          onClick={() => startEditing(message.id, message.content)}
+                          onClick={() => startEditing(message._id as string, message.content)}
                           className="p-1.5 text-rose-500/70 hover:text-rose-600 dark:text-rose-300/70 dark:hover:text-rose-300 hover:bg-rose-500/5 dark:hover:bg-rose-300/5 rounded transition-colors"
                           title="Edit message"
                         >
@@ -284,25 +342,26 @@ export default function ChatInterface() {
       </AnimatePresence>
 
       {/* AI Input */}
-      <div className="fixed md:absolute bottom-0 left-0 right-0 z-30">
-        <input
-          ref={fileInputRef}
-          type="file"
-          multiple
-          className="hidden"
-          onChange={(e) => handleFileUpload(e.target.files)}
-        />
+      <div className={cn('fixed bottom-0 left-0 right-0 z-10', 'pb-[env(safe-area-inset-bottom)]', 'bg-white/80 dark:bg-zinc-900/80 backdrop-blur-sm')}>
         <div className="max-w-4xl mx-auto w-full px-4 md:px-4">
-          <AIInput
-            value={inputValue}
-            onValueChange={setInputValue}
-            onSend={handleSendWithAttachments}
-            isTyping={isTyping}
-            onStop={stopGeneratingResponse}
-            onAttachmentClick={() => fileInputRef.current?.click()}
-            pendingAttachments={pendingAttachments}
-            onRemoveAttachment={removeAttachment}
-          />
+          <div className={cn(!canSendMessage && 'opacity-50 cursor-not-allowed')}>
+            <AIInput
+              value={inputValue}
+              onValueChange={canSendMessage ? setInputValue : () => {}}
+              onSend={canSendMessage ? handleSendWithAttachments : () => {}}
+              isTyping={isTyping}
+              onStop={stopGeneratingResponse}
+              onAttachmentClick={canSendMessage ? () => fileInputRef.current?.click() : () => {}}
+              pendingAttachments={pendingAttachments}
+              onRemoveAttachment={removeAttachment}
+            />
+          </div>
+          {!canSendMessage && (
+            <div className="text-center text-sm text-red-500/80 dark:text-red-400/80 pb-2">
+              You have reached your message limit of {limit} for {user ? 'today' : 'this session'}. 
+              {!user && " Please sign in to continue."}
+            </div>
+          )}
         </div>
       </div>
     </>

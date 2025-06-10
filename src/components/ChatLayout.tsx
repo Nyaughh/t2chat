@@ -7,9 +7,12 @@ import { motion, AnimatePresence } from 'framer-motion'
 import ThemeSwitcher from '@/components/ThemeSwitcher'
 import SettingsPage from '@/components/SettingsPage'
 import { useSidebar } from '@/hooks/useSidebar'
-import { useConversations } from '@/hooks/useConversations'
+import { useConversations } from '@/hooks/use-conversations'
 import { useTouch } from '@/hooks/useTouch'
 import { useState, useEffect } from 'react'
+import { useAuth } from '@workos-inc/authkit-nextjs/components'
+import { useRouter, usePathname } from 'next/navigation'
+import { Doc } from '@/../convex/_generated/dataModel'
 
 interface ChatLayoutProps {
   children: React.ReactNode
@@ -18,16 +21,16 @@ interface ChatLayoutProps {
 export default function ChatLayout({ children }: ChatLayoutProps) {
   const [mounted, setMounted] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
-  const [isSignedIn, setIsSignedIn] = useState(false)
+  const { user } = useAuth()
   const { sidebarOpen, toggleSidebar } = useSidebar()
+  const router = useRouter()
+  const pathname = usePathname()
+
   const {
     conversations,
-    currentConversationId,
-    currentConversation,
     searchQuery,
     filteredConversations,
-    createNewConversation,
-    setCurrentConversationId,
+    createConversation,
     setSearchQuery,
     deleteConversation,
   } = useConversations()
@@ -40,30 +43,37 @@ export default function ChatLayout({ children }: ChatLayoutProps) {
     setMounted(true)
   }, [])
 
+  const currentConversationId = pathname.includes('/chat/') ? pathname.split('/').pop() : null
+
   const handleConversationSelect = (conversationId: string) => {
-    setCurrentConversationId(conversationId)
+    router.push(`/chat/${conversationId}`)
     if (typeof window !== 'undefined' && window.innerWidth < 768) {
       toggleSidebar()
     }
   }
 
   const createNewChat = () => {
-    createNewConversation()
-    if (typeof window !== 'undefined' && window.innerWidth < 768) {
-      toggleSidebar()
-    }
-  }
-
-  const handleSignIn = () => {
-    setIsSignedIn(true)
+    createConversation().then((newId) => {
+      if (newId && typeof window !== 'undefined' && window.innerWidth < 768) {
+        toggleSidebar()
+      }
+    })
   }
 
   const handleProfileClick = () => {
-    if (isSignedIn) {
+    if (user) {
       setSettingsOpen(true)
     } else {
-      handleSignIn()
+      router.push('/login')
     }
+  }
+  
+  const handleDelete = (e: React.MouseEvent, conversationId: string) => {
+      e.stopPropagation()
+      if (currentConversationId === conversationId) {
+          router.push('/')
+      }
+      deleteConversation(conversationId as any)
   }
 
   // Use a consistent sidebar state for SSR
@@ -145,19 +155,19 @@ export default function ChatLayout({ children }: ChatLayoutProps) {
         <div className="flex-1 min-h-0 px-4">
           <div className="h-full overflow-y-auto scrollbar-hide">
             <div className="space-y-1 py-2">
-              {filteredConversations.map((conversation) => (
+              {filteredConversations.map((conversation: Doc<'conversations'>) => (
                 <div
-                  key={conversation.id}
-                  onClick={() => handleConversationSelect(conversation.id)}
+                  key={conversation._id}
+                  onClick={() => handleConversationSelect(conversation._id)}
                   className={cn(
                     'group px-3 py-2.5 cursor-pointer transition-all duration-200 relative overflow-hidden',
-                    conversation.id === currentConversationId
+                    conversation._id === currentConversationId
                       ? 'text-rose-600 dark:text-rose-300'
                       : 'hover:text-rose-600 dark:hover:text-rose-300 text-black/70 dark:text-white/70'
                   )}
                 >
                   {/* Premium background for active state */}
-                  {conversation.id === currentConversationId && (
+                  {conversation._id === currentConversationId && (
                     <>
                       {/* Main gradient background with sharp edges */}
                       <div className="absolute inset-0 bg-gradient-to-r from-transparent via-rose-500/8 dark:via-rose-300/8 to-transparent"></div>
@@ -174,7 +184,7 @@ export default function ChatLayout({ children }: ChatLayoutProps) {
                   )}
                   
                   {/* Hover effect for non-active items */}
-                  {conversation.id !== currentConversationId && (
+                  {conversation._id !== currentConversationId && (
                     <div className="absolute inset-0 bg-gradient-to-r from-transparent via-rose-500/3 dark:via-rose-300/3 to-transparent opacity-0 hover:opacity-100 transition-opacity duration-200"></div>
                   )}
 
@@ -186,10 +196,7 @@ export default function ChatLayout({ children }: ChatLayoutProps) {
                     </div>
                     {conversations.length > 1 && (
                       <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          deleteConversation(conversation.id)
-                        }}
+                        onClick={(e) => handleDelete(e, conversation._id)}
                         className="opacity-0 group-hover:opacity-100 p-1 -m-1 text-black/40 dark:text-white/40 hover:text-red-500 dark:hover:text-red-400 transition-all duration-200"
                       >
                         <X className="w-4 h-4" />
@@ -218,7 +225,7 @@ export default function ChatLayout({ children }: ChatLayoutProps) {
           >
             <div className="flex items-center gap-3 w-full">
               <AnimatePresence mode="wait">
-                {isSignedIn ? (
+                {user ? (
                   <motion.div 
                     key="signed-in"
                     initial={{ opacity: 0, scale: 0.8 }}
@@ -228,11 +235,11 @@ export default function ChatLayout({ children }: ChatLayoutProps) {
                     className="flex items-center gap-3 w-full"
                   >
                     <div className="w-7 h-7 rounded-full bg-gradient-to-br from-rose-500 to-rose-600 dark:from-rose-300 dark:to-rose-400 flex items-center justify-center flex-shrink-0 text-white text-xs font-bold">
-                      JD
+                      {user.firstName?.charAt(0)}{user.lastName?.charAt(0)}
                     </div>
                     <div className="flex-1 text-left min-w-0">
                       <div className="text-xs font-medium text-black/80 dark:text-white/80 group-hover:text-rose-600 dark:group-hover:text-rose-300 transition-colors truncate">
-                        John Doe
+                        {user.firstName} {user.lastName}
                       </div>
                       <div className="text-[10px] text-black/50 dark:text-white/50 group-hover:text-rose-500/70 dark:group-hover:text-rose-300/70 transition-colors">
                         Free Plan
@@ -324,7 +331,7 @@ export default function ChatLayout({ children }: ChatLayoutProps) {
             <Button
               variant="ghost"
               size="icon"
-              onClick={createNewConversation}
+              onClick={createNewChat}
               className={cn(
                 'relative z-10 text-rose-600 dark:text-rose-300 hover:text-rose-700 dark:hover:text-rose-200 h-6 w-6 p-0 hover:bg-transparent',
                 isOnHomePage && 'opacity-30 cursor-not-allowed',
@@ -348,7 +355,7 @@ export default function ChatLayout({ children }: ChatLayoutProps) {
       </div>
 
       {/* Settings Page */}
-      {isSignedIn && <SettingsPage isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} />}
+      {user && <SettingsPage isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} />}
     </div>
   )
 }

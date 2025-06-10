@@ -7,5 +7,5 @@ interface ChatPageProps {
 }
 
 export default function ChatPage({ params }: ChatPageProps) {
-  return <ChatInterface />
+  return <ChatInterface conversationId={params.id} />
 }

@@ -2,6 +2,8 @@ import type { Metadata } from 'next'
 import { Inter, Inter_Tight } from 'next/font/google'
 import './globals.css'
 import { ThemeProvider } from 'next-themes'
+import { AuthKitProvider } from '@workos-inc/authkit-nextjs/components'
+import { ConvexClientProvider } from '@/components/ConvexClientProvider'
 
 const inter = Inter({
   variable: '--font-inter',
@@ -34,9 +36,11 @@ export default function RootLayout({
         rest of your scripts go under */}
       </head>
       <body className={`${inter.variable} ${interTight.variable} antialiased`} suppressHydrationWarning>
-        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-          {children}
-        </ThemeProvider>
+        <AuthKitProvider>
+          <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+            <ConvexClientProvider>{children}</ConvexClientProvider>
+          </ThemeProvider>
+        </AuthKitProvider>
       </body>
     </html>
   )
