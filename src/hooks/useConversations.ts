@@ -5,6 +5,8 @@ import { useRouter, usePathname } from 'next/navigation'
 import { v4 as uuidv4 } from 'uuid'
 import { db, type Conversation as DBConversation, type DBMessage } from '../lib/dexie'
 import { useUser } from '@clerk/nextjs'
+import { CoreMessage } from 'ai'
+import { parseDataStream } from '../lib/stream-parser'
 
 export function useConversations() {
   const router = useRouter()
@@ -16,7 +18,8 @@ export function useConversations() {
   const [isTyping, setIsTyping] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [filteredConversations, setFilteredConversations] = useState<DBConversation[]>([])
-  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const abortControllerRef = useRef<AbortController | null>(null)
+  const [model, setModel] = useState('gemini-2.0-flash')
 
   // Load conversations from Dexie on mount
   useEffect(() => {
@@ -145,88 +148,107 @@ export function useConversations() {
     [router],
   )
 
-  const addMessageToCurrentConversation = useCallback(
-    async (message: Omit<DBMessage, 'id' | 'conversationId' | 'createdAt' | 'parts'>) => {
-      if (!currentConversationId) return
+  const stopGeneratingResponse = useCallback(() => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort()
+      abortControllerRef.current = null
+      setIsTyping(false)
+    }
+  }, [])
+
+  const getAIResponse = useCallback(
+    async (history: DBMessage[], modelToUse: string, conversationId: string) => {
+      if (!conversationId) return
+
+      setIsTyping(true)
+      abortControllerRef.current = new AbortController()
 
       try {
-        const newMessage: DBMessage = {
-          id: uuidv4(),
-          conversationId: currentConversationId,
-          content: message.content,
-          role: message.role,
-          createdAt: new Date(),
-          parts: [],
-        }
+        const coreHistory: CoreMessage[] = history.reduce((acc: CoreMessage[], m) => {
+          if (m.role === 'user' || m.role === 'assistant' || m.role === 'system') {
+            acc.push({ role: m.role, content: m.content })
+          }
+          return acc
+        }, [])
 
-        await db.messages.add(newMessage)
-        setMessages((prev) => [...prev, newMessage])
-
-        await db.conversations.update(currentConversationId, {
-          lastMessageAt: newMessage.createdAt,
-          updatedAt: newMessage.createdAt,
+        const response = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            messages: coreHistory,
+            data: { modelId: modelToUse },
+          }),
+          signal: abortControllerRef.current.signal,
         })
 
+        if (!response.body) throw new Error('No response body')
+
+        const assistantId = uuidv4()
+        const createdAt = new Date()
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: assistantId,
+            conversationId: conversationId,
+            content: '',
+            role: 'assistant',
+            createdAt,
+            parts: [],
+          },
+        ])
+
+        let streamingContent = ''
+        const dataStream = parseDataStream(response.body)
+        let streamingStarted = false
+
+        for await (const chunk of dataStream) {
+          if (!streamingStarted) {
+            streamingStarted = true
+            setIsTyping(false)
+          }
+
+          if (chunk.type === 'text') {
+            streamingContent += chunk.value
+            setMessages((prev) =>
+              prev.map((m) => (m.id === assistantId ? { ...m, content: streamingContent } : m)),
+            )
+          }
+        }
+
+        const finalAssistantMessage: DBMessage = {
+          id: assistantId,
+          conversationId: conversationId,
+          content: streamingContent,
+          role: 'assistant',
+          createdAt,
+          parts: [],
+        }
+        await db.messages.put(finalAssistantMessage)
+
+        await db.conversations.update(conversationId, {
+          lastMessageAt: finalAssistantMessage.createdAt,
+          updatedAt: finalAssistantMessage.createdAt,
+        })
         setConversations((prev) =>
           prev
             .map((c) =>
-              c.id === currentConversationId
-                ? { ...c, lastMessageAt: newMessage.createdAt, updatedAt: newMessage.createdAt }
+              c.id === conversationId
+                ? { ...c, lastMessageAt: finalAssistantMessage.createdAt, updatedAt: finalAssistantMessage.createdAt }
                 : c,
             )
             .sort((a, b) => b.lastMessageAt.getTime() - a.lastMessageAt.getTime()),
         )
       } catch (error) {
-        console.error('Error adding message:', error)
+        if ((error as Error).name !== 'AbortError') {
+          console.error('Error getting AI response:', error)
+        }
+      } finally {
+        setIsTyping(false)
+        abortControllerRef.current = null
       }
     },
-    [currentConversationId],
+    [],
   )
-
-  const stopGeneratingResponse = useCallback(() => {
-    if (typingTimeoutRef.current) {
-      clearTimeout(typingTimeoutRef.current)
-      typingTimeoutRef.current = null
-    }
-    setIsTyping(false)
-    addMessageToCurrentConversation({
-      role: 'assistant',
-      content: 'Stopped by the user',
-    })
-  }, [addMessageToCurrentConversation])
-
-  useEffect(() => {
-    const lastMessage = messages[messages.length - 1]
-
-    if (lastMessage?.role === 'user' && !isTyping) {
-      setIsTyping(true)
-      typingTimeoutRef.current = setTimeout(() => {
-        const responses = [
-          'I understand your question. Let me provide you with a comprehensive answer that addresses your specific needs.',
-          "That's a great question! Based on my analysis, here are some insights that might be helpful for you.",
-          "I've processed your request and I'm ready to assist you with this. Here's what I recommend:",
-          'Excellent! I can definitely help you with that. Let me break this down for you in a clear and actionable way.',
-          "Thank you for that question. I've analyzed the context and here's my detailed response:",
-        ]
-
-        const response = responses[Math.floor(Math.random() * responses.length)]
-
-        addMessageToCurrentConversation({
-          content: response,
-          role: 'assistant',
-        })
-
-        setIsTyping(false)
-        typingTimeoutRef.current = null
-      }, 1200)
-    }
-
-    return () => {
-      if (typingTimeoutRef.current) {
-        clearTimeout(typingTimeoutRef.current)
-      }
-    }
-  }, [messages, addMessageToCurrentConversation])
 
   const regenerateResponse = useCallback(
     async (assistantMessageId: string) => {
@@ -236,18 +258,18 @@ export function useConversations() {
         const messageIndex = messages.findIndex((m) => m.id === assistantMessageId)
         if (messageIndex === -1) return
 
+        const messagesForReprompt = messages.slice(0, messageIndex)
         const messagesToDelete = messages.slice(messageIndex)
         const messageIdsToDelete = messagesToDelete.map((m) => m.id)
 
         await db.messages.bulkDelete(messageIdsToDelete)
-
-        const newMessages = messages.slice(0, messageIndex)
-        setMessages(newMessages)
+        setMessages(messagesForReprompt)
+        await getAIResponse(messagesForReprompt, model, currentConversation.id)
       } catch (error) {
         console.error('Error regenerating response:', error)
       }
     },
-    [currentConversation, messages],
+    [currentConversation, messages, getAIResponse, model],
   )
 
   const editMessage = useCallback(
@@ -265,7 +287,7 @@ export function useConversations() {
         }
 
         const newTimestamp = new Date()
-        const editedMessage = {
+        const editedMessage: DBMessage = {
           ...messages[messageIndex],
           content: newContent,
           createdAt: newTimestamp,
@@ -284,82 +306,90 @@ export function useConversations() {
             c.id === currentConversation.id ? { ...c, lastMessageAt: newTimestamp, updatedAt: newTimestamp } : c,
           ),
         )
+        await getAIResponse(updatedMessages, model, currentConversation.id)
       } catch (error) {
         console.error('Error editing message:', error)
       }
     },
-    [currentConversation, messages],
+    [currentConversation, messages, getAIResponse, model],
   )
 
   const handleSendMessage = useCallback(
-    async (message: string, attachments: File[] = []) => {
+    async (message: string, selectedModel: string, attachments: File[] = []) => {
       if (!message.trim() && attachments.length === 0) return
+
+      setModel(selectedModel)
 
       const content =
         message.trim() ||
         (attachments.length > 0 ? `Uploaded files: ${attachments.map((f) => f.name).join(', ')}` : '')
 
       let conversationId = currentConversationId
-      let isNewConversation = false
+      const isNewConversation = !conversationId || !currentConversation || pathname === '/'
+      let newMessagesHistory: DBMessage[]
 
-      try {
-        if (!conversationId || !currentConversation || pathname === '/') {
-          isNewConversation = true
-          conversationId = uuidv4()
-          const now = new Date()
-          const newConv: DBConversation = {
-            id: conversationId,
-            userId: user?.user?.id ? user.user.id : 'local-user',
-            title: generateTitle(content),
-            createdAt: now,
-            updatedAt: now,
-            lastMessageAt: now,
-          }
-          await db.conversations.add(newConv)
-          setConversations((prev) =>
-            [newConv, ...prev].sort((a, b) => b.lastMessageAt.getTime() - a.lastMessageAt.getTime()),
-          )
-          setCurrentConversationId(conversationId)
+      if (isNewConversation) {
+        conversationId = uuidv4()
+        const now = new Date()
+        const newConv: DBConversation = {
+          id: conversationId,
+          userId: user?.user?.id ? user.user.id : 'local-user',
+          title: generateTitle(content),
+          createdAt: now,
+          updatedAt: now,
+          lastMessageAt: now,
         }
+        await db.conversations.add(newConv)
+        setConversations((prev) =>
+          [newConv, ...prev].sort((a, b) => b.lastMessageAt.getTime() - a.lastMessageAt.getTime()),
+        )
 
         const newMessage: DBMessage = {
           id: uuidv4(),
-          conversationId: conversationId,
+          conversationId,
           content,
           role: 'user',
           createdAt: new Date(),
           parts: [],
         }
-
         await db.messages.add(newMessage)
 
-        if (!isNewConversation && conversationId) {
-          await db.conversations.update(conversationId, {
-            lastMessageAt: newMessage.createdAt,
-            updatedAt: newMessage.createdAt,
-          })
-          setConversations((prev) =>
-            prev
-              .map((c) =>
-                c.id === conversationId ? { ...c, lastMessageAt: newMessage.createdAt, updatedAt: newMessage.createdAt } : c,
-              )
-              .sort((a, b) => b.lastMessageAt.getTime() - a.lastMessageAt.getTime()),
-          )
-          setMessages((prev) => [...prev, newMessage])
-        }
+        setCurrentConversationId(conversationId)
+        setMessages([newMessage])
+        newMessagesHistory = [newMessage]
 
-        if (isNewConversation) {
-          router.push(`/chat/${conversationId}`)
+        window.history.pushState({}, '', `/chat/${conversationId}`)
+      } else {
+        const newMessage: DBMessage = {
+          id: uuidv4(),
+          conversationId,
+          content,
+          role: 'user',
+          createdAt: new Date(),
+          parts: [],
         }
-      } catch (error) {
-        console.error('Error sending message:', error)
+        await db.messages.add(newMessage)
+        await db.conversations.update(conversationId, {
+          lastMessageAt: newMessage.createdAt,
+          updatedAt: newMessage.createdAt,
+        })
+        setConversations((prev) =>
+          prev
+            .map((c) =>
+              c.id === conversationId ? { ...c, lastMessageAt: newMessage.createdAt, updatedAt: newMessage.createdAt } : c,
+            )
+            .sort((a, b) => b.lastMessageAt.getTime() - a.lastMessageAt.getTime()),
+        )
+        newMessagesHistory = [...messages, newMessage]
+        setMessages(newMessagesHistory)
       }
+      await getAIResponse(newMessagesHistory, selectedModel, conversationId)
     },
-    [currentConversationId, currentConversation, pathname, router, user?.user?.id],
+    [currentConversationId, currentConversation, pathname, user?.user?.id, messages, getAIResponse],
   )
 
   return {
-    conversations: conversations,
+    conversations,
     currentConversationId,
     currentConversation,
     messages,

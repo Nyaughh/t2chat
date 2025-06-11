@@ -50,9 +50,9 @@ export default function ChatInterface() {
     setPendingAttachments((prev) => prev.filter((_, i) => i !== index))
   }
 
-  const handleSendWithAttachments = (message: string) => {
+  const handleSendWithAttachments = (message: string, model: string) => {
     setPendingAttachments([])
-    handleSendMessage(message, pendingAttachments)
+    handleSendMessage(message, model, pendingAttachments)
 
   }
 
@@ -217,20 +217,25 @@ export default function ChatInterface() {
                     </div>
                     {message.role === 'assistant' && (
                       <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button
-                          onClick={() => handleCopy(message.content, message.id)}
-                          className="p-1.5 text-rose-500/70 hover:text-rose-600 dark:text-rose-300/70 dark:hover:text-rose-300 hover:bg-rose-500/5 dark:hover:bg-rose-300/5 rounded transition-colors"
-                          title="Copy message"
-                        >
-                          {copiedId === message.id ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                        </button>
-                        <button
-                          onClick={() => regenerateResponse(message.id)}
-                          className="p-1.5 text-rose-500/70 hover:text-rose-600 dark:text-rose-300/70 dark:hover:text-rose-300 hover:bg-rose-500/5 dark:hover:bg-rose-300/5 rounded transition-colors"
-                          title="Regenerate response"
-                        >
-                          <RotateCcw className="w-4 h-4" />
-                        </button>
+                        {/* Only show buttons if this message is not currently streaming */}
+                        {!(isTyping && messages[messages.length - 1]?.id === message.id) && (
+                          <>
+                            <button
+                              onClick={() => handleCopy(message.content, message.id)}
+                              className="p-1.5 text-rose-500/70 hover:text-rose-600 dark:text-rose-300/70 dark:hover:text-rose-300 hover:bg-rose-500/5 dark:hover:bg-rose-300/5 rounded transition-colors"
+                              title="Copy message"
+                            >
+                              {copiedId === message.id ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                            </button>
+                            <button
+                              onClick={() => regenerateResponse(message.id)}
+                              className="p-1.5 text-rose-500/70 hover:text-rose-600 dark:text-rose-300/70 dark:hover:text-rose-300 hover:bg-rose-500/5 dark:hover:bg-rose-300/5 rounded transition-colors"
+                              title="Regenerate response"
+                            >
+                              <RotateCcw className="w-4 h-4" />
+                            </button>
+                          </>
+                        )}
                       </div>
                     )}
                     {message.role === 'user' && editingMessageId !== message.id && (

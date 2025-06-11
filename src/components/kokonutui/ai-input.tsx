@@ -7,11 +7,11 @@ import { cn } from '@/lib/utils'
 import { useAutoResizeTextarea } from '@/hooks/resize-textarea'
 import { ArrowUpCircle, Paperclip, Globe, ChevronDown, Sparkles, Lightbulb, Plus, Square } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
-
+import { ModelInfo, models } from '@/lib/models'
 interface AIInputProps {
   value: string
   onValueChange: (value: string) => void
-  onSend?: (message: string) => void
+  onSend?: (message: string, model: string) => void
   isTyping?: boolean
   onStop?: () => void
   onAttachmentClick?: () => void
@@ -20,220 +20,27 @@ interface AIInputProps {
   messagesLength: number
 }
 
-interface ModelInfo {
-  id: string
-  name: string
-  description: string
-  category: 'favorites' | 'others'
-  provider: 'gemini' | 'gpt' | 'claude' | 'o-series' | 'llama'
-  features: ('vision' | 'web' | 'code')[]
-  isPro: boolean
-  isNew?: boolean
-  supportsThinking?: boolean
-}
 
-const models: ModelInfo[] = [
-  // Favorites
-  {
-    id: 'gemini-2.0-flash',
-    name: 'Gemini 2.0 Flash',
-    description: 'Latest and fastest model',
-    category: 'favorites',
-    provider: 'gemini',
-    features: ['vision', 'web', 'code'],
-    isPro: false,
-    supportsThinking: true,
-  },
-
-  // Others - Gemini Family
-  {
-    id: 'gemini-2.0-flash-lite',
-    name: 'Gemini 2.0 Flash Lite',
-    description: 'Lightweight version for quick tasks',
-    category: 'others',
-    provider: 'gemini',
-    features: ['vision', 'code'],
-    isPro: false,
-    isNew: true,
-  },
-  {
-    id: 'gemini-2.5-flash',
-    name: 'Gemini 2.5 Flash',
-    description: 'Advanced reasoning capabilities',
-    category: 'others',
-    provider: 'gemini',
-    features: ['vision', 'web', 'code'],
-    isPro: false,
-    supportsThinking: true,
-  },
-  {
-    id: 'gemini-2.5-pro',
-    name: 'Gemini 2.5 Pro',
-    description: 'Most capable model for complex tasks',
-    category: 'others',
-    provider: 'gemini',
-    features: ['vision', 'web', 'code'],
-    isPro: true,
-    supportsThinking: true,
-  },
-
-  // GPT Models
-  {
-    id: 'gpt-imagegen',
-    name: 'GPT ImageGen',
-    description: 'Specialized for image generation',
-    category: 'others',
-    provider: 'gpt',
-    features: ['vision'],
-    isPro: true,
-  },
-  {
-    id: 'gpt-4o-mini',
-    name: 'GPT 4o-mini',
-    description: 'Compact and efficient',
-    category: 'others',
-    provider: 'gpt',
-    features: ['vision'],
-    isPro: false,
-  },
-  {
-    id: 'gpt-4o',
-    name: 'GPT 4o',
-    description: 'Omni-modal capabilities',
-    category: 'others',
-    provider: 'gpt',
-    features: ['vision'],
-    isPro: false,
-    supportsThinking: true,
-  },
-  {
-    id: 'gpt-4.1',
-    name: 'GPT 4.1',
-    description: 'Enhanced reasoning model',
-    category: 'others',
-    provider: 'gpt',
-    features: ['vision'],
-    isPro: false,
-    supportsThinking: true,
-  },
-  {
-    id: 'gpt-4.1-mini',
-    name: 'GPT 4.1 Mini',
-    description: 'Lightweight reasoning model',
-    category: 'others',
-    provider: 'gpt',
-    features: ['vision'],
-    isPro: false,
-  },
-  {
-    id: 'gpt-4.1-nano',
-    name: 'GPT 4.1 Nano',
-    description: 'Ultra-fast responses',
-    category: 'others',
-    provider: 'gpt',
-    features: ['vision'],
-    isPro: false,
-  },
-
-  // O-Series Models
-  {
-    id: 'o3-mini',
-    name: 'o3 mini',
-    description: 'Advanced reasoning in compact form',
-    category: 'others',
-    provider: 'o-series',
-    features: ['web', 'code'],
-    isPro: false,
-  },
-  {
-    id: 'o4-mini',
-    name: 'o4 mini',
-    description: 'Next-gen reasoning model',
-    category: 'others',
-    provider: 'o-series',
-    features: ['vision', 'web'],
-    isPro: false,
-    supportsThinking: true,
-  },
-  {
-    id: 'o3',
-    name: 'o3',
-    description: 'Powerful reasoning capabilities',
-    category: 'others',
-    provider: 'o-series',
-    features: ['vision', 'web'],
-    isPro: false,
-    supportsThinking: true,
-  },
-
-  // Claude Models
-  {
-    id: 'claude-3.5-sonnet',
-    name: 'Claude 3.5 Sonnet',
-    description: 'Balanced performance and speed',
-    category: 'others',
-    provider: 'claude',
-    features: ['vision', 'code'],
-    isPro: false,
-    supportsThinking: true,
-  },
-  {
-    id: 'claude-3.7-sonnet',
-    name: 'Claude 3.7 Sonnet',
-    description: 'Enhanced writing and analysis',
-    category: 'others',
-    provider: 'claude',
-    features: ['vision', 'code'],
-    isPro: false,
-    supportsThinking: true,
-  },
-  {
-    id: 'claude-4-sonnet',
-    name: 'Claude 4 Sonnet',
-    description: 'Latest Claude capabilities',
-    category: 'others',
-    provider: 'claude',
-    features: ['vision', 'code'],
-    isPro: true,
-    supportsThinking: true,
-  },
-  {
-    id: 'claude-4-opus',
-    name: 'Claude 4 Opus',
-    description: 'Most capable Claude model',
-    category: 'others',
-    provider: 'claude',
-    features: ['vision', 'code'],
-    isPro: true,
-    supportsThinking: true,
-  },
-
-  // Llama
-  {
-    id: 'llama-3.3-70b',
-    name: 'Llama 3.3 70b',
-    description: 'Open-source excellence',
-    category: 'others',
-    provider: 'llama',
-    features: ['code'],
-    isPro: false,
-    isNew: true,
-    supportsThinking: true,
-  },
-]
-
-const getProviderColor = (provider: string) => {
-  switch (provider) {
+const getCategoryColor = (category: string) => {
+  switch (category) {
+    case 'google':
     case 'gemini':
       return 'from-blue-500 to-purple-500'
-    case 'gpt':
-      return 'from-green-500 to-teal-500'
+    case 'anthropic':
     case 'claude':
       return 'from-purple-500 to-pink-500'
-    case 'o-series':
-      return 'from-orange-500 to-red-500'
+    case 'openai':
+    case 'gpt':
+      return 'from-green-500 to-teal-500'
+    case 'deepseek':
+      return 'from-cyan-500 to-blue-500'
+    case 'meta':
     case 'llama':
       return 'from-indigo-500 to-blue-500'
+    case 'o-series':
+      return 'from-orange-500 to-red-500'
+    case 'openrouter':
+      return 'from-gray-500 to-gray-600'
     default:
       return 'from-gray-500 to-gray-600'
   }
@@ -253,6 +60,7 @@ export default function AIInput({
   const [selectedModel, setSelectedModel] = useState<ModelInfo>(models[0])
   const [showModelSelect, setShowModelSelect] = useState(false)
   const [thinkingEnabled, setThinkingEnabled] = useState(true)
+  const [groupBy, setGroupBy] = useState<'provider' | 'category'>('provider')
   const { textareaRef, adjustHeight } = useAutoResizeTextarea({
     minHeight: 80,
     maxHeight: 200,
@@ -260,7 +68,7 @@ export default function AIInput({
 
   const handleSend = () => {
     if (value.trim() && onSend && !isTyping) {
-      onSend(value.trim())
+      onSend(value.trim(), selectedModel.id)
       if (messagesLength === 0) {
         setTimeout(() => {
           onValueChange('')
@@ -295,20 +103,35 @@ export default function AIInput({
     }
   }
 
-  const favoriteModels = models.filter((model) => model.category === 'favorites')
-  const otherModels = models.filter((model) => model.category === 'others')
-
-  // Group other models by provider
-  const groupedModels = otherModels.reduce(
+  const groupedModels = models.reduce(
     (acc, model) => {
-      if (!acc[model.provider]) {
-        acc[model.provider] = []
+      const groupKey = groupBy === 'provider' ? model.provider : model.category
+      if (!acc[groupKey]) {
+        acc[groupKey] = []
       }
-      acc[model.provider].push(model)
+      acc[groupKey].push(model)
       return acc
     },
     {} as Record<string, ModelInfo[]>,
   )
+
+  // Sort groups and models within groups
+  const sortedGroupedModels = Object.entries(groupedModels)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .reduce((acc, [groupKey, groupModels]) => {
+      // Sort models within each group
+      const sortedModels = groupModels.sort((a, b) => {
+        if (groupBy === 'provider') {
+          // When grouped by provider, sort by category first, then by name
+          if (a.category !== b.category) {
+            return a.category.localeCompare(b.category)
+          }
+        }
+        return a.name.localeCompare(b.name)
+      })
+      acc[groupKey] = sortedModels
+      return acc
+    }, {} as Record<string, ModelInfo[]>)
 
   return (
     <div className="relative">
@@ -385,7 +208,7 @@ export default function AIInput({
                     <div
                       className={cn(
                         'w-2.5 md:w-3 h-2.5 md:h-3 rounded-full bg-gradient-to-r',
-                        getProviderColor(selectedModel.provider),
+                        getCategoryColor(selectedModel.category),
                       )}
                     ></div>
                     <span className="truncate max-w-[100px] md:max-w-none">{selectedModel.name}</span>
@@ -405,11 +228,11 @@ export default function AIInput({
                       animate={{ opacity: 1, y: 0, scale: 1 }}
                       exit={{ opacity: 0, y: -10, scale: 0.95 }}
                       transition={{ duration: 0.2, ease: 'easeOut' }}
-                      className="absolute z-50 bottom-full mb-2 left-0 bg-white dark:bg-[oklch(0.18_0.015_25)] rounded-lg border border-rose-200/50 dark:border-rose-500/20 shadow-2xl overflow-hidden w-[320px] max-h-[500px]"
+                      className="absolute z-50 bottom-full mb-2 left-0 bg-white dark:bg-[oklch(0.18_0.015_25)] rounded-lg border border-rose-200/50 dark:border-rose-500/20 shadow-2xl overflow-hidden w-[320px]"
                     >
                       {/* Header */}
                       <div className="p-4 border-b border-rose-200/30 dark:border-rose-500/20">
-                        <div className="flex items-center justify-between">
+                        <div className="flex items-center justify-between mb-3">
                           <h3 className="text-base font-semibold text-rose-900 dark:text-rose-100">Select Model</h3>
                           <button className="group relative p-2 rounded-xl bg-white/70 dark:bg-[oklch(0.18_0.015_25)]/30 backdrop-blur-xl border border-rose-500/10 dark:border-white/10 hover:border-rose-500/20 dark:hover:border-rose-300/20 transition-all duration-300 ease-out shadow-lg shadow-rose-500/5 dark:shadow-lg dark:shadow-black/20 hover:shadow-xl hover:shadow-rose-500/10 dark:hover:shadow-rose-500/10">
                             {/* Gradient overlays for premium look */}
@@ -425,6 +248,9 @@ export default function AIInput({
                             <div className="absolute inset-0 -z-10 bg-gradient-to-r from-rose-300/0 via-rose-300/5 to-rose-300/0 rounded-xl blur-xl opacity-0 dark:opacity-30 pointer-events-none"></div>
                           </button>
                         </div>
+                        
+                        {/* Group By Toggle */}
+                        
                       </div>
 
                       {/* Thinking Mode Toggle */}
@@ -457,26 +283,48 @@ export default function AIInput({
                         </button>
                       </div>
 
-                      <div className="max-h-[340px] md:max-h-[440px] overflow-y-auto scrollbar-hide [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-                        {/* Grouped by Provider */}
-                        {Object.entries(groupedModels).map(([provider, providerModels]) => (
+                      <div className="p-3 border-b border-rose-200/30 dark:border-rose-500/20">
+                      <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setGroupBy(groupBy === 'provider' ? 'category' : 'provider')
+                          }}
+                          className={cn(
+                            'group w-full relative overflow-hidden bg-gradient-to-br from-rose-500/12 via-rose-500/8 to-rose-500/12 dark:from-rose-300/12 dark:via-rose-300/8 dark:to-rose-300/12 text-rose-600 dark:text-rose-300 h-12 text-base font-semibold rounded-xl shadow-lg hover:shadow-xl shadow-rose-500/10 hover:shadow-rose-500/20 dark:shadow-rose-500/10 dark:hover:shadow-rose-500/20 transition-all duration-300 ease-out backdrop-blur-sm'
+                          )}
+                        >
+                          <div className="absolute inset-0 bg-gradient-to-br from-white/20 via-transparent to-transparent dark:from-white/10 rounded-xl"></div>
+                          <div className="relative z-10 flex items-center justify-center gap-2">
+                            <span className="tracking-[0.5px] transition-all duration-300 ease-out">
+                              Group by
+                            </span>
+                            <div className="text-sm px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-600 dark:text-rose-400 transition-colors">
+                              {groupBy === 'provider' ? 'Category' : 'Provider'}
+                            </div>
+                          </div>
+                        </button>
+                      </div>
+
+                      <div className="max-h-[400px] overflow-y-auto" style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgb(244 63 94 / 0.3) transparent' }}>
+                        {/* Grouped Models */}
+                        {Object.entries(sortedGroupedModels).map(([groupKey, groupModels]) => (
                           <div
-                            key={provider}
+                            key={groupKey}
                             className="p-3 border-b border-rose-200/30 dark:border-rose-500/20 last:border-b-0"
                           >
                             <div className="flex items-center gap-2 mb-2">
                               <div
-                                className={cn('w-3 h-3 rounded-full bg-gradient-to-r', getProviderColor(provider))}
+                                className={cn('w-3 h-3 rounded-full bg-gradient-to-r', getCategoryColor(groupBy === 'provider' ? groupModels[0]?.category || groupKey : groupKey))}
                               ></div>
                               <span className="text-sm font-medium text-rose-500/70 dark:text-rose-300/70 capitalize">
-                                {provider}
+                                {groupKey === 'openrouter' ? 'OpenRouter' : groupKey}
                               </span>
                               <span className="text-xs text-rose-400/60 dark:text-rose-400/60">
-                                ({providerModels.length})
+                                ({groupModels.length})
                               </span>
                             </div>
                             <div className="space-y-1">
-                              {providerModels.map((model) => (
+                              {groupModels.map((model) => (
                                 <button
                                   key={model.id}
                                   onClick={() => {
@@ -498,6 +346,11 @@ export default function AIInput({
                                       <span className="text-base text-rose-900 dark:text-rose-100 truncate">
                                         {model.name}
                                       </span>
+                                      {groupBy === 'category' && model.provider === 'openrouter' && (
+                                        <span className="text-xs text-rose-500/60 dark:text-rose-300/60 bg-rose-100/50 dark:bg-rose-900/30 px-2 py-0.5 rounded-full">
+                                          OpenRouter
+                                        </span>
+                                      )}
                                     </div>
 
                                     {model.supportsThinking && (
@@ -559,7 +412,7 @@ export default function AIInput({
                   {isTyping ? (
                     <Square className="w-4 md:w-5 h-4 md:h-5 mx-auto" />
                   ) : (
-                    <ArrowUpCircle className="w-5 md:w-6 h-5 md:w-6 mx-auto group-hover:scale-110 transition-transform" />
+                    <ArrowUpCircle className="w-5 md:w-6 h-5 md:h-5 mx-auto group-hover:scale-110 transition-transform" />
                   )}
                 </motion.button>
               </div>

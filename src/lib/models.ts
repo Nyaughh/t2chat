@@ -1,0 +1,105 @@
+export interface ModelInfo {
+    id: string
+    name: string
+    description: string
+    provider: 'gemini' | 'openrouter'
+    category: 'google' | 'anthropic' | 'openai' | 'deepseek' | 'meta'
+    features: ('vision' | 'web' | 'code')[]
+    isPro: boolean
+    isNew?: boolean
+    supportsThinking?: boolean
+  }
+  
+ export const models: ModelInfo[] = [
+    {
+      id: 'gemini-2.0-flash',
+      name: 'Gemini 2.0 Flash',
+      description: 'Latest and fastest model',
+      provider: 'gemini',
+      category: 'google',
+      features: ['vision', 'web', 'code'],
+      isPro: false,
+      supportsThinking: true,
+    },
+    {
+      id: 'gemini-2.0-flash-lite',
+      name: 'Gemini 2.0 Flash Lite',
+      description: 'Lightweight version for quick tasks',
+      provider: 'gemini',
+      category: 'google',
+      features: ['vision', 'code'],
+      isPro: false,
+      isNew: true,
+    },
+    {
+      id: 'gemini-2.5-flash',
+      name: 'Gemini 2.5 Flash',
+      description: 'Advanced reasoning capabilities',
+      provider: 'gemini',
+      category: 'google',
+      features: ['vision', 'web', 'code'],
+      isPro: false,
+      supportsThinking: true,
+    },
+    {
+      id: 'gemini-2.5-pro',
+      name: 'Gemini 2.5 Pro',
+      description: 'Most capable model for complex tasks',
+      provider: 'gemini',
+      category: 'google',
+      features: ['vision', 'web', 'code'],
+      isPro: true,
+      supportsThinking: true,
+    },
+    {
+      id: 'openrouter/google/gemini-flash-1.5',
+      name: 'Gemini Flash 1.5',
+      description: 'Via OpenRouter',
+      provider: 'openrouter',
+      category: 'google',
+      features: ['vision', 'web', 'code'],
+      isPro: false,
+      supportsThinking: true,
+    },
+    {
+      id: 'openrouter/anthropic/claude-3.5-sonnet',
+      name: 'Claude 3.5 Sonnet',
+      description: 'Via OpenRouter',
+      provider: 'openrouter',
+      category: 'anthropic',
+      features: ['vision', 'code'],
+      isPro: false,
+      supportsThinking: true,
+    },
+    {
+      id: 'openrouter/openai/gpt-4o',
+      name: 'GPT-4o',
+      description: 'Via OpenRouter',
+      provider: 'openrouter',
+      category: 'openai',
+      features: ['vision', 'code'],
+      isPro: false,
+      supportsThinking: true,
+    },
+    {
+      id: 'deepseek/deepseek-r1-0528-qwen3-8b:free',
+      name: 'DeepSeek R1',
+      description: 'Via OpenRouter',
+      provider: 'openrouter',
+      category: 'deepseek',
+      features: ['vision', 'code'],
+      isPro: false,
+      supportsThinking: true,
+    },
+    {
+      id: 'meta-llama/llama-4-maverick:free',
+      name: 'Llama 4 Maverick',
+      description: 'Via OpenRouter',
+      provider: 'openrouter',
+      category: 'meta',
+      features: ['code'],
+      isPro: false,
+      supportsThinking: true,
+    },
+  ]
+  
