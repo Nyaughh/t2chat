@@ -5,9 +5,15 @@ export interface ModelInfo {
     provider: 'gemini' | 'openrouter'
     category: 'google' | 'anthropic' | 'openai' | 'deepseek' | 'meta'
     features: ('vision' | 'web' | 'code')[]
-    isPro: boolean
+    isPro?: boolean
     isNew?: boolean
     supportsThinking?: boolean
+    unauthenticated?: boolean
+    attachmentsSuppport: {
+      pdf: boolean
+      image: boolean
+    }
+    isApiKeyOnly?: boolean
   }
   
  export const models: ModelInfo[] = [
@@ -20,6 +26,11 @@ export interface ModelInfo {
       features: ['vision', 'web', 'code'],
       isPro: false,
       supportsThinking: true,
+      unauthenticated: false,
+      attachmentsSuppport: {
+        pdf: true,
+        image: true,
+      },
     },
     {
       id: 'gemini-2.0-flash-lite',
@@ -30,6 +41,11 @@ export interface ModelInfo {
       features: ['vision', 'code'],
       isPro: false,
       isNew: true,
+      unauthenticated: true,
+      attachmentsSuppport: {
+        pdf: true,
+        image: true,
+      },
     },
     {
       id: 'gemini-2.5-flash',
@@ -40,6 +56,11 @@ export interface ModelInfo {
       features: ['vision', 'web', 'code'],
       isPro: false,
       supportsThinking: true,
+      unauthenticated: false,
+      attachmentsSuppport: {
+        pdf: true,
+        image: true,
+      },
     },
     {
       id: 'gemini-2.5-pro',
@@ -50,9 +71,14 @@ export interface ModelInfo {
       features: ['vision', 'web', 'code'],
       isPro: true,
       supportsThinking: true,
+      unauthenticated: false,
+      attachmentsSuppport: {
+        pdf: true,
+        image: true,
+      },
     },
     {
-      id: 'openrouter/google/gemini-flash-1.5',
+      id: 'google/gemini-flash-1.5',
       name: 'Gemini Flash 1.5',
       description: 'Via OpenRouter',
       provider: 'openrouter',
@@ -60,9 +86,14 @@ export interface ModelInfo {
       features: ['vision', 'web', 'code'],
       isPro: false,
       supportsThinking: true,
+      unauthenticated: true,
+      attachmentsSuppport: {
+        pdf: true,
+        image: true,
+      },
     },
     {
-      id: 'openrouter/anthropic/claude-3.5-sonnet',
+      id: 'anthropic/claude-3.5-sonnet',
       name: 'Claude 3.5 Sonnet',
       description: 'Via OpenRouter',
       provider: 'openrouter',
@@ -70,9 +101,14 @@ export interface ModelInfo {
       features: ['vision', 'code'],
       isPro: false,
       supportsThinking: true,
+      unauthenticated: false,
+      attachmentsSuppport: {
+        pdf: true,
+        image: true,
+      },
     },
     {
-      id: 'openrouter/openai/gpt-4o',
+      id: 'openai/gpt-4o',
       name: 'GPT-4o',
       description: 'Via OpenRouter',
       provider: 'openrouter',
@@ -80,9 +116,14 @@ export interface ModelInfo {
       features: ['vision', 'code'],
       isPro: false,
       supportsThinking: true,
+      unauthenticated: false,
+      attachmentsSuppport: {
+        pdf: true,
+        image: true,
+      },
     },
     {
-      id: 'deepseek/deepseek-r1-0528-qwen3-8b:free',
+      id: 'deepseek/deepseek-r1-0528-qwen3-8b',
       name: 'DeepSeek R1',
       description: 'Via OpenRouter',
       provider: 'openrouter',
@@ -90,7 +131,12 @@ export interface ModelInfo {
       features: ['vision', 'code'],
       isPro: false,
       supportsThinking: true,
-    },
+      unauthenticated: false,
+      attachmentsSuppport: {
+        pdf: true,
+        image: true,
+      },
+      },
     {
       id: 'meta-llama/llama-4-maverick:free',
       name: 'Llama 4 Maverick',
@@ -100,6 +146,25 @@ export interface ModelInfo {
       features: ['code'],
       isPro: false,
       supportsThinking: true,
+      unauthenticated: false,
+      attachmentsSuppport: {
+        pdf: true,
+        image: true,
+      },
+    },
+    {
+      id: 'sarvamai/sarvam-m:free',
+      name: 'Sarvam M',
+      description: 'Via OpenRouter',
+      provider: 'openrouter',
+      category: 'google',
+      features: ['vision', 'web', 'code'],
+      isPro: false,
+      unauthenticated: true,
+      attachmentsSuppport: {
+        pdf: true,
+        image: true,
+      },
     },
   ]
   

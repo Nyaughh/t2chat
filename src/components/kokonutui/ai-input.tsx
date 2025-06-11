@@ -379,44 +379,46 @@ export default function AIInput({
               <button
                 type="button"
                 onClick={onAttachmentClick}
-                className="p-2 md:p-3 text-rose-500/60 dark:text-rose-300/60 hover:text-rose-600 dark:hover:text-rose-300 transition-all duration-200 rounded-lg bg-white/50 dark:bg-[oklch(0.22_0.015_25)]/40 hover:bg-rose-500/5 dark:hover:bg-white/5"
+                className="p-2 md:p-2.5 text-rose-500/60 dark:text-rose-300/60 hover:text-rose-600 dark:hover:text-rose-300 transition-all duration-200 rounded-lg bg-white/50 dark:bg-[oklch(0.22_0.015_25)]/40 hover:bg-rose-500/5 dark:hover:bg-white/5"
               >
-                <Paperclip className="w-4 md:w-5 h-4 md:h-5" />
+                <Paperclip className="w-3.5 md:w-4 h-3.5 md:h-4" />
               </button>
               <button
                 type="button"
-                className="p-2 md:p-3 text-rose-500/60 dark:text-rose-300/60 hover:text-rose-600 dark:hover:text-rose-300 transition-all duration-200 rounded-lg bg-white/50 dark:bg-[oklch(0.22_0.015_25)]/40 hover:bg-rose-500/5 dark:hover:bg-white/5"
+                className="p-2 md:p-2.5 text-rose-500/60 dark:text-rose-300/60 hover:text-rose-600 dark:hover:text-rose-300 transition-all duration-200 rounded-lg bg-white/50 dark:bg-[oklch(0.22_0.015_25)]/40 hover:bg-rose-500/5 dark:hover:bg-white/5"
               >
-                <Globe className="w-4 md:w-5 h-4 md:h-5" />
+                <Globe className="w-3.5 md:w-4 h-3.5 md:h-4" />
               </button>
             </div>
-            <AnimatePresence>
-              <div className="flex-shrink-0 self-end">
-                <motion.button
-                  key={isTyping ? 'stop' : 'send'}
-                  onClick={isTyping ? onStop : handleSend}
-                  disabled={isTyping ? false : !value.trim()}
+            {isTyping ? (
+              <button
+                type="button"
+                onClick={onStop}
+                title="Stop generation (Esc)"
+                className="p-2 md:p-2.5 transition-all duration-300 rounded-full text-rose-500 dark:text-rose-300 hover:shadow-md hover:shadow-rose-500/20 dark:hover:shadow-rose-500/20 scale-100"
+              >
+                <Square className="w-5 md:w-6 h-5 md:h-6 transition-transform duration-300 animate-pulse" />
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={handleSend}
+                disabled={(!value.trim() && pendingAttachments.length === 0) || isTyping}
+                className={cn(
+                  "p-2 md:p-2.5 transition-all duration-300 rounded-full",
+                  (value.trim() || pendingAttachments.length > 0) && !isTyping
+                    ? "text-rose-500 dark:text-rose-300 hover:shadow-md hover:shadow-rose-500/20 dark:hover:shadow-rose-500/20 scale-100"
+                    : "text-black/30 dark:text-rose-300/30 scale-95",
+                )}
+              >
+                <ArrowUpCircle
                   className={cn(
-                    'group rounded-full transition-all duration-300 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-rose-100 dark:focus-visible:ring-offset-rose-900',
-                    isTyping
-                      ? 'w-8 h-8 md:w-10 md:h-10 bg-rose-500/20 hover:bg-rose-500/30 dark:bg-rose-300/20 dark:hover:bg-rose-300/30 text-rose-600 dark:text-rose-300 focus-visible:ring-rose-500'
-                      : value.trim()
-                        ? 'w-8 h-8 md:w-10 md:h-10 bg-gradient-to-br from-rose-500 to-rose-600 dark:from-rose-300 dark:to-rose-400 text-white shadow-lg hover:shadow-xl shadow-rose-500/20 dark:shadow-rose-500/10 transition-all duration-300 ease-out'
-                        : 'w-8 h-8 md:w-10 md:h-10 bg-black/5 dark:bg-white/10 text-black/30 dark:text-white/30 cursor-not-allowed',
+                    "w-5 md:w-6 h-5 md:h-6 transition-transform duration-300",
+                    (value.trim() || pendingAttachments.length > 0) && !isTyping && "hover:translate-y-[-2px]",
                   )}
-                  initial={{ opacity: 0, scale: 0.5 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.5 }}
-                  transition={{ duration: 0.2, ease: 'circOut' }}
-                >
-                  {isTyping ? (
-                    <Square className="w-4 md:w-5 h-4 md:h-5 mx-auto" />
-                  ) : (
-                    <ArrowUpCircle className="w-5 md:w-6 h-5 md:h-5 mx-auto group-hover:scale-110 transition-transform" />
-                  )}
-                </motion.button>
-              </div>
-            </AnimatePresence>
+                />
+              </button>
+            )}
           </div>
         </div>
       </div>

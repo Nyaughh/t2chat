@@ -202,9 +202,14 @@ export function useConversations() {
         let streamingStarted = false
 
         for await (const chunk of dataStream) {
+          // Check if abort was requested during streaming
+          if (abortControllerRef.current?.signal.aborted) {
+            break
+          }
+
           if (!streamingStarted) {
             streamingStarted = true
-            setIsTyping(false)
+            // Keep isTyping true during streaming to show stop button
           }
 
           if (chunk.type === 'text') {
@@ -215,6 +220,7 @@ export function useConversations() {
           }
         }
 
+        // Save the final message (or partial message if aborted)
         const finalAssistantMessage: DBMessage = {
           id: assistantId,
           conversationId: conversationId,
@@ -223,25 +229,44 @@ export function useConversations() {
           createdAt,
           parts: [],
         }
-        await db.messages.put(finalAssistantMessage)
+        
+        // Only save to database if we have content (even partial)
+        if (streamingContent.trim()) {
+          await db.messages.put(finalAssistantMessage)
 
-        await db.conversations.update(conversationId, {
-          lastMessageAt: finalAssistantMessage.createdAt,
-          updatedAt: finalAssistantMessage.createdAt,
-        })
-        setConversations((prev) =>
-          prev
-            .map((c) =>
-              c.id === conversationId
-                ? { ...c, lastMessageAt: finalAssistantMessage.createdAt, updatedAt: finalAssistantMessage.createdAt }
-                : c,
-            )
-            .sort((a, b) => b.lastMessageAt.getTime() - a.lastMessageAt.getTime()),
-        )
+          await db.conversations.update(conversationId, {
+            lastMessageAt: finalAssistantMessage.createdAt,
+            updatedAt: finalAssistantMessage.createdAt,
+          })
+          setConversations((prev) =>
+            prev
+              .map((c) =>
+                c.id === conversationId
+                  ? { ...c, lastMessageAt: finalAssistantMessage.createdAt, updatedAt: finalAssistantMessage.createdAt }
+                  : c,
+              )
+              .sort((a, b) => b.lastMessageAt.getTime() - a.lastMessageAt.getTime()),
+          )
+        } else {
+          // If no content was received (immediate abort), remove the empty message
+          setMessages((prev) => prev.filter((m) => m.id !== assistantId))
+        }
       } catch (error) {
-        if ((error as Error).name !== 'AbortError') {
+        if ((error as Error).name === 'AbortError') {
+          // Handle abort case - ensure we clean up properly
+          console.log('Stream aborted by user')
+        } else {
           console.error('Error getting AI response:', error)
         }
+        
+        // If there was an error and we have a partial message, clean it up
+        setMessages((prev) => {
+          const lastMessage = prev[prev.length - 1]
+          if (lastMessage?.role === 'assistant' && !lastMessage.content.trim()) {
+            return prev.slice(0, -1)
+          }
+          return prev
+        })
       } finally {
         setIsTyping(false)
         abortControllerRef.current = null

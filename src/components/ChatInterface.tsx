@@ -145,6 +145,21 @@ export default function ChatInterface() {
     }
   }, [messages, isTyping])
 
+  // Handle escape key to stop streaming
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && isTyping) {
+        event.preventDefault()
+        stopGeneratingResponse()
+      }
+    }
+
+    if (isTyping) {
+      document.addEventListener('keydown', handleKeyDown)
+      return () => document.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [isTyping, stopGeneratingResponse])
+
   const showWelcomeScreen = pathname === '/' && messages.length === 0 && !isTyping && inputValue === ''
 
   return (
@@ -157,7 +172,7 @@ export default function ChatInterface() {
           <ScrollArea key="messages" className="h-full scrollbar-hide" ref={scrollAreaRef}>
             <div className="pt-16 px-4 md:px-4 pb-48 md:pb-40 space-y-4 max-w-4xl mx-auto">
               {messages.map((message) => (
-                <div key={message.id} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                <div key={message.id} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start min-w-full'}`}>
                   <div className="group flex flex-col gap-2 max-w-[85%] min-w-0">
                     <div
                       className={`px-4 py-3 break-words overflow-wrap-anywhere ${
