@@ -8,8 +8,9 @@ import AIInput from '@/components/kokonutui/ai-input'
 import MessageRenderer from '@/components/MessageRenderer'
 import WelcomeScreen from '@/components/WelcomeScreen'
 import { useConversations } from '@/hooks/useConversations'
+import { KindeUser } from '@kinde-oss/kinde-auth-nextjs'
 
-export default function ChatInterface() {
+export default function ChatInterface({user}: {user?: KindeUser<Record<string, any>> | null}) {
   const { messages, isTyping, handleSendMessage, stopGeneratingResponse, regenerateResponse, editMessage } =
     useConversations()
 

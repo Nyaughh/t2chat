@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { Inter, Inter_Tight } from 'next/font/google'
 import './globals.css'
 import { ThemeProvider } from 'next-themes'
+import { AuthProvider } from '@/components/AuthProvider'
 
 const inter = Inter({
   variable: '--font-inter',
@@ -35,7 +36,9 @@ export default function RootLayout({
       </head>
       <body className={`${inter.variable} ${interTight.variable} antialiased`} suppressHydrationWarning>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-          {children}
+          <AuthProvider>
+            {children}
+          </AuthProvider>
         </ThemeProvider>
       </body>
     </html>

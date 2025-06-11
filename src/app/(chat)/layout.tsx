@@ -1,9 +1,13 @@
 import ChatLayout from '@/components/ChatLayout'
+import { getKindeServerSession } from '@kinde-oss/kinde-auth-nextjs/server'
 
-export default function ChatLayoutPage({ children }: { children: React.ReactNode }) {
+export default async function ChatLayoutPage({ children }: { children: React.ReactNode }) {
+  const session = getKindeServerSession()
+  const user = await session.getUser() ?? null
+  
   return (
     <div>
-      <ChatLayout>{children}</ChatLayout>
+      <ChatLayout user={user}>{children}</ChatLayout>
     </div>
   )
 }
