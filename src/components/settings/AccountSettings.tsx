@@ -2,7 +2,7 @@ import React from 'react'
 import { Button } from '@/components/ui/button'
 import { LogOut } from 'lucide-react'
 import { motion } from 'framer-motion'
-import { UserButton } from '@clerk/nextjs'
+import { SignOutButton, UserButton } from '@clerk/nextjs'
 
 interface UserProfile {
   name: string
@@ -42,10 +42,12 @@ export function AccountSettings() {
 
         {/* Account actions */}
         <div className="space-y-2">
-          <Button variant="outline" className="w-full justify-start text-base">
-            <LogOut className="w-4 h-4 mr-3" />
-            Sign Out
-          </Button>
+          <SignOutButton>
+            <Button variant="outline" className="w-full justify-start text-base">
+              <LogOut className="w-4 h-4 mr-3" />
+              Sign Out
+            </Button>
+          </SignOutButton>
         </div>
       </motion.div>
     </div>

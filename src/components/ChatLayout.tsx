@@ -12,7 +12,7 @@ import { useTouch } from '@/hooks/useTouch'
 import { useState, useEffect } from 'react'
 import { LoginLink} from "@kinde-oss/kinde-auth-nextjs/components";
 import { UserMetadata } from '@/lib/types'
-import { SignedIn, SignedOut } from '@clerk/nextjs'
+import { SignedIn, SignedOut, SignInButton } from '@clerk/nextjs'
 
 interface ChatLayoutProps {
   children: React.ReactNode
@@ -225,7 +225,7 @@ export default function ChatLayout({ children, userMetadata }: ChatLayoutProps) 
             </div>
             </SignedIn>
           <SignedOut>
-          <LoginLink postLoginRedirectURL="/">
+          <SignInButton>
           <Button
             variant="ghost"
             className="group w-full justify-start h-auto px-2.5 py-1.5 bg-gradient-to-r from-rose-500/5 via-transparent to-rose-500/5 dark:from-rose-300/5 dark:via-transparent dark:to-rose-300/5 hover:from-rose-500/10 hover:to-rose-500/10 dark:hover:from-rose-300/10 dark:hover:to-rose-300/10 border border-rose-500/10 dark:border-rose-300/10 hover:border-rose-500/20 dark:hover:border-rose-300/20 transition-all duration-300 rounded-lg backdrop-blur-sm"
@@ -259,7 +259,7 @@ export default function ChatLayout({ children, userMetadata }: ChatLayoutProps) 
               </div>
             </div>
           </Button>
-          </LoginLink>
+          </SignInButton>
           </SignedOut>
         </div>
       </div>
