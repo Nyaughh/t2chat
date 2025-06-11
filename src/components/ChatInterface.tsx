@@ -8,8 +8,11 @@ import AIInput from '@/components/kokonutui/ai-input'
 import MessageRenderer from '@/components/MessageRenderer'
 import WelcomeScreen from '@/components/WelcomeScreen'
 import { useConversations } from '@/hooks/useConversations'
+import { usePathname } from 'next/navigation'
 
 export default function ChatInterface() {
+
+  const pathname = usePathname()
   const { messages, isTyping, handleSendMessage, stopGeneratingResponse, regenerateResponse, editMessage } =
     useConversations()
 
@@ -48,9 +51,9 @@ export default function ChatInterface() {
   }
 
   const handleSendWithAttachments = (message: string) => {
-    handleSendMessage(message, pendingAttachments)
     setPendingAttachments([])
-    setInputValue('')
+    handleSendMessage(message, pendingAttachments)
+
   }
 
   const handlePromptClick = (prompt: string) => {
@@ -142,7 +145,7 @@ export default function ChatInterface() {
     }
   }, [messages, isTyping])
 
-  const showWelcomeScreen = messages.length === 0 && !isTyping && inputValue === ''
+  const showWelcomeScreen = pathname === '/' && messages.length === 0 && !isTyping && inputValue === ''
 
   return (
     <>
@@ -302,6 +305,7 @@ export default function ChatInterface() {
             onAttachmentClick={() => fileInputRef.current?.click()}
             pendingAttachments={pendingAttachments}
             onRemoveAttachment={removeAttachment}
+            messagesLength={messages.length}
           />
         </div>
       </div>

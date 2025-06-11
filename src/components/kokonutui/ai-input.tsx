@@ -16,7 +16,8 @@ interface AIInputProps {
   onStop?: () => void
   onAttachmentClick?: () => void
   pendingAttachments?: File[]
-  onRemoveAttachment?: (index: number) => void
+  onRemoveAttachment?: (index: number) => void,
+  messagesLength: number
 }
 
 interface ModelInfo {
@@ -247,6 +248,7 @@ export default function AIInput({
   onAttachmentClick,
   pendingAttachments = [],
   onRemoveAttachment,
+  messagesLength,
 }: AIInputProps) {
   const [selectedModel, setSelectedModel] = useState<ModelInfo>(models[0])
   const [showModelSelect, setShowModelSelect] = useState(false)
@@ -259,8 +261,15 @@ export default function AIInput({
   const handleSend = () => {
     if (value.trim() && onSend && !isTyping) {
       onSend(value.trim())
-      onValueChange('')
-      adjustHeight(true)
+      if (messagesLength === 0) {
+        setTimeout(() => {
+          onValueChange('')
+          adjustHeight(true)
+        }, 750)
+      } else {
+        onValueChange('')
+        adjustHeight(true)
+      }
     }
   }
 

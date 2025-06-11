@@ -20,12 +20,12 @@ interface DBMessage {
 }
 
 const db = new Dexie('t2Chat') as Dexie & {
-  threads: EntityTable<Conversation, 'id'>;
+  conversations: EntityTable<Conversation, 'id'>;
   messages: EntityTable<DBMessage, 'id'>;
 };
 
 db.version(1).stores({
-  threads: 'id, userId, title, updatedAt, lastMessageAt',
+  conversations: 'id, userId, title, updatedAt, lastMessageAt',
   messages: 'id, conversationId, createdAt, [conversationId+createdAt]',
 });
 

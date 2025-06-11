@@ -22,7 +22,7 @@ export function useConversations() {
   useEffect(() => {
     const loadConversations = async () => {
       try {
-        const allConversations = await db.threads.orderBy('lastMessageAt').reverse().toArray()
+        const allConversations = await db.conversations.orderBy('lastMessageAt').reverse().toArray()
         setConversations(allConversations)
 
         const pathMatch = pathname.match(/\/chat\/([^\/]+)/)
@@ -112,9 +112,9 @@ export function useConversations() {
   const deleteConversation = useCallback(
     async (conversationId: string) => {
       try {
-        await db.transaction('rw', db.threads, db.messages, async () => {
+        await db.transaction('rw', db.conversations, db.messages, async () => {
           await db.messages.where({ conversationId }).delete()
-          await db.threads.delete(conversationId)
+          await db.conversations.delete(conversationId)
         })
 
         const updatedConversations = conversations.filter((c) => c.id !== conversationId)
@@ -162,7 +162,7 @@ export function useConversations() {
         await db.messages.add(newMessage)
         setMessages((prev) => [...prev, newMessage])
 
-        await db.threads.update(currentConversationId, {
+        await db.conversations.update(currentConversationId, {
           lastMessageAt: newMessage.createdAt,
           updatedAt: newMessage.createdAt,
         })
@@ -275,7 +275,7 @@ export function useConversations() {
         const updatedMessages = [...messages.slice(0, messageIndex), editedMessage]
         setMessages(updatedMessages)
 
-        await db.threads.update(currentConversation.id, {
+        await db.conversations.update(currentConversation.id, {
           lastMessageAt: newTimestamp,
           updatedAt: newTimestamp,
         })
@@ -315,7 +315,7 @@ export function useConversations() {
             updatedAt: now,
             lastMessageAt: now,
           }
-          await db.threads.add(newConv)
+          await db.conversations.add(newConv)
           setConversations((prev) =>
             [newConv, ...prev].sort((a, b) => b.lastMessageAt.getTime() - a.lastMessageAt.getTime()),
           )
@@ -334,7 +334,7 @@ export function useConversations() {
         await db.messages.add(newMessage)
 
         if (!isNewConversation && conversationId) {
-          await db.threads.update(conversationId, {
+          await db.conversations.update(conversationId, {
             lastMessageAt: newMessage.createdAt,
             updatedAt: newMessage.createdAt,
           })
