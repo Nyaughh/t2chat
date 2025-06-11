@@ -271,8 +271,8 @@ export default function ChatLayout({ children }: ChatLayoutProps) {
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative w-full md:w-auto">
-        {/* Theme Switcher */}
-        <div className="absolute top-3 right-3 z-10 flex items-center gap-2">
+        {/* Settings & Theme Switcher */}
+        <div className="absolute top-3 right-3 z-10">
           <AnimatePresence>
             {!effectiveSidebarOpen && (
               <motion.div
@@ -280,21 +280,30 @@ export default function ChatLayout({ children }: ChatLayoutProps) {
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: 20 }}
                 transition={{ duration: 0.3, ease: 'easeOut' }}
+                className="group relative p-2.5 rounded-xl bg-white/70 dark:bg-[oklch(0.18_0.015_25)]/30 backdrop-blur-xl border border-rose-500/10 dark:border-white/10 hover:border-rose-500/20 dark:hover:border-rose-300/20 transition-all duration-300 ease-out shadow-lg shadow-rose-500/5 dark:shadow-lg dark:shadow-black/20 hover:shadow-xl hover:shadow-rose-500/10 dark:hover:shadow-rose-500/10 flex items-center gap-2"
               >
+                {/* Gradient overlays for premium look */}
+                <div className="absolute inset-0 bg-gradient-to-br from-rose-500/5 via-transparent to-rose-500/10 dark:from-rose-500/10 dark:via-transparent dark:to-rose-500/20 pointer-events-none rounded-xl"></div>
+                <div className="absolute inset-0 bg-gradient-to-t from-transparent via-transparent to-white/20 dark:to-white/5 pointer-events-none rounded-xl"></div>
+
                 <button
                   onClick={handleProfileClick}
-                  className="group relative p-2.5 rounded-xl bg-white/70 dark:bg-[oklch(0.18_0.015_25)]/30 backdrop-blur-xl border border-rose-500/10 dark:border-white/10 hover:border-rose-500/20 dark:hover:border-rose-300/20 transition-all duration-300 ease-out shadow-lg shadow-rose-500/5 dark:shadow-lg dark:shadow-black/20 hover:shadow-xl hover:shadow-rose-500/10 dark:hover:shadow-rose-500/10"
+                  className="relative z-10 text-rose-600 dark:text-rose-300 hover:text-rose-700 dark:hover:text-rose-200 h-6 w-6 p-0 hover:bg-transparent"
                   title="Settings"
                 >
-                  <div className="absolute inset-0 bg-gradient-to-br from-rose-500/5 via-transparent to-rose-500/10 dark:from-rose-500/10 dark:via-transparent dark:to-rose-500/20 pointer-events-none rounded-xl"></div>
-                  <div className="absolute inset-0 bg-gradient-to-t from-transparent via-transparent to-white/20 dark:to-white/5 pointer-events-none rounded-xl"></div>
-                  <Settings className="relative w-5 h-5 text-rose-600 dark:text-rose-300 group-hover:rotate-90 transition-transform duration-300" />
-                  <div className="absolute inset-0 -z-10 bg-gradient-to-r from-rose-300/0 via-rose-300/5 to-rose-300/0 rounded-xl blur-xl opacity-0 dark:opacity-30 pointer-events-none"></div>
+                  <Settings className="w-5 h-5 group-hover:rotate-90 transition-transform duration-300" />
                 </button>
+
+                {/* Vertical divider */}
+                <div className="relative z-10 w-px h-5 bg-rose-500/20 dark:bg-rose-300/20"></div>
+
+                <ThemeSwitcher />
+
+                {/* Premium glow effect in dark mode */}
+                <div className="absolute inset-0 -z-10 bg-gradient-to-r from-rose-300/0 via-rose-300/5 to-rose-300/0 rounded-xl blur-xl opacity-0 dark:opacity-30 pointer-events-none"></div>
               </motion.div>
             )}
           </AnimatePresence>
-          <ThemeSwitcher />
         </div>
 
         {/* Menu and New Chat buttons for mobile/collapsed sidebar */}
