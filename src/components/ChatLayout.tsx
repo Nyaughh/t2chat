@@ -11,16 +11,15 @@ import { useConversations } from '@/hooks/useConversations'
 import { useTouch } from '@/hooks/useTouch'
 import { useState, useEffect } from 'react'
 import { LoginLink} from "@kinde-oss/kinde-auth-nextjs/components";
-import { getKindeServerSession } from '@kinde-oss/kinde-auth-nextjs/server'
-import { KindeUser } from '@kinde-oss/kinde-auth-nextjs'
-
+import { UserMetadata } from '@/lib/types'
+import { SignedIn, SignedOut } from '@clerk/nextjs'
 
 interface ChatLayoutProps {
   children: React.ReactNode
-  user?: KindeUser<Record<string, any>> | null
+  userMetadata: UserMetadata
 }
 
-export default function ChatLayout({ children, user }: ChatLayoutProps) {
+export default function ChatLayout({ children, userMetadata }: ChatLayoutProps) {
   const [mounted, setMounted] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [isSignedIn, setIsSignedIn] = useState(false)
@@ -200,23 +199,32 @@ export default function ChatLayout({ children, user }: ChatLayoutProps) {
         </div>
 
         <div className="p-4 flex-shrink-0">
-          {user ? (
-            <div className="flex items-center gap-3 p-2 rounded-lg border border-border/50 bg-background/80 backdrop-blur-sm">
-              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-rose-500/20 to-rose-600/20 dark:from-rose-300/20 dark:to-rose-400/20 flex items-center justify-center flex-shrink-0">
-                <div className="text-rose-600 dark:text-rose-300 font-medium text-sm">
-                  {user.given_name?.[0] || user.email?.[0] || '?'}
+          <SignedIn>
+            <div onClick={() => setSettingsOpen(true)} className="flex items-center gap-3 p-2 rounded-lg border border-border/50 bg-background/80 backdrop-blur-sm">
+              {userMetadata.image ? (
+                <img 
+                  src={userMetadata.image} 
+                  alt="User profile" 
+                  className="w-8 h-8 rounded-full flex-shrink-0 object-cover"
+                />
+              ) : (
+                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-rose-500/20 to-rose-600/20 dark:from-rose-300/20 dark:to-rose-400/20 flex items-center justify-center flex-shrink-0">
+                  <div className="text-rose-600 dark:text-rose-300 font-medium text-sm">
+                    {userMetadata.firstName?.[0] || userMetadata.primaryEmail?.[0] || '?'}
+                  </div>
                 </div>
-              </div>
+              )}
               <div className="flex flex-col overflow-hidden">
                 <div className="text-sm font-medium truncate">
-                  {user.given_name ? `${user.given_name} ${user.family_name || ''}` : user.email}
+                  {userMetadata.firstName ? `${userMetadata.firstName} ${userMetadata.lastName || ''}` : userMetadata.primaryEmail}
                 </div>
-                {user.given_name && user.email && (
-                  <div className="text-xs text-muted-foreground truncate">{user.email}</div>
+                {userMetadata.firstName && userMetadata.primaryEmail && (
+                  <div className="text-xs text-muted-foreground truncate">{userMetadata.primaryEmail}</div>
                 )}
               </div>
             </div>
-          ) : (
+            </SignedIn>
+          <SignedOut>
           <LoginLink postLoginRedirectURL="/">
           <Button
             variant="ghost"
@@ -252,7 +260,7 @@ export default function ChatLayout({ children, user }: ChatLayoutProps) {
             </div>
           </Button>
           </LoginLink>
-          )}
+          </SignedOut>
         </div>
       </div>
 
@@ -343,7 +351,7 @@ export default function ChatLayout({ children, user }: ChatLayoutProps) {
       </div>
 
       {/* Settings Page */}
-      {isSignedIn && <SettingsPage isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} />}
+      {userMetadata.primaryEmail && <SettingsPage isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} />}
     </div>
   )
 }

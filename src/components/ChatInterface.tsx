@@ -8,9 +8,8 @@ import AIInput from '@/components/kokonutui/ai-input'
 import MessageRenderer from '@/components/MessageRenderer'
 import WelcomeScreen from '@/components/WelcomeScreen'
 import { useConversations } from '@/hooks/useConversations'
-import { KindeUser } from '@kinde-oss/kinde-auth-nextjs'
 
-export default function ChatInterface({user}: {user?: KindeUser<Record<string, any>> | null}) {
+export default function ChatInterface() {
   const { messages, isTyping, handleSendMessage, stopGeneratingResponse, regenerateResponse, editMessage } =
     useConversations()
 
@@ -199,15 +198,15 @@ export default function ChatInterface({user}: {user?: KindeUser<Record<string, a
                           className="text-base leading-relaxed break-words overflow-wrap-anywhere"
                         />
                       )}
-                      {message.attachments && message.attachments.length > 0 && (
+                      {message.parts && message.parts.length > 0 && (
                         <div className="mt-2 flex flex-wrap gap-2">
-                          {message.attachments.map((file, index) => (
+                          {message.parts.map((part, index) => (
                             <div
                               key={index}
                               className="flex items-center gap-2 bg-black/5 dark:bg-white/10 rounded px-2 py-1"
                             >
                               <Paperclip className="w-3 h-3" />
-                              <span className="text-xs truncate max-w-32">{file.name}</span>
+                              <span className="text-xs truncate max-w-32">{part.type}</span>
                             </div>
                           ))}
                         </div>

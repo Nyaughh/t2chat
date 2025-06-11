@@ -38,33 +38,22 @@ interface UserProfile {
 
 export default function SettingsPage({ isOpen, onClose }: SettingsPageProps) {
   const [activeSection, setActiveSection] = useState<SettingsSection>('account')
-  // Initial user profile data
-  const userProfile: UserProfile = {
-    name: 'John Doe',
-    email: 'john.doe@example.com',
-    plan: 'free'
-  }
-  
-  // Initial customization options
+
   const customization: CustomizationState = {
-    // User Personalization
     userName: '',
     userRole: '',
     userTraits: [],
     userAdditionalInfo: '',
     promptTemplate: '',
     
-    // Visual Options
     mainFont: 'inter',
     codeFont: 'fira-code',
     
-    // Behavior
     sendBehavior: 'enter',
     autoSave: true,
     showTimestamps: true
   }
   
-  // Initial models settings
   const modelSettings: ModelSettingsState = {
     'gemini-2.0-flash': { enabled: true },
     'gemini-2.0-flash-lite': { enabled: true },
@@ -76,7 +65,6 @@ export default function SettingsPage({ isOpen, onClose }: SettingsPageProps) {
     'openrouter/openai/gpt-4o': { enabled: true },
   }
   
-  // Initial API keys
   const apiKeys: ApiKey[] = [
     { id: '1', name: 'My Gemini Key', provider: 'gemini', key: 'gmn_xxxxxxxxxxxxxx' },
     { id: '2', name: 'Personal OpenRouter', provider: 'openrouter', key: 'or_xxxxxxxxxxxxxx' },
@@ -92,7 +80,7 @@ export default function SettingsPage({ isOpen, onClose }: SettingsPageProps) {
   const renderContent = () => {
     switch (activeSection) {
       case 'account':
-        return <AccountSettings userProfile={userProfile} />
+        return <AccountSettings />
       case 'models':
         return <ModelsSettings 
                   apiKeys={apiKeys} 
@@ -212,6 +200,7 @@ export default function SettingsPage({ isOpen, onClose }: SettingsPageProps) {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
+            transition={{ duration: 0.3 }}
             className="fixed inset-0 bg-black/20 dark:bg-black/40 z-50 backdrop-blur-sm"
             onClick={onClose}
           />
@@ -219,11 +208,24 @@ export default function SettingsPage({ isOpen, onClose }: SettingsPageProps) {
             initial={{ opacity: 0, x: '100%' }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: '100%' }}
-            transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+            transition={{ 
+              type: 'spring', 
+              damping: 30, 
+              stiffness: 300,
+              when: "beforeChildren" 
+            }}
             className="fixed inset-y-0 right-0 w-full max-w-3xl bg-white/70 dark:bg-[oklch(0.18_0.015_25)]/30 backdrop-blur-xl border-l border-rose-500/10 dark:border-white/10 z-50 shadow-2xl flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
-            <SettingsPanelContent />
+            <motion.div
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 20 }}
+              transition={{ delay: 0.1, duration: 0.2 }}
+              className="flex flex-col w-full h-full"
+            >
+              <SettingsPanelContent />
+            </motion.div>
           </motion.div>
         </>
       )}

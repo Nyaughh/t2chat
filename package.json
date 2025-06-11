@@ -10,6 +10,7 @@
     "format": "prettier --write \"src/**/*.{js,jsx,ts,tsx,json,css,md}\""
   },
   "dependencies": {
+    "@clerk/nextjs": "^6.21.0",
     "@hookform/resolvers": "^5.1.1",
     "@kinde-oss/kinde-auth-nextjs": "^2.7.0",
     "@radix-ui/react-accordion": "^1.2.11",

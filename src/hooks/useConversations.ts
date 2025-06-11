@@ -4,10 +4,12 @@ import { useState, useMemo, useEffect, useCallback, useRef } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { v4 as uuidv4 } from 'uuid'
 import { db, type Conversation as DBConversation, type DBMessage } from '../lib/dexie'
+import { useUser } from '@clerk/nextjs'
 
-export function useConversations(userId?: string) {
+export function useConversations() {
   const router = useRouter()
   const pathname = usePathname()
+  const user = useUser()
   const [conversations, setConversations] = useState<DBConversation[]>([])
   const [currentConversationId, setCurrentConversationId] = useState<string>('')
   const [messages, setMessages] = useState<DBMessage[]>([])
@@ -307,7 +309,7 @@ export function useConversations(userId?: string) {
           const now = new Date()
           const newConv: DBConversation = {
             id: conversationId,
-            userId: userId,
+            userId: user?.user?.id ? user.user.id : 'local-user',
             title: generateTitle(content),
             createdAt: now,
             updatedAt: now,
@@ -353,7 +355,7 @@ export function useConversations(userId?: string) {
         console.error('Error sending message:', error)
       }
     },
-    [currentConversationId, currentConversation, pathname, router, userId],
+    [currentConversationId, currentConversation, pathname, router, user?.user?.id],
   )
 
   return {
