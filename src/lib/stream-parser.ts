@@ -21,9 +21,12 @@ export async function* parseDataStream(
     const lines = buffer.split('\n')
     buffer = lines.pop() ?? ''
 
+    console.log('LINES', lines)
+
     for (const line of lines) {
-      for (const msg of parseLine(line)) {
-        yield msg
+      const msg = parseLine(line)
+      for (const m of msg) {
+        yield m
       }
     }
   }
@@ -35,35 +38,24 @@ export async function* parseDataStream(
     if (prefixMatch) {
       const prefix = prefixMatch[1]
       const data = prefixMatch[2]
-      try {
-        const jsonData = JSON.parse(data)
-        if (prefix === 'g') {
-          if (typeof jsonData === 'string' && jsonData.startsWith('**')) {
-            yield { type: 'reasoning', value: jsonData }
-          } else {
-            yield { type: 'text', value: jsonData }
-          }
-        } else if (prefix === 'e') {
-          yield { type: 'event', value: jsonData }
-        } else if (prefix === 'd') {
-          yield { type: 'data', value: jsonData }
-        } else if (prefix === 'f') {
-          yield { type: 'metadata', value: jsonData }
-        } else if (prefix === '0') {
-          yield { type: 'text', value: jsonData }
-        }
-      } catch (e) {
-        // ignore parse errors
+      console.log('PREFIX', prefix)
+      console.log('DATA', data)
+    try {
+      const jsonData = JSON.parse(data)[0]
+      console.log('JSON DATA', jsonData)
+      if (jsonData.type === 'text') {
+        yield { type: 'text', value: jsonData.value }
+      } else if (jsonData.type === 'reasoning') {
+        yield { type: 'reasoning', value: jsonData.value }
+      } else if (jsonData.type === 'finish') {
+        yield { type: 'finish', value: jsonData.value }
+      } else if (jsonData.type === 'error') {
+        yield { type: 'error', value: jsonData.value }
       }
-    } else {
-      try {
-        const jsonData = JSON.parse(line)
-        if (jsonData.messageId) {
-          yield { type: 'metadata', value: jsonData }
-        }
-      } catch (e) {
-        // ignore parse errors
-      }
+      
+    } catch (e) {
+      // ignore parse errors
     }
+  }
   }
 } 

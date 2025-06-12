@@ -1,6 +1,13 @@
-import { streamText, wrapLanguageModel, extractReasoningMiddleware, smoothStream } from 'ai'
+import { streamText, wrapLanguageModel, extractReasoningMiddleware, smoothStream, createDataStreamResponse, createDataStream } from 'ai'
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { createOpenRouter } from '@openrouter/ai-sdk-provider';
+import { createGroq } from '@ai-sdk/groq';
+
+import { models } from '@/lib/models'
+import basePersonality from '../../../../prompts/base';
+
+export const maxDuration = 30
+
 
 const google = createGoogleGenerativeAI({
   apiKey: process.env.GEMINI_API_KEY,
@@ -10,24 +17,20 @@ const openrouter = createOpenRouter({
   apiKey: process.env.OPENROUTER_API_KEY,
 });
 
-export const maxDuration = 30
-
-import { models } from '@/lib/models'
-import basePersonality from '../../../../prompts/base';
+const groq = createGroq({
+  apiKey: process.env.GROQ_API_KEY,
+});
 
 const mapModel = (modelId: string) => {
-  // Find the model in our models collection
   const model = models.find(m => m.id === modelId)
   
   if (!model) {
-    // Default fallback if model not found
     return {
       model: google('gemini-2.0-flash'),
       thinking: false,
     }
   }
   
-  // Handle Gemini models
   if (model.provider === 'gemini') {
     return {
       model: google(modelId),
@@ -35,16 +38,20 @@ const mapModel = (modelId: string) => {
     }
   }
   
-  // Handle OpenRouter models
   if (model.provider === 'openrouter') {
-    // OpenRouter models have full path in the ID
     return {
       model: openrouter(modelId),
       thinking: false,
     }
   }
+
+  if (model.provider === 'groq') {
+    return {
+      model: groq(modelId),
+      thinking: model.supportsThinking,
+    }
+  }
   
-  // Default fallback
   return {
     model: google('gemini-2.0-flash'),
     thinking: false,
@@ -56,13 +63,9 @@ export async function POST(req: Request) {
     const { messages, data } = await req.json()
     const { modelId } = data
 
-    console.log(modelId)
+    const { model, thinking } = mapModel(modelId)
 
-    // TODO: Use a mapping from modelId to the correct provider and model name.
-    // For now, we'll use a default Google model.
-    const {model, thinking } = mapModel(modelId)
-    console.log(model.modelId)
-    const result = streamText({
+    const { fullStream, } = streamText({
 
       system: basePersonality,
       model: thinking ? wrapLanguageModel({
@@ -73,23 +76,71 @@ export async function POST(req: Request) {
       providerOptions: {
         google: {
           thinkingConfig: thinking ? {
-            includeThoughts: true,
             thinkingBudget: 2048,
           } : {},
         },
         openrouter: {}
       },
       experimental_transform: [
-        smoothStream({
-          chunking: 'word',
-        }),
       ],
     })
 
+    console.log('MODEL', model.provider)
 
-    return result.toDataStreamResponse({
-      sendReasoning: thinking,
+    return createDataStreamResponse({
+      status: 200,
+      statusText: 'OK',
+      headers: {
+        'Custom-Header': 'value',
+      },
+      execute: async (dataStream) => {
+        for await (const chunk of fullStream) {          
+          if (chunk.type === 'text-delta') {
+            dataStream.writeData({
+              type: 'text',
+              value: chunk.textDelta
+            })
+          } else if (chunk.type === 'reasoning') {
+
+            if (model.provider === 'google.generative-ai') { 
+              console.log('GOOGLE REASONING', chunk.textDelta)
+              if (typeof chunk.textDelta === 'string' && chunk.textDelta.startsWith('**')) {
+                dataStream.writeData({
+                  type: 'reasoning',
+                  value: chunk.textDelta
+                })
+                continue
+              } else {
+                dataStream.writeData({
+                  type: 'text',
+                  value: chunk.textDelta
+                })
+              }
+              continue
+            }
+
+            dataStream.writeData({
+              type: 'reasoning',
+              value: chunk.textDelta 
+            })
+          } else if (chunk.type === 'finish') {
+            dataStream.writeData({
+              type: 'finish',
+              value: {
+                finishReason: chunk.finishReason || 'unknown',
+                usage: chunk.usage || {}
+              }
+            })
+          } else if (chunk.type === 'error') {
+            dataStream.writeData({
+              type: 'error',
+              value: (chunk.error as { message: string })?.message || 'Unknown error'
+            })
+          }
+        }
+      }
     })
+
   } catch (error) {
     console.error('Error in chat API:', error)
     if (error instanceof Error) {

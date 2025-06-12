@@ -57,39 +57,41 @@ const MessageRenderer: React.FC<MessageRendererProps> = memo(({
             onClick={() => setIsThinkingCollapsed(!isThinkingCollapsed)}
             className="flex items-center gap-2 w-full text-left group py-2 rounded-lg transition-colors cursor-pointer"
           >
-            <span className={cn(
-              "text-sm font-medium flex-1",
-              isTyping && !thinkingDuration 
-                ? "text-black/60 dark:text-white/60" 
-                : "text-black/50 dark:text-white/50"
-            )}>
-              {isTyping && !thinkingDuration 
-                ? (
-                  <span 
-                    className="animate-[shine_2s_ease-in-out_infinite]"
-                    style={{
-                      background: 'linear-gradient(90deg, currentColor 50%, transparent 50%, currentColor 50%)',
-                      backgroundSize: '200% 100%',
-                      WebkitBackgroundClip: 'text',
-                      WebkitTextFillColor: 'transparent',
-                      backgroundClip: 'text',
-                      color: 'inherit'
-                    }}
-                  >
-                    Thinking...
-                  </span>
-                )
-                : thinkingDuration 
-                  ? `Thought for ${thinkingDuration} second${thinkingDuration !== 1 ? 's' : ''}`
-                  : "Thinking"
-              }
-            </span>
-            <ChevronDown 
-              className={cn(
-                "w-4 h-4 text-black/40 dark:text-white/40 transition-transform duration-200",
-                !isThinkingCollapsed && "rotate-180"
-              )}
-            />
+            <div className="flex items-center justify-between w-full">
+              <span className={cn(
+                "text-sm font-medium",
+                isTyping && !thinkingDuration 
+                  ? "text-black/60 dark:text-white/60" 
+                  : "text-black/50 dark:text-white/50"
+              )}>
+                {isTyping && !thinkingDuration 
+                  ? (
+                    <span 
+                      className="animate-[shine_2s_ease-in-out_infinite]"
+                      style={{
+                        background: 'linear-gradient(90deg, currentColor 50%, transparent 50%, currentColor 50%)',
+                        backgroundSize: '200% 100%',
+                        WebkitBackgroundClip: 'text',
+                        WebkitTextFillColor: 'transparent',
+                        backgroundClip: 'text',
+                        color: 'inherit'
+                      }}
+                    >
+                      Thinking...
+                    </span>
+                  )
+                  : thinkingDuration 
+                    ? `Thought for ${thinkingDuration} second${thinkingDuration !== 1 ? 's' : ''}`
+                    : "Thinking"
+                }
+                <ChevronDown 
+                  className={cn(
+                    "w-5 h-5 text-black/40 dark:text-white/40 transition-transform duration-200 ml-3 inline-block mb-[6px]",
+                    !isThinkingCollapsed && "rotate-180"
+                  )}
+                />
+              </span>
+            </div>
           </button>
           
           {!isThinkingCollapsed && thinking && (

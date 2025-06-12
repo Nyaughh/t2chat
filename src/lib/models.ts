@@ -2,7 +2,7 @@ export interface ModelInfo {
     id: string
     name: string
     description: string
-    provider: 'gemini' | 'openrouter'
+    provider: 'gemini' | 'openrouter' | 'groq'
     category: 'google' | 'anthropic' | 'openai' | 'deepseek' | 'meta'
     features: ('vision' | 'web' | 'code')[]
     isPro?: boolean
@@ -183,4 +183,33 @@ export interface ModelInfo {
         image: true,
       },
     },
+    {
+      id: 'llama-3.3-70b-versatile',
+      name: 'Llama 3.3 70B Versatile',
+      description: 'Via Groq',
+      provider: 'groq',
+      category: 'meta',
+      features: ['code'],
+      isPro: false,
+      supportsThinking: false,
+      unauthenticated: false,
+      attachmentsSuppport: {
+        pdf: false,
+        image: false,
+      },
+    }, {
+      id: 'deepseek-r1-distill-llama-70b',
+      name: 'DeepSeek R1 Distill Llama 70B',
+      description: 'Via Groq',
+      provider: 'groq',
+      category: 'deepseek',
+      features: ['code'],
+      isPro: false,
+      supportsThinking: true,
+      unauthenticated: false,
+      attachmentsSuppport: {
+        pdf: false,
+        image: false,
+      },
+    }
   ]
