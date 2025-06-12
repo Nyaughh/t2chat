@@ -8,8 +8,12 @@ import AIInput from '@/components/kokonutui/ai-input'
 import MessageRenderer from '@/components/MessageRenderer'
 import WelcomeScreen from '@/components/WelcomeScreen'
 import { useConversations } from '@/hooks/useConversations'
+import { usePathname } from 'next/navigation'
+import { ModelDropdown } from '@/components/ui/model-dropdown'
+import { models } from '@/lib/models'
 
 export default function ChatInterface() {
+  const pathname = usePathname()
   const { messages, isTyping, handleSendMessage, stopGeneratingResponse, regenerateResponse, editMessage } =
     useConversations()
 
@@ -19,6 +23,7 @@ export default function ChatInterface() {
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null)
   const [editingContent, setEditingContent] = useState('')
   const [showScrollToBottom, setShowScrollToBottom] = useState(false)
+  const [retryDropdownId, setRetryDropdownId] = useState<string | null>(null)
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -47,10 +52,9 @@ export default function ChatInterface() {
     setPendingAttachments((prev) => prev.filter((_, i) => i !== index))
   }
 
-  const handleSendWithAttachments = (message: string) => {
-    handleSendMessage(message, pendingAttachments)
+  const handleSendWithAttachments = (message: string, model: string) => {
     setPendingAttachments([])
-    setInputValue('')
+    handleSendMessage(message, model, pendingAttachments)
   }
 
   const handlePromptClick = (prompt: string) => {
@@ -81,6 +85,36 @@ export default function ChatInterface() {
     } else if (e.key === 'Escape') {
       e.preventDefault()
       cancelEditing()
+    }
+  }
+
+  const handleRetryClick = (messageId: string) => {
+    setRetryDropdownId(messageId)
+  }
+
+  const handleRetryWithModel = (messageId: string, modelId: string) => {
+    regenerateResponse(messageId, modelId)
+    setRetryDropdownId(null)
+  }
+
+  const getModelDisplayName = (modelId?: string) => {
+    if (!modelId) return null
+    const model = models.find((m) => m.id === modelId)
+    return model?.name || modelId
+  }
+
+  const getProviderColor = (modelId?: string) => {
+    if (!modelId) return 'bg-gray-500'
+    const model = models.find((m) => m.id === modelId)
+    if (!model) return 'bg-gray-500'
+
+    switch (model.provider) {
+      case 'gemini':
+        return 'bg-red-500'
+      case 'openrouter':
+        return 'bg-blue-500'
+      default:
+        return 'bg-gray-500'
     }
   }
 
@@ -142,7 +176,26 @@ export default function ChatInterface() {
     }
   }, [messages, isTyping])
 
-  const showWelcomeScreen = messages.length === 0 && !isTyping && inputValue === ''
+  // Handle escape key to stop streaming
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && isTyping) {
+        event.preventDefault()
+        stopGeneratingResponse()
+      }
+    }
+
+    if (isTyping) {
+      document.addEventListener('keydown', handleKeyDown)
+      return () => document.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [isTyping, stopGeneratingResponse])
+
+  const showWelcomeScreen = pathname === '/' && messages.length === 0 && !isTyping && inputValue === ''
+
+  const isCurrentlyStreaming = (messageId: string) => {
+    return isTyping && messages[messages.length - 1]?.id === messageId
+  }
 
   return (
     <>
@@ -154,7 +207,10 @@ export default function ChatInterface() {
           <ScrollArea key="messages" className="h-full scrollbar-hide" ref={scrollAreaRef}>
             <div className="pt-16 px-4 md:px-4 pb-48 md:pb-40 space-y-4 max-w-4xl mx-auto">
               {messages.map((message) => (
-                <div key={message.id} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                <div
+                  key={message.id}
+                  className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start min-w-full'}`}
+                >
                   <div className="group flex flex-col gap-2 max-w-[85%] min-w-0">
                     <div
                       className={`px-4 py-3 break-words overflow-wrap-anywhere ${
@@ -195,41 +251,72 @@ export default function ChatInterface() {
                       ) : (
                         <MessageRenderer
                           content={message.content}
+                          thinking={message.role === 'assistant' ? message.thinking : undefined}
+                          thinkingDuration={message.role === 'assistant' ? message.thinkingDuration : undefined}
+                          isTyping={message.role === 'assistant' && isCurrentlyStreaming(message.id)}
                           className="text-base leading-relaxed break-words overflow-wrap-anywhere"
                         />
                       )}
-                      {message.attachments && message.attachments.length > 0 && (
+                      {message.parts && message.parts.length > 0 && (
                         <div className="mt-2 flex flex-wrap gap-2">
-                          {message.attachments.map((file, index) => (
+                          {message.parts.map((part, index) => (
                             <div
                               key={index}
                               className="flex items-center gap-2 bg-black/5 dark:bg-white/10 rounded px-2 py-1"
                             >
                               <Paperclip className="w-3 h-3" />
-                              <span className="text-xs truncate max-w-32">{file.name}</span>
+                              <span className="text-xs truncate max-w-32">{part.type}</span>
                             </div>
                           ))}
                         </div>
                       )}
                     </div>
+
+                    {/* Assistant message actions: buttons and model info */}
                     {message.role === 'assistant' && (
-                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button
-                          onClick={() => handleCopy(message.content, message.id)}
-                          className="p-1.5 text-rose-500/70 hover:text-rose-600 dark:text-rose-300/70 dark:hover:text-rose-300 hover:bg-rose-500/5 dark:hover:bg-rose-300/5 rounded transition-colors"
-                          title="Copy message"
-                        >
-                          {copiedId === message.id ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                        </button>
-                        <button
-                          onClick={() => regenerateResponse(message.id)}
-                          className="p-1.5 text-rose-500/70 hover:text-rose-600 dark:text-rose-300/70 dark:hover:text-rose-300 hover:bg-rose-500/5 dark:hover:bg-rose-300/5 rounded transition-colors"
-                          title="Regenerate response"
-                        >
-                          <RotateCcw className="w-4 h-4" />
-                        </button>
+                      <div className="flex items-center gap-4 opacity-0 group-hover:opacity-100 transition-opacity relative">
+                        {/* Action Buttons: only show when not typing */}
+                        {!isTyping && (
+                          <div className="flex items-center gap-1">
+                            <button
+                              onClick={() => handleCopy(message.content, message.id)}
+                              className="p-1.5 text-rose-500/70 hover:text-rose-600 dark:text-rose-300/70 dark:hover:text-rose-300 hover:bg-rose-500/5 dark:hover:bg-rose-300/5 rounded transition-colors"
+                              title="Copy message"
+                            >
+                              {copiedId === message.id ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                            </button>
+                            <div className="relative">
+                              <button
+                                onClick={() => handleRetryClick(message.id)}
+                                className="p-1.5 text-rose-500/70 hover:text-rose-600 dark:text-rose-300/70 dark:hover:text-rose-300 hover:bg-rose-500/5 dark:hover:bg-rose-300/5 rounded transition-colors"
+                                title="Retry with model selection"
+                              >
+                                <RotateCcw className="w-4 h-4" />
+                              </button>
+
+                              {/* Model dropdown */}
+                              {retryDropdownId === message.id && (
+                                <ModelDropdown
+                                  selectedModel={message.model}
+                                  onModelSelect={(modelId) => handleRetryWithModel(message.id, modelId)}
+                                  onClose={() => setRetryDropdownId(null)}
+                                  className="absolute left-0" // The component will handle positioning
+                                />
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Model Display: show if model exists and not currently streaming this message */}
+                        {message.model && !isCurrentlyStreaming(message.id) && (
+                          <div className="flex items-center gap-1.5 text-xs text-black/50 dark:text-white/50">
+                            <div className={`w-2 h-2 rounded-full ${getProviderColor(message.model)}`} />
+                            <span>{getModelDisplayName(message.model)}</span>
+                          </div>
+                        )}
                       </div>
                     )}
+
                     {message.role === 'user' && editingMessageId !== message.id && (
                       <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                         <button
@@ -302,6 +389,7 @@ export default function ChatInterface() {
             onAttachmentClick={() => fileInputRef.current?.click()}
             pendingAttachments={pendingAttachments}
             onRemoveAttachment={removeAttachment}
+            messagesLength={messages.length}
           />
         </div>
       </div>

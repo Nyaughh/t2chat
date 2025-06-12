@@ -10,20 +10,23 @@ import { useSidebar } from '@/hooks/useSidebar'
 import { useConversations } from '@/hooks/useConversations'
 import { useTouch } from '@/hooks/useTouch'
 import { useState, useEffect } from 'react'
+import { UserMetadata } from '@/lib/types'
+import { signInWithDiscord } from '@/lib/auth'
+import { signIn } from '@/lib/auth-client'
 
 interface ChatLayoutProps {
   children: React.ReactNode
+  isSignedIn: boolean
+  userMetadata: UserMetadata
 }
 
-export default function ChatLayout({ children }: ChatLayoutProps) {
+export default function ChatLayout({ children, userMetadata, isSignedIn }: ChatLayoutProps) {
   const [mounted, setMounted] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
-  const [isSignedIn, setIsSignedIn] = useState(false)
   const { sidebarOpen, toggleSidebar } = useSidebar()
   const {
     conversations,
     currentConversationId,
-    currentConversation,
     searchQuery,
     filteredConversations,
     createNewConversation,
@@ -53,25 +56,10 @@ export default function ChatLayout({ children }: ChatLayoutProps) {
       toggleSidebar()
     }
   }
-
-  const handleSignIn = () => {
-    setIsSignedIn(true)
-  }
-
-  const handleProfileClick = () => {
-    if (isSignedIn) {
-      setSettingsOpen(true)
-    } else {
-      handleSignIn()
-    }
-  }
-
   // Use a consistent sidebar state for SSR
   const effectiveSidebarOpen = mounted ? sidebarOpen : false
-
   // Check if we're on home page (no current conversation)
   const isOnHomePage = !currentConversationId
-
   return (
     <div className="flex h-[100dvh] bg-background overflow-hidden">
       {/* Mobile Backdrop */}
@@ -153,7 +141,7 @@ export default function ChatLayout({ children }: ChatLayoutProps) {
                     'group px-3 py-2.5 cursor-pointer transition-all duration-200 relative overflow-hidden',
                     conversation.id === currentConversationId
                       ? 'text-rose-600 dark:text-rose-300'
-                      : 'hover:text-rose-600 dark:hover:text-rose-300 text-black/70 dark:text-white/70'
+                      : 'hover:text-rose-600 dark:hover:text-rose-300 text-black/70 dark:text-white/70',
                   )}
                 >
                   {/* Premium background for active state */}
@@ -161,18 +149,18 @@ export default function ChatLayout({ children }: ChatLayoutProps) {
                     <>
                       {/* Main gradient background with sharp edges */}
                       <div className="absolute inset-0 bg-gradient-to-r from-transparent via-rose-500/8 dark:via-rose-300/8 to-transparent"></div>
-                      
+
                       {/* Top shadow lighting */}
                       <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-rose-500/30 dark:via-rose-300/30 to-transparent"></div>
-                      
+
                       {/* Bottom shadow lighting */}
                       <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-rose-500/30 dark:via-rose-300/30 to-transparent"></div>
-                      
+
                       {/* Premium inner glow */}
                       <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-4 bg-gradient-to-r from-transparent via-rose-500/5 dark:via-rose-300/5 to-transparent blur-sm"></div>
                     </>
                   )}
-                  
+
                   {/* Hover effect for non-active items */}
                   {conversation.id !== currentConversationId && (
                     <div className="absolute inset-0 bg-gradient-to-r from-transparent via-rose-500/3 dark:via-rose-300/3 to-transparent opacity-0 hover:opacity-100 transition-opacity duration-200"></div>
@@ -180,9 +168,7 @@ export default function ChatLayout({ children }: ChatLayoutProps) {
 
                   <div className="flex items-center justify-between relative z-10">
                     <div className="flex-1 min-w-0">
-                      <div className="text-sm truncate">
-                        {conversation.title}
-                      </div>
+                      <div className="text-sm truncate">{conversation.title}</div>
                     </div>
                     {conversations.length > 1 && (
                       <button
@@ -211,61 +197,72 @@ export default function ChatLayout({ children }: ChatLayoutProps) {
         </div>
 
         <div className="p-4 flex-shrink-0">
-          <Button
-            variant="ghost"
-            onClick={handleProfileClick}
-            className="group w-full justify-start h-auto px-2.5 py-1.5 bg-gradient-to-r from-rose-500/5 via-transparent to-rose-500/5 dark:from-rose-300/5 dark:via-transparent dark:to-rose-300/5 hover:from-rose-500/10 hover:to-rose-500/10 dark:hover:from-rose-300/10 dark:hover:to-rose-300/10 border border-rose-500/10 dark:border-rose-300/10 hover:border-rose-500/20 dark:hover:border-rose-300/20 transition-all duration-300 rounded-lg backdrop-blur-sm"
-          >
-            <div className="flex items-center gap-3 w-full">
-              <AnimatePresence mode="wait">
-                {isSignedIn ? (
-                  <motion.div 
-                    key="signed-in"
-                    initial={{ opacity: 0, scale: 0.8 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.8 }}
-                    transition={{ duration: 0.3, ease: 'easeOut' }}
-                    className="flex items-center gap-3 w-full"
-                  >
-                    <div className="w-7 h-7 rounded-full bg-gradient-to-br from-rose-500 to-rose-600 dark:from-rose-300 dark:to-rose-400 flex items-center justify-center flex-shrink-0 text-white text-xs font-bold">
-                      JD
-                    </div>
-                    <div className="flex-1 text-left min-w-0">
-                      <div className="text-xs font-medium text-black/80 dark:text-white/80 group-hover:text-rose-600 dark:group-hover:text-rose-300 transition-colors truncate">
-                        John Doe
-                      </div>
-                      <div className="text-[10px] text-black/50 dark:text-white/50 group-hover:text-rose-500/70 dark:group-hover:text-rose-300/70 transition-colors">
-                        Free Plan
-                      </div>
-                    </div>
-                  </motion.div>
-                ) : (
-                  <motion.div
-                    key="sign-in"
-                    initial={{ opacity: 0, scale: 0.8 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.8 }}
-                    transition={{ duration: 0.3, ease: 'easeOut' }}
-                    className="flex items-center gap-3 w-full"
-                  >
-              <div className="w-7 h-7 rounded-full bg-gradient-to-br from-rose-500/20 to-rose-600/20 dark:from-rose-300/20 dark:to-rose-400/20 flex items-center justify-center flex-shrink-0">
-                <div className="w-4 h-4 rounded-full bg-rose-500/30 dark:bg-rose-300/30"></div>
-              </div>
-              <div className="flex-1 text-center min-w-0">
-                <div className="text-sm font-medium text-black/80 dark:text-white/80 group-hover:text-rose-600 dark:group-hover:text-rose-300 transition-colors">
-                  Sign in
+          {isSignedIn && (
+            <div
+              onClick={() => setSettingsOpen(true)}
+              className="flex items-center gap-3 p-2 rounded-lg border border-border/50 bg-background/80 backdrop-blur-sm"
+            >
+              {userMetadata.image ? (
+                <img
+                  src={userMetadata.image}
+                  alt="User profile"
+                  className="w-8 h-8 rounded-full flex-shrink-0 object-cover"
+                />
+              ) : (
+                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-rose-500/20 to-rose-600/20 dark:from-rose-300/20 dark:to-rose-400/20 flex items-center justify-center flex-shrink-0">
+                  <div className="text-rose-600 dark:text-rose-300 font-medium text-sm">
+                    {userMetadata.name?.[0] || userMetadata.email || '?'}
+                  </div>
                 </div>
-              </div>
-                  </motion.div>
+              )}
+              <div className="flex flex-col overflow-hidden">
+                <div className="text-sm font-medium truncate">
+                  {userMetadata.name
+                    ? `${userMetadata.name}`
+                    : userMetadata.email}
+                </div>
+                {userMetadata.email && (
+                  <div className="text-xs text-muted-foreground truncate">{userMetadata.email}</div>
                 )}
-              </AnimatePresence>
-              <div className="w-4 h-4 text-black/40 dark:text-white/40 group-hover:text-rose-500 dark:group-hover:text-rose-300 transition-colors flex-shrink-0">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
               </div>
             </div>
-          </Button>
+          )}
+          {!isSignedIn && (
+              <Button
+                onClick={() => signIn.social({
+                  provider: 'discord',
+                })}
+                variant="ghost"
+                className="group w-full justify-start h-auto px-2.5 py-1.5 bg-gradient-to-r from-rose-500/5 via-transparent to-rose-500/5 dark:from-rose-300/5 dark:via-transparent dark:to-rose-300/5 hover:from-rose-500/10 hover:to-rose-500/10 dark:hover:from-rose-300/10 dark:hover:to-rose-300/10 border border-rose-500/10 dark:border-rose-300/10 hover:border-rose-500/20 dark:hover:border-rose-300/20 transition-all duration-300 rounded-lg backdrop-blur-sm"
+              >
+                <div className="flex items-center gap-3 w-full">
+                  <AnimatePresence mode="wait">
+                    <motion.div
+                      key="sign-in"
+                      initial={{ opacity: 0, scale: 0.8 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.8 }}
+                      transition={{ duration: 0.3, ease: 'easeOut' }}
+                      className="flex items-center gap-3 w-full"
+                    >
+                      <div className="w-7 h-7 rounded-full bg-gradient-to-br from-rose-500/20 to-rose-600/20 dark:from-rose-300/20 dark:to-rose-400/20 flex items-center justify-center flex-shrink-0">
+                        <div className="w-4 h-4 rounded-full bg-rose-500/30 dark:bg-rose-300/30"></div>
+                      </div>
+                      <div className="flex-1 text-center min-w-0">
+                        <div className="text-sm font-medium text-black/80 dark:text-white/80 group-hover:text-rose-600 dark:group-hover:text-rose-300 transition-colors">
+                          Sign in
+                        </div>
+                      </div>
+                    </motion.div>
+                  </AnimatePresence>
+                  <div className="w-4 h-4 text-black/40 dark:text-white/40 group-hover:text-rose-500 dark:group-hover:text-rose-300 transition-colors flex-shrink-0">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </div>
+                </div>
+              </Button>
+          )}
         </div>
       </div>
 
@@ -287,7 +284,6 @@ export default function ChatLayout({ children }: ChatLayoutProps) {
                 <div className="absolute inset-0 bg-gradient-to-t from-transparent via-transparent to-white/20 dark:to-white/5 pointer-events-none rounded-xl"></div>
 
                 <button
-                  onClick={handleProfileClick}
                   className="relative z-10 text-rose-600 dark:text-rose-300 hover:text-rose-700 dark:hover:text-rose-200 h-6 w-6 p-0 hover:bg-transparent"
                   title="Settings"
                 >
@@ -357,7 +353,11 @@ export default function ChatLayout({ children }: ChatLayoutProps) {
       </div>
 
       {/* Settings Page */}
-      {isSignedIn && <SettingsPage isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} />}
+      {userMetadata.email && <SettingsPage isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} user={{
+        name: userMetadata.name || '',
+        email: userMetadata.email || '',
+        image: userMetadata.image || '',
+      }} />}
     </div>
   )
 }

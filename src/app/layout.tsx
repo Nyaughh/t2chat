@@ -26,17 +26,12 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        {/* <script
-          crossOrigin="anonymous"
-          async
-          src="//unpkg.com/react-scan/dist/auto.global.js"
-        />
-        rest of your scripts go under */}
+        <script crossOrigin="anonymous" async src="//unpkg.com/react-scan/dist/auto.global.js" />
       </head>
       <body className={`${inter.variable} ${interTight.variable} antialiased`} suppressHydrationWarning>
-        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-          {children}
-        </ThemeProvider>
+          <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+            {children}
+          </ThemeProvider>
       </body>
     </html>
   )
