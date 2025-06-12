@@ -17,6 +17,7 @@ interface DBMessage {
   content: string;
   role: 'user' | 'assistant' | 'system' | 'data';
   createdAt: Date;
+  model?: string;
 }
 
 const db = new Dexie('t2Chat') as Dexie & {
@@ -24,7 +25,14 @@ const db = new Dexie('t2Chat') as Dexie & {
   messages: EntityTable<DBMessage, 'id'>;
 };
 
+// Version 1: Initial schema
 db.version(1).stores({
+  conversations: 'id, userId, title, updatedAt, lastMessageAt',
+  messages: 'id, conversationId, createdAt, [conversationId+createdAt]',
+});
+
+// Version 2: Add model field to messages (no migration needed since it's optional)
+db.version(2).stores({
   conversations: 'id, userId, title, updatedAt, lastMessageAt',
   messages: 'id, conversationId, createdAt, [conversationId+createdAt]',
 });

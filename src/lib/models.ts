@@ -33,6 +33,21 @@ export interface ModelInfo {
       },
     },
     {
+      id: 'gemini-2.0-flash-thinking-exp-01-21',
+      name: 'Gemini 2.0 Flash Thinking',
+      description: 'Thinking capabilities',
+      provider: 'gemini',
+      category: 'google',
+      features: ['vision', 'code'],
+      isPro: false,
+      supportsThinking: true,
+      unauthenticated: false,
+      attachmentsSuppport: {
+        pdf: true,
+        image: true,
+      },
+    },
+    {
       id: 'gemini-2.0-flash-lite',
       name: 'Gemini 2.0 Flash Lite',
       description: 'Lightweight version for quick tasks',
@@ -48,7 +63,7 @@ export interface ModelInfo {
       },
     },
     {
-      id: 'gemini-2.5-flash',
+      id: 'gemini-2.5-flash-preview-04-17',
       name: 'Gemini 2.5 Flash',
       description: 'Advanced reasoning capabilities',
       provider: 'gemini',
@@ -63,7 +78,7 @@ export interface ModelInfo {
       },
     },
     {
-      id: 'gemini-2.5-pro',
+      id: 'gemini-2.5-pro-preview-05-06',
       name: 'Gemini 2.5 Pro',
       description: 'Most capable model for complex tasks',
       provider: 'gemini',

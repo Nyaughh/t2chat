@@ -194,6 +194,7 @@ export function useConversations() {
             role: 'assistant',
             createdAt,
             parts: [],
+            model: modelToUse,
           },
         ])
 
@@ -204,12 +205,20 @@ export function useConversations() {
         for await (const chunk of dataStream) {
           // Check if abort was requested during streaming
           if (abortControllerRef.current?.signal.aborted) {
+            console.log('Aborting stream')
             break
           }
 
           if (!streamingStarted) {
             streamingStarted = true
             // Keep isTyping true during streaming to show stop button
+          }
+
+          console.log(chunk)
+
+          if (chunk.type === 'error') {
+            console.error('Error in stream:', chunk.value)
+            break
           }
 
           if (chunk.type === 'text') {
@@ -228,6 +237,7 @@ export function useConversations() {
           role: 'assistant',
           createdAt,
           parts: [],
+          model: modelToUse,
         }
         
         // Only save to database if we have content (even partial)
@@ -276,7 +286,7 @@ export function useConversations() {
   )
 
   const regenerateResponse = useCallback(
-    async (assistantMessageId: string) => {
+    async (assistantMessageId: string, modelToUse?: string) => {
       if (!currentConversation) return
 
       try {
@@ -289,7 +299,12 @@ export function useConversations() {
 
         await db.messages.bulkDelete(messageIdsToDelete)
         setMessages(messagesForReprompt)
-        await getAIResponse(messagesForReprompt, model, currentConversation.id)
+        
+        // Use the provided model or fall back to the original message's model or default
+        const assistantMessage = messages[messageIndex]
+        const finalModel = modelToUse || assistantMessage.model || model
+        
+        await getAIResponse(messagesForReprompt, finalModel, currentConversation.id)
       } catch (error) {
         console.error('Error regenerating response:', error)
       }
