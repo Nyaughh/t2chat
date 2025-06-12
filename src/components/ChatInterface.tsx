@@ -250,6 +250,9 @@ export default function ChatInterface() {
                       ) : (
                         <MessageRenderer
                           content={message.content}
+                          thinking={message.role === 'assistant' ? message.thinking : undefined}
+                          thinkingDuration={message.role === 'assistant' ? message.thinkingDuration : undefined}
+                          isTyping={message.role === 'assistant' && isCurrentlyStreaming(message.id)}
                           className="text-base leading-relaxed break-words overflow-wrap-anywhere"
                         />
                       )}

@@ -25,7 +25,7 @@ export interface ModelInfo {
       category: 'google',
       features: ['vision', 'web', 'code'],
       isPro: false,
-      supportsThinking: true,
+      supportsThinking: false,
       unauthenticated: false,
       attachmentsSuppport: {
         pdf: true,
@@ -56,6 +56,7 @@ export interface ModelInfo {
       features: ['vision', 'code'],
       isPro: false,
       isNew: true,
+      supportsThinking: false,
       unauthenticated: true,
       attachmentsSuppport: {
         pdf: true,
@@ -70,7 +71,7 @@ export interface ModelInfo {
       category: 'google',
       features: ['vision', 'web', 'code'],
       isPro: false,
-      supportsThinking: true,
+      supportsThinking: false,
       unauthenticated: false,
       attachmentsSuppport: {
         pdf: true,
@@ -100,7 +101,7 @@ export interface ModelInfo {
       category: 'google',
       features: ['vision', 'web', 'code'],
       isPro: false,
-      supportsThinking: true,
+      supportsThinking: false,
       unauthenticated: true,
       attachmentsSuppport: {
         pdf: true,
@@ -115,7 +116,7 @@ export interface ModelInfo {
       category: 'anthropic',
       features: ['vision', 'code'],
       isPro: false,
-      supportsThinking: true,
+      supportsThinking: false,
       unauthenticated: false,
       attachmentsSuppport: {
         pdf: true,
@@ -130,7 +131,7 @@ export interface ModelInfo {
       category: 'openai',
       features: ['vision', 'code'],
       isPro: false,
-      supportsThinking: true,
+      supportsThinking: false,
       unauthenticated: false,
       attachmentsSuppport: {
         pdf: true,
@@ -145,7 +146,7 @@ export interface ModelInfo {
       category: 'deepseek',
       features: ['vision', 'code'],
       isPro: false,
-      supportsThinking: true,
+      supportsThinking: false,
       unauthenticated: false,
       attachmentsSuppport: {
         pdf: true,
@@ -160,7 +161,7 @@ export interface ModelInfo {
       category: 'meta',
       features: ['code'],
       isPro: false,
-      supportsThinking: true,
+      supportsThinking: false,
       unauthenticated: false,
       attachmentsSuppport: {
         pdf: true,
@@ -175,6 +176,7 @@ export interface ModelInfo {
       category: 'google',
       features: ['vision', 'web', 'code'],
       isPro: false,
+      supportsThinking: false,
       unauthenticated: true,
       attachmentsSuppport: {
         pdf: true,
@@ -182,4 +184,3 @@ export interface ModelInfo {
       },
     },
   ]
-  

@@ -202,10 +202,18 @@
     clip-path: polygon(50% -71%, 171% 50%, 171% 50%, 50% -71%);
   }
   to {
-    clip-path: polygon(50% -71%, 171% 50%, 50% 171%, -50% 71%);
+    clip-path: polygon(-50% 71%, 50% 171%, 171% 50%, 50% -71%);
   }
 }
 
+@keyframes shine {
+  0% {
+    background-position: -200% 50%;
+  }
+  100% {
+    background-position: 200% 50%;
+  }
+}
 
 ::selection {
   background: var(--primary);

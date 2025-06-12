@@ -18,6 +18,8 @@ interface DBMessage {
   role: 'user' | 'assistant' | 'system' | 'data';
   createdAt: Date;
   model?: string;
+  thinking?: string;
+  thinkingDuration?: number;
 }
 
 const db = new Dexie('t2Chat') as Dexie & {
@@ -33,6 +35,12 @@ db.version(1).stores({
 
 // Version 2: Add model field to messages (no migration needed since it's optional)
 db.version(2).stores({
+  conversations: 'id, userId, title, updatedAt, lastMessageAt',
+  messages: 'id, conversationId, createdAt, [conversationId+createdAt]',
+});
+
+// Version 3: Add thinking fields to messages (no migration needed since they're optional)
+db.version(3).stores({
   conversations: 'id, userId, title, updatedAt, lastMessageAt',
   messages: 'id, conversationId, createdAt, [conversationId+createdAt]',
 });

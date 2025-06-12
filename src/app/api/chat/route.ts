@@ -1,4 +1,4 @@
-import { streamText } from 'ai'
+import { streamText, wrapLanguageModel, extractReasoningMiddleware, smoothStream } from 'ai'
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { createOpenRouter } from '@openrouter/ai-sdk-provider';
 
@@ -21,22 +21,34 @@ const mapModel = (modelId: string) => {
   
   if (!model) {
     // Default fallback if model not found
-    return google('gemini-2.0-flash')
+    return {
+      model: google('gemini-2.0-flash'),
+      thinking: false,
+    }
   }
   
   // Handle Gemini models
   if (model.provider === 'gemini') {
-    return google(modelId)
+    return {
+      model: google(modelId),
+      thinking: model.supportsThinking,
+    }
   }
   
   // Handle OpenRouter models
   if (model.provider === 'openrouter') {
     // OpenRouter models have full path in the ID
-    return openrouter(modelId)
+    return {
+      model: openrouter(modelId),
+      thinking: false,
+    }
   }
   
   // Default fallback
-  return google('gemini-2.0-flash')
+  return {
+    model: google('gemini-2.0-flash'),
+    thinking: false,
+  }
 }
 
 export async function POST(req: Request) {
@@ -48,16 +60,36 @@ export async function POST(req: Request) {
 
     // TODO: Use a mapping from modelId to the correct provider and model name.
     // For now, we'll use a default Google model.
-    const model = mapModel(modelId)
+    const {model, thinking } = mapModel(modelId)
     console.log(model.modelId)
     const result = streamText({
+
       system: basePersonality,
-      model: model,
+      model: thinking ? wrapLanguageModel({
+        model,
+        middleware: extractReasoningMiddleware({ tagName: 'think', startWithReasoning: true }),
+      }) : model,
       messages,
+      providerOptions: {
+        google: {
+          thinkingConfig: thinking ? {
+            includeThoughts: true,
+            thinkingBudget: 2048,
+          } : {},
+        },
+        openrouter: {}
+      },
+      experimental_transform: [
+        smoothStream({
+          chunking: 'word',
+        }),
+      ],
     })
 
 
-    return result.toDataStreamResponse()
+    return result.toDataStreamResponse({
+      sendReasoning: thinking,
+    })
   } catch (error) {
     console.error('Error in chat API:', error)
     if (error instanceof Error) {

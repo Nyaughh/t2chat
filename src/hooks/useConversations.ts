@@ -195,12 +195,17 @@ export function useConversations() {
             createdAt,
             parts: [],
             model: modelToUse,
+            thinking: '',
+            thinkingDuration: undefined,
           },
         ])
 
         let streamingContent = ''
+        let thinkingContent = ''
         const dataStream = parseDataStream(response.body)
         let streamingStarted = false
+        let thinkingStartTime: Date | null = null
+        let thinkingEndTime: Date | null = null
 
         for await (const chunk of dataStream) {
           // Check if abort was requested during streaming
@@ -221,10 +226,30 @@ export function useConversations() {
             break
           }
 
+          if (chunk.type === 'reasoning') {
+            if (!thinkingStartTime) {
+              thinkingStartTime = new Date()
+            }
+            thinkingContent += chunk.value
+            setMessages((prev) =>
+              prev.map((m) => (m.id === assistantId ? { ...m, thinking: thinkingContent } : m)),
+            )
+          }
+
           if (chunk.type === 'text') {
+            if (thinkingStartTime && !thinkingEndTime) {
+              thinkingEndTime = new Date()
+            }
             streamingContent += chunk.value
             setMessages((prev) =>
-              prev.map((m) => (m.id === assistantId ? { ...m, content: streamingContent } : m)),
+              prev.map((m) => (m.id === assistantId ? { 
+                ...m, 
+                content: streamingContent,
+                thinking: thinkingContent,
+                thinkingDuration: thinkingStartTime && thinkingEndTime 
+                  ? Math.round((thinkingEndTime.getTime() - thinkingStartTime.getTime()) / 1000)
+                  : undefined
+              } : m)),
             )
           }
         }
@@ -238,6 +263,10 @@ export function useConversations() {
           createdAt,
           parts: [],
           model: modelToUse,
+          thinking: thinkingContent || undefined,
+          thinkingDuration: thinkingStartTime && thinkingEndTime 
+            ? Math.round((thinkingEndTime.getTime() - thinkingStartTime.getTime()) / 1000)
+            : undefined,
         }
         
         // Only save to database if we have content (even partial)
