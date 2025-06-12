@@ -1,19 +1,21 @@
 import ChatLayout from '@/components/ChatLayout'
-import { currentUser } from '@clerk/nextjs/server'
+import { auth } from '@/lib/auth'
+import { headers } from 'next/headers'
 
 export default async function ChatLayoutPage({ children }: { children: React.ReactNode }) {
-  const user = await currentUser()
+  const authSession = await auth.api.getSession({
+    headers: await headers()
+  })
 
   const userMetadata = {
-    firstName: user?.firstName,
-    lastName: user?.lastName,
-    primaryEmail: user?.emailAddresses[0].emailAddress,
-    image: user?.imageUrl,
+    name: authSession?.user?.name,
+    email: authSession?.user?.email,
+    image: authSession?.user?.image,
   }
 
   return (
     <div>
-      <ChatLayout userMetadata={userMetadata}>{children}</ChatLayout>
+      <ChatLayout userMetadata={userMetadata} isSignedIn={!!authSession?.session}>{children}</ChatLayout>
     </div>
   )
 }

@@ -17,19 +17,18 @@ import {
 interface SettingsPageProps {
   isOpen: boolean
   onClose: () => void
+  user: {
+    name: string
+    email: string
+    image: string
+  }
 }
 
 type SettingsSection = 'account' | 'models' | 'customize' | 'data'
 
 // This should be exported from AccountSettings.tsx and re-exported from index.tsx
-interface UserProfile {
-  name: string
-  email: string
-  avatar?: string
-  plan: 'free' | 'pro'
-}
 
-export default function SettingsPage({ isOpen, onClose }: SettingsPageProps) {
+export default function SettingsPage({ isOpen, onClose, user }: SettingsPageProps) {
   const [activeSection, setActiveSection] = useState<SettingsSection>('account')
 
   const customization: CustomizationState = {
@@ -73,7 +72,7 @@ export default function SettingsPage({ isOpen, onClose }: SettingsPageProps) {
   const renderContent = () => {
     switch (activeSection) {
       case 'account':
-        return <AccountSettings />
+        return <AccountSettings user={user} />
       case 'models':
         return <ModelsSettings apiKeys={apiKeys} modelSettings={modelSettings} />
       case 'customize':

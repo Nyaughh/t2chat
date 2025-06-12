@@ -4,14 +4,15 @@ import { useState, useMemo, useEffect, useCallback, useRef } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { v4 as uuidv4 } from 'uuid'
 import { db, type Conversation as DBConversation, type DBMessage } from '../lib/dexie'
-import { useUser } from '@clerk/nextjs'
+import { useSession } from '@/lib/auth-client'
 import { CoreMessage } from 'ai'
 import { parseDataStream } from '../lib/stream-parser'
 
 export function useConversations() {
+  const { data: session } = useSession()
+
   const router = useRouter()
   const pathname = usePathname()
-  const user = useUser()
   const [conversations, setConversations] = useState<DBConversation[]>([])
   const [currentConversationId, setCurrentConversationId] = useState<string>('')
   const [messages, setMessages] = useState<DBMessage[]>([])
@@ -400,7 +401,7 @@ export function useConversations() {
         const now = new Date()
         const newConv: DBConversation = {
           id: conversationId,
-          userId: user?.user?.id ? user.user.id : 'local-user',
+          userId: session?.user?.id ? session.user.id : 'local-user',
           title: generateTitle(content),
           createdAt: now,
           updatedAt: now,
@@ -454,7 +455,7 @@ export function useConversations() {
       }
       await getAIResponse(newMessagesHistory, selectedModel, conversationId)
     },
-    [currentConversationId, currentConversation, pathname, user?.user?.id, messages, getAIResponse],
+    [currentConversationId, currentConversation, pathname, session?.user?.id, messages, getAIResponse],
   )
 
   return {

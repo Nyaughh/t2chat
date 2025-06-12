@@ -2,7 +2,6 @@ import type { Metadata } from 'next'
 import { Inter, Inter_Tight } from 'next/font/google'
 import './globals.css'
 import { ThemeProvider } from 'next-themes'
-import { ClerkProvider } from '@clerk/nextjs'
 
 const inter = Inter({
   variable: '--font-inter',
@@ -30,11 +29,9 @@ export default function RootLayout({
         <script crossOrigin="anonymous" async src="//unpkg.com/react-scan/dist/auto.global.js" />
       </head>
       <body className={`${inter.variable} ${interTight.variable} antialiased`} suppressHydrationWarning>
-        <ClerkProvider>
           <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
             {children}
           </ThemeProvider>
-        </ClerkProvider>
       </body>
     </html>
   )

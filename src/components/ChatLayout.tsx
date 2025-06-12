@@ -10,19 +10,19 @@ import { useSidebar } from '@/hooks/useSidebar'
 import { useConversations } from '@/hooks/useConversations'
 import { useTouch } from '@/hooks/useTouch'
 import { useState, useEffect } from 'react'
-import { LoginLink } from '@kinde-oss/kinde-auth-nextjs/components'
 import { UserMetadata } from '@/lib/types'
-import { SignedIn, SignedOut, SignInButton } from '@clerk/nextjs'
+import { signInWithDiscord } from '@/lib/auth'
+import { signIn } from '@/lib/auth-client'
 
 interface ChatLayoutProps {
   children: React.ReactNode
+  isSignedIn: boolean
   userMetadata: UserMetadata
 }
 
-export default function ChatLayout({ children, userMetadata }: ChatLayoutProps) {
+export default function ChatLayout({ children, userMetadata, isSignedIn }: ChatLayoutProps) {
   const [mounted, setMounted] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
-  const [isSignedIn, setIsSignedIn] = useState(false)
   const { sidebarOpen, toggleSidebar } = useSidebar()
   const {
     conversations,
@@ -197,7 +197,7 @@ export default function ChatLayout({ children, userMetadata }: ChatLayoutProps) 
         </div>
 
         <div className="p-4 flex-shrink-0">
-          <SignedIn>
+          {isSignedIn && (
             <div
               onClick={() => setSettingsOpen(true)}
               className="flex items-center gap-3 p-2 rounded-lg border border-border/50 bg-background/80 backdrop-blur-sm"
@@ -211,25 +211,27 @@ export default function ChatLayout({ children, userMetadata }: ChatLayoutProps) 
               ) : (
                 <div className="w-8 h-8 rounded-full bg-gradient-to-br from-rose-500/20 to-rose-600/20 dark:from-rose-300/20 dark:to-rose-400/20 flex items-center justify-center flex-shrink-0">
                   <div className="text-rose-600 dark:text-rose-300 font-medium text-sm">
-                    {userMetadata.firstName?.[0] || userMetadata.primaryEmail?.[0] || '?'}
+                    {userMetadata.name?.[0] || userMetadata.email || '?'}
                   </div>
                 </div>
               )}
               <div className="flex flex-col overflow-hidden">
                 <div className="text-sm font-medium truncate">
-                  {userMetadata.firstName
-                    ? `${userMetadata.firstName} ${userMetadata.lastName || ''}`
-                    : userMetadata.primaryEmail}
+                  {userMetadata.name
+                    ? `${userMetadata.name}`
+                    : userMetadata.email}
                 </div>
-                {userMetadata.firstName && userMetadata.primaryEmail && (
-                  <div className="text-xs text-muted-foreground truncate">{userMetadata.primaryEmail}</div>
+                {userMetadata.email && (
+                  <div className="text-xs text-muted-foreground truncate">{userMetadata.email}</div>
                 )}
               </div>
             </div>
-          </SignedIn>
-          <SignedOut>
-            <SignInButton>
+          )}
+          {!isSignedIn && (
               <Button
+                onClick={() => signIn.social({
+                  provider: 'discord',
+                })}
                 variant="ghost"
                 className="group w-full justify-start h-auto px-2.5 py-1.5 bg-gradient-to-r from-rose-500/5 via-transparent to-rose-500/5 dark:from-rose-300/5 dark:via-transparent dark:to-rose-300/5 hover:from-rose-500/10 hover:to-rose-500/10 dark:hover:from-rose-300/10 dark:hover:to-rose-300/10 border border-rose-500/10 dark:border-rose-300/10 hover:border-rose-500/20 dark:hover:border-rose-300/20 transition-all duration-300 rounded-lg backdrop-blur-sm"
               >
@@ -260,8 +262,7 @@ export default function ChatLayout({ children, userMetadata }: ChatLayoutProps) 
                   </div>
                 </div>
               </Button>
-            </SignInButton>
-          </SignedOut>
+          )}
         </div>
       </div>
 
@@ -352,7 +353,11 @@ export default function ChatLayout({ children, userMetadata }: ChatLayoutProps) 
       </div>
 
       {/* Settings Page */}
-      {userMetadata.primaryEmail && <SettingsPage isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} />}
+      {userMetadata.email && <SettingsPage isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} user={{
+        name: userMetadata.name || '',
+        email: userMetadata.email || '',
+        image: userMetadata.image || '',
+      }} />}
     </div>
   )
 }

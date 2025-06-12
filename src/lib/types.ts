@@ -1,7 +1,6 @@
 type UserMetadata = {
-  firstName?: string | null
-  lastName?: string | null
-  primaryEmail?: string | null
+  name?: string | null
+  email?: string | null
   image?: string | null
 }
 
