@@ -11,7 +11,6 @@ interface UserProfile {
   plan: 'free' | 'pro'
 }
 
-
 export function AccountSettings() {
   return (
     <div className="space-y-6">
@@ -19,7 +18,6 @@ export function AccountSettings() {
         <div>
           <h3 className="text-lg font-semibold text-black/80 dark:text-white/80">My Profile</h3>
           <UserButton />
-         
         </div>
 
         {/* Plan section */}
@@ -29,13 +27,9 @@ export function AccountSettings() {
             <div className="flex items-center justify-between">
               <div>
                 <div className="font-semibold text-base text-black/80 dark:text-white/80 capitalize">Free Plan</div>
-                <p className="text-sm text-black/60 dark:text-white/60">
-                  You have access to all features.
-                </p>
+                <p className="text-sm text-black/60 dark:text-white/60">You have access to all features.</p>
               </div>
-              <Button>
-                Upgrade to Pro
-              </Button>
+              <Button>Upgrade to Pro</Button>
             </div>
           </div>
         </div>
@@ -52,4 +46,4 @@ export function AccountSettings() {
       </motion.div>
     </div>
   )
-} 
+}

@@ -1,9 +1,7 @@
 import ChatLayout from '@/components/ChatLayout'
 import { currentUser } from '@clerk/nextjs/server'
 
-
 export default async function ChatLayoutPage({ children }: { children: React.ReactNode }) {
-
   const user = await currentUser()
 
   const userMetadata = {

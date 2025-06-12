@@ -13,7 +13,6 @@ import { ModelDropdown } from '@/components/ui/model-dropdown'
 import { models } from '@/lib/models'
 
 export default function ChatInterface() {
-
   const pathname = usePathname()
   const { messages, isTyping, handleSendMessage, stopGeneratingResponse, regenerateResponse, editMessage } =
     useConversations()
@@ -56,7 +55,6 @@ export default function ChatInterface() {
   const handleSendWithAttachments = (message: string, model: string) => {
     setPendingAttachments([])
     handleSendMessage(message, model, pendingAttachments)
-
   }
 
   const handlePromptClick = (prompt: string) => {
@@ -101,15 +99,15 @@ export default function ChatInterface() {
 
   const getModelDisplayName = (modelId?: string) => {
     if (!modelId) return null
-    const model = models.find(m => m.id === modelId)
+    const model = models.find((m) => m.id === modelId)
     return model?.name || modelId
   }
 
   const getProviderColor = (modelId?: string) => {
     if (!modelId) return 'bg-gray-500'
-    const model = models.find(m => m.id === modelId)
+    const model = models.find((m) => m.id === modelId)
     if (!model) return 'bg-gray-500'
-    
+
     switch (model.provider) {
       case 'gemini':
         return 'bg-red-500'
@@ -209,7 +207,10 @@ export default function ChatInterface() {
           <ScrollArea key="messages" className="h-full scrollbar-hide" ref={scrollAreaRef}>
             <div className="pt-16 px-4 md:px-4 pb-48 md:pb-40 space-y-4 max-w-4xl mx-auto">
               {messages.map((message) => (
-                <div key={message.id} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start min-w-full'}`}>
+                <div
+                  key={message.id}
+                  className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start min-w-full'}`}
+                >
                   <div className="group flex flex-col gap-2 max-w-[85%] min-w-0">
                     <div
                       className={`px-4 py-3 break-words overflow-wrap-anywhere ${
@@ -270,7 +271,7 @@ export default function ChatInterface() {
                         </div>
                       )}
                     </div>
-                    
+
                     {/* Assistant message actions: buttons and model info */}
                     {message.role === 'assistant' && (
                       <div className="flex items-center gap-4 opacity-0 group-hover:opacity-100 transition-opacity relative">
@@ -292,7 +293,7 @@ export default function ChatInterface() {
                               >
                                 <RotateCcw className="w-4 h-4" />
                               </button>
-                              
+
                               {/* Model dropdown */}
                               {retryDropdownId === message.id && (
                                 <ModelDropdown
@@ -305,7 +306,7 @@ export default function ChatInterface() {
                             </div>
                           </div>
                         )}
-                        
+
                         {/* Model Display: show if model exists and not currently streaming this message */}
                         {message.model && !isCurrentlyStreaming(message.id) && (
                           <div className="flex items-center gap-1.5 text-xs text-black/50 dark:text-white/50">
@@ -315,7 +316,7 @@ export default function ChatInterface() {
                         )}
                       </div>
                     )}
-                    
+
                     {message.role === 'user' && editingMessageId !== message.id && (
                       <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                         <button

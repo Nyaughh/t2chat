@@ -40,22 +40,21 @@ export async function* parseDataStream(
       const data = prefixMatch[2]
       console.log('PREFIX', prefix)
       console.log('DATA', data)
-    try {
-      const jsonData = JSON.parse(data)[0]
-      console.log('JSON DATA', jsonData)
-      if (jsonData.type === 'text') {
-        yield { type: 'text', value: jsonData.value }
-      } else if (jsonData.type === 'reasoning') {
-        yield { type: 'reasoning', value: jsonData.value }
-      } else if (jsonData.type === 'finish') {
-        yield { type: 'finish', value: jsonData.value }
-      } else if (jsonData.type === 'error') {
-        yield { type: 'error', value: jsonData.value }
+      try {
+        const jsonData = JSON.parse(data)[0]
+        console.log('JSON DATA', jsonData)
+        if (jsonData.type === 'text') {
+          yield { type: 'text', value: jsonData.value }
+        } else if (jsonData.type === 'reasoning') {
+          yield { type: 'reasoning', value: jsonData.value }
+        } else if (jsonData.type === 'finish') {
+          yield { type: 'finish', value: jsonData.value }
+        } else if (jsonData.type === 'error') {
+          yield { type: 'error', value: jsonData.value }
+        }
+      } catch (e) {
+        // ignore parse errors
       }
-      
-    } catch (e) {
-      // ignore parse errors
     }
   }
-  }
-} 
+}

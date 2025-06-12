@@ -16,10 +16,9 @@ interface AIInputProps {
   onStop?: () => void
   onAttachmentClick?: () => void
   pendingAttachments?: File[]
-  onRemoveAttachment?: (index: number) => void,
+  onRemoveAttachment?: (index: number) => void
   messagesLength: number
 }
-
 
 const getCategoryColor = (category: string) => {
   switch (category) {
@@ -118,20 +117,23 @@ export default function AIInput({
   // Sort groups and models within groups
   const sortedGroupedModels = Object.entries(groupedModels)
     .sort(([a], [b]) => a.localeCompare(b))
-    .reduce((acc, [groupKey, groupModels]) => {
-      // Sort models within each group
-      const sortedModels = groupModels.sort((a, b) => {
-        if (groupBy === 'provider') {
-          // When grouped by provider, sort by category first, then by name
-          if (a.category !== b.category) {
-            return a.category.localeCompare(b.category)
+    .reduce(
+      (acc, [groupKey, groupModels]) => {
+        // Sort models within each group
+        const sortedModels = groupModels.sort((a, b) => {
+          if (groupBy === 'provider') {
+            // When grouped by provider, sort by category first, then by name
+            if (a.category !== b.category) {
+              return a.category.localeCompare(b.category)
+            }
           }
-        }
-        return a.name.localeCompare(b.name)
-      })
-      acc[groupKey] = sortedModels
-      return acc
-    }, {} as Record<string, ModelInfo[]>)
+          return a.name.localeCompare(b.name)
+        })
+        acc[groupKey] = sortedModels
+        return acc
+      },
+      {} as Record<string, ModelInfo[]>,
+    )
 
   return (
     <div className="relative">
@@ -248,9 +250,8 @@ export default function AIInput({
                             <div className="absolute inset-0 -z-10 bg-gradient-to-r from-rose-300/0 via-rose-300/5 to-rose-300/0 rounded-xl blur-xl opacity-0 dark:opacity-30 pointer-events-none"></div>
                           </button>
                         </div>
-                        
+
                         {/* Group By Toggle */}
-                        
                       </div>
 
                       {/* Thinking Mode Toggle */}
@@ -284,20 +285,18 @@ export default function AIInput({
                       </div>
 
                       <div className="p-3 border-b border-rose-200/30 dark:border-rose-500/20">
-                      <button
+                        <button
                           onClick={(e) => {
                             e.stopPropagation()
                             setGroupBy(groupBy === 'provider' ? 'category' : 'provider')
                           }}
                           className={cn(
-                            'group w-full relative overflow-hidden bg-gradient-to-br from-rose-500/12 via-rose-500/8 to-rose-500/12 dark:from-rose-300/12 dark:via-rose-300/8 dark:to-rose-300/12 text-rose-600 dark:text-rose-300 h-12 text-base font-semibold rounded-xl shadow-lg hover:shadow-xl shadow-rose-500/10 hover:shadow-rose-500/20 dark:shadow-rose-500/10 dark:hover:shadow-rose-500/20 transition-all duration-300 ease-out backdrop-blur-sm'
+                            'group w-full relative overflow-hidden bg-gradient-to-br from-rose-500/12 via-rose-500/8 to-rose-500/12 dark:from-rose-300/12 dark:via-rose-300/8 dark:to-rose-300/12 text-rose-600 dark:text-rose-300 h-12 text-base font-semibold rounded-xl shadow-lg hover:shadow-xl shadow-rose-500/10 hover:shadow-rose-500/20 dark:shadow-rose-500/10 dark:hover:shadow-rose-500/20 transition-all duration-300 ease-out backdrop-blur-sm',
                           )}
                         >
                           <div className="absolute inset-0 bg-gradient-to-br from-white/20 via-transparent to-transparent dark:from-white/10 rounded-xl"></div>
                           <div className="relative z-10 flex items-center justify-center gap-2">
-                            <span className="tracking-[0.5px] transition-all duration-300 ease-out">
-                              Group by
-                            </span>
+                            <span className="tracking-[0.5px] transition-all duration-300 ease-out">Group by</span>
                             <div className="text-sm px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-600 dark:text-rose-400 transition-colors">
                               {groupBy === 'provider' ? 'Category' : 'Provider'}
                             </div>
@@ -305,7 +304,10 @@ export default function AIInput({
                         </button>
                       </div>
 
-                      <div className="max-h-[400px] overflow-y-auto" style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgb(244 63 94 / 0.3) transparent' }}>
+                      <div
+                        className="max-h-[400px] overflow-y-auto"
+                        style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgb(244 63 94 / 0.3) transparent' }}
+                      >
                         {/* Grouped Models */}
                         {Object.entries(sortedGroupedModels).map(([groupKey, groupModels]) => (
                           <div
@@ -314,7 +316,12 @@ export default function AIInput({
                           >
                             <div className="flex items-center gap-2 mb-2">
                               <div
-                                className={cn('w-3 h-3 rounded-full bg-gradient-to-r', getCategoryColor(groupBy === 'provider' ? groupModels[0]?.category || groupKey : groupKey))}
+                                className={cn(
+                                  'w-3 h-3 rounded-full bg-gradient-to-r',
+                                  getCategoryColor(
+                                    groupBy === 'provider' ? groupModels[0]?.category || groupKey : groupKey,
+                                  ),
+                                )}
                               ></div>
                               <span className="text-sm font-medium text-rose-500/70 dark:text-rose-300/70 capitalize">
                                 {groupKey === 'openrouter' ? 'OpenRouter' : groupKey}
@@ -405,16 +412,16 @@ export default function AIInput({
                 onClick={handleSend}
                 disabled={(!value.trim() && pendingAttachments.length === 0) || isTyping}
                 className={cn(
-                  "p-2 md:p-2.5 transition-all duration-300 rounded-full",
+                  'p-2 md:p-2.5 transition-all duration-300 rounded-full',
                   (value.trim() || pendingAttachments.length > 0) && !isTyping
-                    ? "text-rose-500 dark:text-rose-300 hover:shadow-md hover:shadow-rose-500/20 dark:hover:shadow-rose-500/20 scale-100"
-                    : "text-black/30 dark:text-rose-300/30 scale-95",
+                    ? 'text-rose-500 dark:text-rose-300 hover:shadow-md hover:shadow-rose-500/20 dark:hover:shadow-rose-500/20 scale-100'
+                    : 'text-black/30 dark:text-rose-300/30 scale-95',
                 )}
               >
                 <ArrowUpCircle
                   className={cn(
-                    "w-5 md:w-6 h-5 md:h-6 transition-transform duration-300",
-                    (value.trim() || pendingAttachments.length > 0) && !isTyping && "hover:translate-y-[-2px]",
+                    'w-5 md:w-6 h-5 md:h-6 transition-transform duration-300',
+                    (value.trim() || pendingAttachments.length > 0) && !isTyping && 'hover:translate-y-[-2px]',
                   )}
                 />
               </button>

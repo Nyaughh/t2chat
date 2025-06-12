@@ -84,9 +84,7 @@ export function useConversations() {
         const lowerCaseQuery = searchQuery.toLowerCase()
         const matchingMessages = await db.messages.toArray()
         const convIdsFromMessages = new Set(
-          matchingMessages
-            .filter((m) => m.content.toLowerCase().includes(lowerCaseQuery))
-            .map((m) => m.conversationId),
+          matchingMessages.filter((m) => m.content.toLowerCase().includes(lowerCaseQuery)).map((m) => m.conversationId),
         )
 
         const results = conversations.filter(
@@ -156,163 +154,164 @@ export function useConversations() {
     }
   }, [])
 
-  const getAIResponse = useCallback(
-    async (history: DBMessage[], modelToUse: string, conversationId: string) => {
-      if (!conversationId) return
+  const getAIResponse = useCallback(async (history: DBMessage[], modelToUse: string, conversationId: string) => {
+    if (!conversationId) return
 
-      setIsTyping(true)
-      abortControllerRef.current = new AbortController()
+    setIsTyping(true)
+    abortControllerRef.current = new AbortController()
 
-      try {
-        const coreHistory: CoreMessage[] = history.reduce((acc: CoreMessage[], m) => {
-          if (m.role === 'user' || m.role === 'assistant' || m.role === 'system') {
-            acc.push({ role: m.role, content: m.content })
-          }
-          return acc
-        }, [])
-
-        const response = await fetch('/api/chat', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            messages: coreHistory,
-            data: { modelId: modelToUse },
-          }),
-          signal: abortControllerRef.current.signal,
-        })
-
-        if (!response.body) throw new Error('No response body')
-
-        const assistantId = uuidv4()
-        const createdAt = new Date()
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: assistantId,
-            conversationId: conversationId,
-            content: '',
-            role: 'assistant',
-            createdAt,
-            parts: [],
-            model: modelToUse,
-            thinking: '',
-            thinkingDuration: undefined,
-          },
-        ])
-
-        let streamingContent = ''
-        let thinkingContent = ''
-        const dataStream = parseDataStream(response.body)
-        let streamingStarted = false
-        let thinkingStartTime: Date | null = null
-        let thinkingEndTime: Date | null = null
-
-        for await (const chunk of dataStream) {
-          // Check if abort was requested during streaming
-          if (abortControllerRef.current?.signal.aborted) {
-            console.log('Aborting stream')
-            break
-          }
-
-          if (!streamingStarted) {
-            streamingStarted = true
-            // Keep isTyping true during streaming to show stop button
-          }
-
-          console.log(chunk)
-
-          if (chunk.type === 'error') {
-            console.error('Error in stream:', chunk.value)
-            break
-          }
-
-          if (chunk.type === 'reasoning') {
-            if (!thinkingStartTime) {
-              thinkingStartTime = new Date()
-            }
-            thinkingContent += chunk.value
-            setMessages((prev) =>
-              prev.map((m) => (m.id === assistantId ? { ...m, thinking: thinkingContent } : m)),
-            )
-          }
-
-          if (chunk.type === 'text') {
-            if (thinkingStartTime && !thinkingEndTime) {
-              thinkingEndTime = new Date()
-            }
-            streamingContent += chunk.value
-            setMessages((prev) =>
-              prev.map((m) => (m.id === assistantId ? { 
-                ...m, 
-                content: streamingContent,
-                thinking: thinkingContent,
-                thinkingDuration: thinkingStartTime && thinkingEndTime 
-                  ? Math.round((thinkingEndTime.getTime() - thinkingStartTime.getTime()) / 1000)
-                  : undefined
-              } : m)),
-            )
-          }
+    try {
+      const coreHistory: CoreMessage[] = history.reduce((acc: CoreMessage[], m) => {
+        if (m.role === 'user' || m.role === 'assistant' || m.role === 'system') {
+          acc.push({ role: m.role, content: m.content })
         }
+        return acc
+      }, [])
 
-        // Save the final message (or partial message if aborted)
-        const finalAssistantMessage: DBMessage = {
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: coreHistory,
+          data: { modelId: modelToUse },
+        }),
+        signal: abortControllerRef.current.signal,
+      })
+
+      if (!response.body) throw new Error('No response body')
+
+      const assistantId = uuidv4()
+      const createdAt = new Date()
+      setMessages((prev) => [
+        ...prev,
+        {
           id: assistantId,
           conversationId: conversationId,
-          content: streamingContent,
+          content: '',
           role: 'assistant',
           createdAt,
           parts: [],
           model: modelToUse,
-          thinking: thinkingContent || undefined,
-          thinkingDuration: thinkingStartTime && thinkingEndTime 
+          thinking: '',
+          thinkingDuration: undefined,
+        },
+      ])
+
+      let streamingContent = ''
+      let thinkingContent = ''
+      const dataStream = parseDataStream(response.body)
+      let streamingStarted = false
+      let thinkingStartTime: Date | null = null
+      let thinkingEndTime: Date | null = null
+
+      for await (const chunk of dataStream) {
+        // Check if abort was requested during streaming
+        if (abortControllerRef.current?.signal.aborted) {
+          console.log('Aborting stream')
+          break
+        }
+
+        if (!streamingStarted) {
+          streamingStarted = true
+          // Keep isTyping true during streaming to show stop button
+        }
+
+        console.log(chunk)
+
+        if (chunk.type === 'error') {
+          console.error('Error in stream:', chunk.value)
+          break
+        }
+
+        if (chunk.type === 'reasoning') {
+          if (!thinkingStartTime) {
+            thinkingStartTime = new Date()
+          }
+          thinkingContent += chunk.value
+          setMessages((prev) => prev.map((m) => (m.id === assistantId ? { ...m, thinking: thinkingContent } : m)))
+        }
+
+        if (chunk.type === 'text') {
+          if (thinkingStartTime && !thinkingEndTime) {
+            thinkingEndTime = new Date()
+          }
+          streamingContent += chunk.value
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === assistantId
+                ? {
+                    ...m,
+                    content: streamingContent,
+                    thinking: thinkingContent,
+                    thinkingDuration:
+                      thinkingStartTime && thinkingEndTime
+                        ? Math.round((thinkingEndTime.getTime() - thinkingStartTime.getTime()) / 1000)
+                        : undefined,
+                  }
+                : m,
+            ),
+          )
+        }
+      }
+
+      // Save the final message (or partial message if aborted)
+      const finalAssistantMessage: DBMessage = {
+        id: assistantId,
+        conversationId: conversationId,
+        content: streamingContent,
+        role: 'assistant',
+        createdAt,
+        parts: [],
+        model: modelToUse,
+        thinking: thinkingContent || undefined,
+        thinkingDuration:
+          thinkingStartTime && thinkingEndTime
             ? Math.round((thinkingEndTime.getTime() - thinkingStartTime.getTime()) / 1000)
             : undefined,
-        }
-        
-        // Only save to database if we have content (even partial)
-        if (streamingContent.trim()) {
-          await db.messages.put(finalAssistantMessage)
-
-          await db.conversations.update(conversationId, {
-            lastMessageAt: finalAssistantMessage.createdAt,
-            updatedAt: finalAssistantMessage.createdAt,
-          })
-          setConversations((prev) =>
-            prev
-              .map((c) =>
-                c.id === conversationId
-                  ? { ...c, lastMessageAt: finalAssistantMessage.createdAt, updatedAt: finalAssistantMessage.createdAt }
-                  : c,
-              )
-              .sort((a, b) => b.lastMessageAt.getTime() - a.lastMessageAt.getTime()),
-          )
-        } else {
-          // If no content was received (immediate abort), remove the empty message
-          setMessages((prev) => prev.filter((m) => m.id !== assistantId))
-        }
-      } catch (error) {
-        if ((error as Error).name === 'AbortError') {
-          // Handle abort case - ensure we clean up properly
-          console.log('Stream aborted by user')
-        } else {
-          console.error('Error getting AI response:', error)
-        }
-        
-        // If there was an error and we have a partial message, clean it up
-        setMessages((prev) => {
-          const lastMessage = prev[prev.length - 1]
-          if (lastMessage?.role === 'assistant' && !lastMessage.content.trim()) {
-            return prev.slice(0, -1)
-          }
-          return prev
-        })
-      } finally {
-        setIsTyping(false)
-        abortControllerRef.current = null
       }
-    },
-    [],
-  )
+
+      // Only save to database if we have content (even partial)
+      if (streamingContent.trim()) {
+        await db.messages.put(finalAssistantMessage)
+
+        await db.conversations.update(conversationId, {
+          lastMessageAt: finalAssistantMessage.createdAt,
+          updatedAt: finalAssistantMessage.createdAt,
+        })
+        setConversations((prev) =>
+          prev
+            .map((c) =>
+              c.id === conversationId
+                ? { ...c, lastMessageAt: finalAssistantMessage.createdAt, updatedAt: finalAssistantMessage.createdAt }
+                : c,
+            )
+            .sort((a, b) => b.lastMessageAt.getTime() - a.lastMessageAt.getTime()),
+        )
+      } else {
+        // If no content was received (immediate abort), remove the empty message
+        setMessages((prev) => prev.filter((m) => m.id !== assistantId))
+      }
+    } catch (error) {
+      if ((error as Error).name === 'AbortError') {
+        // Handle abort case - ensure we clean up properly
+        console.log('Stream aborted by user')
+      } else {
+        console.error('Error getting AI response:', error)
+      }
+
+      // If there was an error and we have a partial message, clean it up
+      setMessages((prev) => {
+        const lastMessage = prev[prev.length - 1]
+        if (lastMessage?.role === 'assistant' && !lastMessage.content.trim()) {
+          return prev.slice(0, -1)
+        }
+        return prev
+      })
+    } finally {
+      setIsTyping(false)
+      abortControllerRef.current = null
+    }
+  }, [])
 
   const regenerateResponse = useCallback(
     async (assistantMessageId: string, modelToUse?: string) => {
@@ -328,11 +327,11 @@ export function useConversations() {
 
         await db.messages.bulkDelete(messageIdsToDelete)
         setMessages(messagesForReprompt)
-        
+
         // Use the provided model or fall back to the original message's model or default
         const assistantMessage = messages[messageIndex]
         const finalModel = modelToUse || assistantMessage.model || model
-        
+
         await getAIResponse(messagesForReprompt, finalModel, currentConversation.id)
       } catch (error) {
         console.error('Error regenerating response:', error)
@@ -390,8 +389,7 @@ export function useConversations() {
       setModel(selectedModel)
 
       const content =
-        message.trim() ||
-        (attachments.length > 0 ? `Uploaded files: ${attachments.map((f) => f.name).join(', ')}` : '')
+        message.trim() || (attachments.length > 0 ? `Uploaded files: ${attachments.map((f) => f.name).join(', ')}` : '')
 
       let conversationId = currentConversationId
       const isNewConversation = !conversationId || !currentConversation || pathname === '/'
@@ -445,7 +443,9 @@ export function useConversations() {
         setConversations((prev) =>
           prev
             .map((c) =>
-              c.id === conversationId ? { ...c, lastMessageAt: newMessage.createdAt, updatedAt: newMessage.createdAt } : c,
+              c.id === conversationId
+                ? { ...c, lastMessageAt: newMessage.createdAt, updatedAt: newMessage.createdAt }
+                : c,
             )
             .sort((a, b) => b.lastMessageAt.getTime() - a.lastMessageAt.getTime()),
         )

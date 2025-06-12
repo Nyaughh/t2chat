@@ -1,24 +1,17 @@
 import React, { useState } from 'react'
 import { cn } from '@/lib/utils'
-import { 
-  X, 
-  User, 
-  Database,
-  Brain,
-  Sparkles,
-  Settings
-} from 'lucide-react'
+import { X, User, Database, Brain, Sparkles, Settings } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Button } from '@/components/ui/button'
 import { useIsMobile } from '@/hooks/use-mobile'
-import { 
-  AccountSettings, 
-  CustomizeSettings, 
-  DataSettings, 
+import {
+  AccountSettings,
+  CustomizeSettings,
+  DataSettings,
   ModelsSettings,
   type ApiKey,
   type CustomizationState,
-  type ModelSettingsState
+  type ModelSettingsState,
 } from './settings'
 
 interface SettingsPageProps {
@@ -45,15 +38,15 @@ export default function SettingsPage({ isOpen, onClose }: SettingsPageProps) {
     userTraits: [],
     userAdditionalInfo: '',
     promptTemplate: '',
-    
+
     mainFont: 'inter',
     codeFont: 'fira-code',
-    
+
     sendBehavior: 'enter',
     autoSave: true,
-    showTimestamps: true
+    showTimestamps: true,
   }
-  
+
   const modelSettings: ModelSettingsState = {
     'gemini-2.0-flash': { enabled: true },
     'gemini-2.0-flash-lite': { enabled: true },
@@ -64,7 +57,7 @@ export default function SettingsPage({ isOpen, onClose }: SettingsPageProps) {
     'openrouter/mistralai/mistral-large': { enabled: true },
     'openrouter/openai/gpt-4o': { enabled: true },
   }
-  
+
   const apiKeys: ApiKey[] = [
     { id: '1', name: 'My Gemini Key', provider: 'gemini', key: 'gmn_xxxxxxxxxxxxxx' },
     { id: '2', name: 'Personal OpenRouter', provider: 'openrouter', key: 'or_xxxxxxxxxxxxxx' },
@@ -82,10 +75,7 @@ export default function SettingsPage({ isOpen, onClose }: SettingsPageProps) {
       case 'account':
         return <AccountSettings />
       case 'models':
-        return <ModelsSettings 
-                  apiKeys={apiKeys} 
-                  modelSettings={modelSettings}
-                />
+        return <ModelsSettings apiKeys={apiKeys} modelSettings={modelSettings} />
       case 'customize':
         return <CustomizeSettings customization={customization} />
       case 'data':
@@ -111,23 +101,22 @@ export default function SettingsPage({ isOpen, onClose }: SettingsPageProps) {
         </Button>
       </header>
 
-      <div className={cn(
-        "flex flex-1 min-h-0",
-        isMobile && "flex-col"
-      )}>
+      <div className={cn('flex flex-1 min-h-0', isMobile && 'flex-col')}>
         {/* Sidebar for Desktop, Tabs for Mobile */}
-        <aside className={cn(
-          "flex-shrink-0",
-          isMobile 
-            ? "p-2 border-b border-black/10 dark:border-white/10" 
-            : "w-56 p-4 border-r border-black/10 dark:border-white/10"
-        )}>
-          <nav className={cn(
-            "flex",
-            isMobile 
-              ? "flex-row space-x-1 overflow-x-auto scrollbar-hide" 
-              : "flex-col space-y-1"
-          )}>
+        <aside
+          className={cn(
+            'flex-shrink-0',
+            isMobile
+              ? 'p-2 border-b border-black/10 dark:border-white/10'
+              : 'w-56 p-4 border-r border-black/10 dark:border-white/10',
+          )}
+        >
+          <nav
+            className={cn(
+              'flex',
+              isMobile ? 'flex-row space-x-1 overflow-x-auto scrollbar-hide' : 'flex-col space-y-1',
+            )}
+          >
             {settingsSections.map((section) => (
               <button
                 key={section.id}
@@ -137,7 +126,7 @@ export default function SettingsPage({ isOpen, onClose }: SettingsPageProps) {
                   activeSection === section.id
                     ? 'bg-rose-500/10 text-rose-600 dark:bg-rose-300/10 dark:text-rose-300 font-semibold'
                     : 'text-black/70 dark:text-white/70 hover:bg-black/5 dark:hover:bg-white/5',
-                  isMobile ? "justify-center" : "w-full text-left"
+                  isMobile ? 'justify-center' : 'w-full text-left',
                 )}
               >
                 <section.icon className="w-4 h-4" />
@@ -208,11 +197,11 @@ export default function SettingsPage({ isOpen, onClose }: SettingsPageProps) {
             initial={{ opacity: 0, x: '100%' }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: '100%' }}
-            transition={{ 
-              type: 'spring', 
-              damping: 30, 
+            transition={{
+              type: 'spring',
+              damping: 30,
               stiffness: 300,
-              when: "beforeChildren" 
+              when: 'beforeChildren',
             }}
             className="fixed inset-y-0 right-0 w-full max-w-3xl bg-white/70 dark:bg-[oklch(0.18_0.015_25)]/30 backdrop-blur-xl border-l border-rose-500/10 dark:border-white/10 z-50 shadow-2xl flex flex-col"
             onClick={(e) => e.stopPropagation()}
@@ -231,4 +220,4 @@ export default function SettingsPage({ isOpen, onClose }: SettingsPageProps) {
       )}
     </AnimatePresence>
   )
-} 
+}
