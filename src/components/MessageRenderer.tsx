@@ -3,6 +3,7 @@
 import React, { memo, useMemo } from 'react'
 import { useTheme } from 'next-themes'
 import { MemoizedMarkdown } from './MemoizedMarkdown'
+import { MarkdownContent } from './ui/markdown-content'
 
 interface MessageRendererProps {
   content: string
@@ -25,7 +26,7 @@ const MessageRenderer: React.FC<MessageRendererProps> = memo(({ content, classNa
 
   return (
     <div className={className}>
-      <MemoizedMarkdown content={content} id={messageId} theme={theme} />
+      <MarkdownContent content={content} id={messageId} />
     </div>
   )
 }, (prevProps, nextProps) => {

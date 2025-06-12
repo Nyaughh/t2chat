@@ -13,6 +13,7 @@ const openrouter = createOpenRouter({
 export const maxDuration = 30
 
 import { models } from '@/lib/models'
+import basePersonality from '../../../../prompts/base';
 
 const mapModel = (modelId: string) => {
   // Find the model in our models collection
@@ -50,6 +51,7 @@ export async function POST(req: Request) {
     const model = mapModel(modelId)
     console.log(model.modelId)
     const result = streamText({
+      system: basePersonality,
       model: model,
       messages,
     })

@@ -3,6 +3,9 @@ import { memo, useMemo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { oneDark, oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import rehypeKatex from 'rehype-katex';
+import remarkMath from 'remark-math';
+import 'katex/dist/katex.min.css';
 
 // Generate a stable hash from string content
 function generateContentHash(content: string): string {
@@ -35,7 +38,7 @@ const CodeComponent = memo(({ inline, className, children, theme, ...props }: Co
   if (!inline && language) {
     const code = String(children).replace(/\n$/, '');
     return (
-      <div className="my-4 group relative w-full max-w-full">
+              <div className="my-4 last:mb-0 group relative w-full max-w-full">
         <div className="flex items-center justify-between bg-black/5 dark:bg-white/5 px-4 py-2 rounded-t-lg border-b border-black/10 dark:border-white/10">
           <span className="text-xs font-medium text-black/60 dark:text-white/60 uppercase tracking-wide">
             {language}
@@ -87,22 +90,71 @@ CodeComponent.displayName = 'CodeComponent';
 const MemoizedMarkdownBlock = memo(
   ({ content, theme }: { content: string; theme?: string }) => {
     return (
-      <ReactMarkdown
-                 components={{
-           code: (props: any) => (
-             <CodeComponent 
-               inline={props.inline} 
-               className={props.className} 
-               theme={theme}
-               {...props}
-             >
-               {props.children}
-             </CodeComponent>
-           ),
-         }}
-      >
-        {content}
-      </ReactMarkdown>
+      <div className="prose prose-slate dark:prose-invert max-w-none leading-relaxed">
+        <ReactMarkdown
+          remarkPlugins={[remarkMath]}
+          rehypePlugins={[rehypeKatex]}
+          components={{
+            code: (props: any) => (
+              <CodeComponent 
+                inline={props.inline} 
+                className={props.className} 
+                theme={theme}
+                {...props}
+              >
+                {props.children}
+              </CodeComponent>
+            ),
+            p: ({ children, ...props }) => (
+              <p className="mb-4 last:mb-0 leading-relaxed" {...props}>
+                {children}
+              </p>
+            ),
+            h1: ({ children, ...props }) => (
+              <h1 className="text-3xl font-bold mb-6 mt-8 leading-tight" {...props}>
+                {children}
+              </h1>
+            ),
+            h2: ({ children, ...props }) => (
+              <h2 className="text-2xl font-semibold mb-4 mt-6 leading-tight" {...props}>
+                {children}
+              </h2>
+            ),
+            h3: ({ children, ...props }) => (
+              <h3 className="text-xl font-semibold mb-3 mt-5 leading-tight" {...props}>
+                {children}
+              </h3>
+            ),
+            h4: ({ children, ...props }) => (
+              <h4 className="text-lg font-semibold mb-2 mt-4 leading-tight" {...props}>
+                {children}
+              </h4>
+            ),
+            ul: ({ children, ...props }) => (
+              <ul className="mb-4 last:mb-0 space-y-2" {...props}>
+                {children}
+              </ul>
+            ),
+            ol: ({ children, ...props }) => (
+              <ol className="mb-4 last:mb-0 space-y-2" {...props}>
+                {children}
+              </ol>
+            ),
+            li: ({ children, ...props }) => (
+              <li className="leading-relaxed" {...props}>
+                {children}
+              </li>
+            ),
+            blockquote: ({ children, ...props }) => (
+              <blockquote className="border-l-4 border-rose-400 dark:border-rose-300 pl-4 py-2 my-4 last:mb-0 italic bg-black/5 dark:bg-white/5 rounded-r" {...props}>
+                {children}
+              </blockquote>
+            ),
+          }}
+        >
+          {content}
+        </ReactMarkdown>
+      </div>
     );
   },
   (prevProps, nextProps) => {

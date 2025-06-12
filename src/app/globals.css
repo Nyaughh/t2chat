@@ -205,3 +205,14 @@
     clip-path: polygon(50% -71%, 171% 50%, 50% 171%, -50% 71%);
   }
 }
+
+
+::selection {
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+
+.dark::selection {
+  background: var(--primary-foreground);
+  color: var(--primary);
+}
