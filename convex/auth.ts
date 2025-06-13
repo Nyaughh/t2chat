@@ -43,6 +43,10 @@ import {
       plugins: [
         convex(),
       ],
+      trustedOrigins: [
+        "http://localhost:3000",
+        "*",
+      ],
     });
   
   // These are required named exports

@@ -9,9 +9,10 @@ import SettingsPage from '@/components/SettingsPage'
 import { useSidebar } from '@/hooks/useSidebar'
 import { useConversations } from '@/hooks/useConversations'
 import { useTouch } from '@/hooks/useTouch'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { UserMetadata } from '@/lib/types'
 import Link from 'next/link'
+import { useRouter, usePathname } from 'next/navigation'
 
 interface ChatLayoutProps {
   children: React.ReactNode
@@ -24,33 +25,44 @@ export default function ChatLayout({ children, userMetadata, isSignedIn }: ChatL
   const [settingsOpen, setSettingsOpen] = useState(false)
   const { sidebarOpen, toggleSidebar } = useSidebar()
   const {
-    conversations,
-    currentConversationId,
-    searchQuery,
-    filteredConversations,
-    createNewConversation,
-    setCurrentConversationId,
-    setSearchQuery,
+    chats: activeChats,
+    currentChatId,
     deleteConversation,
+    handleNewMessage,
+    setCurrentChatId,
   } = useConversations()
+  const router = useRouter()
+  const pathname = usePathname()
 
   const { onTouchStart, onTouchMove, onTouchEnd } = useTouch({
     onSwipeLeft: () => sidebarOpen && toggleSidebar(),
   })
+
+  const [searchQuery, setSearchQuery] = useState('')
+
+  const filteredChats = useMemo(() => {
+    if (!activeChats) return [];
+    if (!searchQuery) {
+      return activeChats;
+    }
+    return activeChats.filter(chat =>
+      chat.title.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  }, [activeChats, searchQuery]);
 
   useEffect(() => {
     setMounted(true)
   }, [])
 
   const handleConversationSelect = (conversationId: string) => {
-    setCurrentConversationId(conversationId)
+    router.push(`/chat/${conversationId}`)
     if (typeof window !== 'undefined' && window.innerWidth < 768) {
       toggleSidebar()
     }
   }
 
   const createNewChat = () => {
-    createNewConversation()
+    router.push(`/`)
     if (typeof window !== 'undefined' && window.innerWidth < 768) {
       toggleSidebar()
     }
@@ -58,7 +70,7 @@ export default function ChatLayout({ children, userMetadata, isSignedIn }: ChatL
   // Use a consistent sidebar state for SSR
   const effectiveSidebarOpen = mounted ? sidebarOpen : false
   // Check if we're on home page (no current conversation)
-  const isOnHomePage = !currentConversationId
+  const isOnHomePage = !currentChatId
   return (
     <div className="flex h-[100dvh] bg-background overflow-hidden">
       {/* Mobile Backdrop */}
@@ -132,19 +144,19 @@ export default function ChatLayout({ children, userMetadata, isSignedIn }: ChatL
         <div className="flex-1 min-h-0 px-4">
           <div className="h-full overflow-y-auto scrollbar-hide">
             <div className="space-y-1 py-2">
-              {filteredConversations.map((conversation) => (
+              {(filteredChats || []).map((chat: { id: string; title: string }) => (
                 <div
-                  key={conversation.id}
-                  onClick={() => handleConversationSelect(conversation.id)}
+                  key={chat.id}
+                  onClick={() => handleConversationSelect(chat.id)}
                   className={cn(
                     'group px-3 py-2.5 cursor-pointer transition-all duration-200 relative overflow-hidden',
-                    conversation.id === currentConversationId
+                    chat.id === currentChatId
                       ? 'text-rose-600 dark:text-rose-300'
                       : 'hover:text-rose-600 dark:hover:text-rose-300 text-black/70 dark:text-white/70',
                   )}
                 >
                   {/* Premium background for active state */}
-                  {conversation.id === currentConversationId && (
+                  {chat.id === currentChatId && (
                     <>
                       {/* Main gradient background with sharp edges */}
                       <div className="absolute inset-0 bg-gradient-to-r from-transparent via-rose-500/8 dark:via-rose-300/8 to-transparent"></div>
@@ -161,19 +173,19 @@ export default function ChatLayout({ children, userMetadata, isSignedIn }: ChatL
                   )}
 
                   {/* Hover effect for non-active items */}
-                  {conversation.id !== currentConversationId && (
+                  {chat.id !== currentChatId && (
                     <div className="absolute inset-0 bg-gradient-to-r from-transparent via-rose-500/3 dark:via-rose-300/3 to-transparent opacity-0 hover:opacity-100 transition-opacity duration-200"></div>
                   )}
 
                   <div className="flex items-center justify-between relative z-10">
                     <div className="flex-1 min-w-0">
-                      <div className="text-sm truncate">{conversation.title}</div>
+                      <div className="text-sm truncate">{chat.title}</div>
                     </div>
-                    {conversations.length > 1 && (
+                    {activeChats.length > 1 && (
                       <button
                         onClick={(e) => {
                           e.stopPropagation()
-                          deleteConversation(conversation.id)
+                          deleteConversation(chat.id)
                         }}
                         className="opacity-0 group-hover:opacity-100 p-1 -m-1 text-black/40 dark:text-white/40 hover:text-red-500 dark:hover:text-red-400 transition-all duration-200"
                       >
@@ -185,7 +197,7 @@ export default function ChatLayout({ children, userMetadata, isSignedIn }: ChatL
               ))}
 
               {/* Show message when no conversations exist */}
-              {conversations.length === 0 && (
+              {activeChats.length === 0 && (
                 <div className="text-center py-8 px-4">
                   <div className="text-black/40 dark:text-white/40 text-sm">No conversations yet</div>
                   <div className="text-black/30 dark:text-white/30 text-xs mt-1">Start a new chat to begin</div>
@@ -327,7 +339,7 @@ export default function ChatLayout({ children, userMetadata, isSignedIn }: ChatL
             <Button
               variant="ghost"
               size="icon"
-              onClick={createNewConversation}
+              onClick={createNewChat}
               className={cn(
                 'relative z-10 text-rose-600 dark:text-rose-300 hover:text-rose-700 dark:hover:text-rose-200 h-6 w-6 p-0 hover:bg-transparent',
                 isOnHomePage && 'opacity-30 cursor-not-allowed',

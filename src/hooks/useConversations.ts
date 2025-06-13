@@ -4,475 +4,250 @@ import { useState, useMemo, useEffect, useCallback, useRef } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { v4 as uuidv4 } from 'uuid'
 import { db, type Conversation as DBConversation, type DBMessage } from '../lib/dexie'
-import { useSession } from '@/lib/auth-client'
+import { useLiveQuery } from 'dexie-react-hooks'
+import { toast } from 'sonner'
+import { useConvexChat } from './use-convex-chat'
+import { models, type ModelInfo } from '@/lib/models'
+import type { ClientMessage, Attachment } from '@/lib/types'
+import type { Id } from '../../convex/_generated/dataModel'
+import { parseDataStream } from '@/lib/stream-parser'
 import { CoreMessage } from 'ai'
-import { parseDataStream } from '../lib/stream-parser'
 
-export function useConversations() {
-  const { data: session } = useSession()
+export const useConversations = () => {
 
   const router = useRouter()
   const pathname = usePathname()
-  const [conversations, setConversations] = useState<DBConversation[]>([])
-  const [currentConversationId, setCurrentConversationId] = useState<string>('')
-  const [messages, setMessages] = useState<DBMessage[]>([])
-  const [isTyping, setIsTyping] = useState(false)
-  const [searchQuery, setSearchQuery] = useState('')
-  const [filteredConversations, setFilteredConversations] = useState<DBConversation[]>([])
-  const abortControllerRef = useRef<AbortController | null>(null)
-  const [model, setModel] = useState('gemini-2.0-flash')
+  const [currentChatId, setCurrentChatId] = useState<string | null>(null)
+  const [selectedModel, setSelectedModel] = useState<ModelInfo>(models[0])
 
-  // Load conversations from Dexie on mount
-  useEffect(() => {
-    const loadConversations = async () => {
-      try {
-        const allConversations = await db.conversations.orderBy('lastMessageAt').reverse().toArray()
-        setConversations(allConversations)
+  const {
+    isAuthenticated,
+    isLoading: isAuthLoading,
+    isStreaming: isConvexStreaming,
+    messages: convexMessages,
+    chats: convexChats,
+    createChat,
+    sendMessage,
+    deleteChat: deleteConvexChat,
+  } = useConvexChat(currentChatId as Id<"chats"> | undefined)
 
-        const pathMatch = pathname.match(/\/chat\/([^\/]+)/)
-        if (pathMatch) {
-          const urlId = pathMatch[1]
-          if (allConversations.some((c) => c.id === urlId)) {
-            setCurrentConversationId(urlId)
-          } else {
-            router.replace('/')
-          }
-        } else if (pathname === '/' || pathname === '') {
-          setCurrentConversationId('')
-        }
-      } catch (error) {
-        console.error('Error loading conversations from Dexie:', error)
-      }
+  const dexieConversations = useLiveQuery(() => db.conversations.orderBy('lastMessageAt').reverse().toArray(), [])
+  const liveLocalMessages = useLiveQuery(
+    () => {
+      if (!currentChatId || isAuthenticated) return [];
+      return db.messages.where('conversationId').equals(currentChatId).sortBy('createdAt');
+    },
+    [currentChatId, isAuthenticated],
+    []
+  )
+  const [isLocalStreaming, setIsLocalStreaming] = useState(false)
+  
+  const activeMessages = useMemo(() => {
+    if (isAuthLoading) return [];
+    if (isAuthenticated) {
+      return (convexMessages || []).map(msg => ({
+        id: msg._id,
+        role: msg.role,
+        content: msg.content,
+        modelId: msg.modelId,
+        thinking: msg.thinking,
+        thinkingDuration: msg.thinkingDuration,
+        createdAt: new Date(msg.createdAt),
+      } as ClientMessage & { modelId: string }))
     }
-    loadConversations()
-  }, [pathname, router])
+    return liveLocalMessages.map(msg => ({
+      id: msg.id,
+      role: msg.role,
+      content: msg.content,
+      modelId: msg.model,
+      thinking: msg.thinking,
+      thinkingDuration: msg.thinkingDuration,
+      createdAt: new Date(msg.createdAt),
+    } as ClientMessage & { modelId: string }))
+  }, [isAuthLoading, isAuthenticated, convexMessages, liveLocalMessages])
 
-  // Load messages for the current conversation
-  useEffect(() => {
-    if (!currentConversationId) {
-      setMessages([])
-      return
+  const activeChats = useMemo(() => {
+    if (isAuthLoading) {
+      return []
     }
-
-    const loadMessages = async () => {
-      try {
-        const currentMessages = await db.messages
-          .where('conversationId')
-          .equals(currentConversationId)
-          .sortBy('createdAt')
-        setMessages(currentMessages)
-      } catch (error) {
-        console.error('Error loading messages from Dexie:', error)
-      }
+    if (isAuthenticated) {
+      return (convexChats || []).map(chat => ({
+        id: chat._id,
+        title: chat.title || "New Chat",
+        createdAt: new Date(chat.createdAt),
+        lastMessageAt: new Date(chat.updatedAt),
+      }))
     }
-
-    loadMessages()
-  }, [currentConversationId])
+    return dexieConversations || []
+  }, [isAuthLoading, isAuthenticated, convexChats, dexieConversations])
 
   const currentConversation = useMemo(
-    () => conversations.find((conv) => conv.id === currentConversationId),
-    [conversations, currentConversationId],
+    () => dexieConversations?.find((conv) => conv.id === currentChatId),
+    [dexieConversations, currentChatId],
   )
 
-  useEffect(() => {
-    const performSearch = async () => {
-      if (!searchQuery) {
-        setFilteredConversations(conversations)
-        return
-      }
+  const abortControllerRef = useRef<AbortController | null>(null)
 
-      try {
-        const lowerCaseQuery = searchQuery.toLowerCase()
-        const matchingMessages = await db.messages.toArray()
-        const convIdsFromMessages = new Set(
-          matchingMessages.filter((m) => m.content.toLowerCase().includes(lowerCaseQuery)).map((m) => m.conversationId),
-        )
-
-        const results = conversations.filter(
-          (conv) => conv.title.toLowerCase().includes(lowerCaseQuery) || convIdsFromMessages.has(conv.id),
-        )
-        setFilteredConversations(results)
-      } catch (error) {
-        console.error('Error searching conversations:', error)
-        setFilteredConversations(conversations)
-      }
+  const handleNewMessage = useCallback(async (
+    input: string,
+    options?: {
+      attachments?: Attachment[];
     }
-
-    performSearch()
-  }, [searchQuery, conversations])
-
-  const generateTitle = (firstMessage: string): string => {
-    const words = firstMessage.split(' ').slice(0, 4).join(' ')
-    return words.length > 30 ? words.substring(0, 30) + '...' : words
-  }
-
-  const createNewConversation = useCallback(() => {
-    setCurrentConversationId('')
-    router.push('/')
-  }, [router])
-
-  const deleteConversation = useCallback(
-    async (conversationId: string) => {
-      try {
-        await db.transaction('rw', db.conversations, db.messages, async () => {
-          await db.messages.where({ conversationId }).delete()
-          await db.conversations.delete(conversationId)
-        })
-
-        const updatedConversations = conversations.filter((c) => c.id !== conversationId)
-        setConversations(updatedConversations)
-
-        if (currentConversationId === conversationId) {
-          if (updatedConversations.length > 0) {
-            const nextId = updatedConversations[0].id
-            setCurrentConversationId(nextId)
-            router.push(`/chat/${nextId}`)
-          } else {
-            setCurrentConversationId('')
-            router.push('/')
-          }
-        }
-      } catch (error) {
-        console.error('Error deleting conversation:', error)
+  ) => {
+    if (isAuthenticated) {
+      let chatId = currentChatId as Id<"chats">
+      if (!chatId) {
+        const newChatId = await createChat({ title: input.substring(0, 50) })
+        chatId = newChatId
+        router.push(`/chat/${newChatId}`)
       }
-    },
-    [conversations, currentConversationId, router],
-  )
+      await sendMessage({ chatId, message: input, modelId: selectedModel.id })
+    } else {
+      setIsLocalStreaming(true)
+      console.log("message", input)
+      abortControllerRef.current = new AbortController()
+      let conversationId = currentChatId
 
-  const navigateToConversation = useCallback(
-    (conversationId: string) => {
-      setCurrentConversationId(conversationId)
-      router.push(`/chat/${conversationId}`)
-    },
-    [router],
-  )
-
-  const stopGeneratingResponse = useCallback(() => {
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort()
-      abortControllerRef.current = null
-      setIsTyping(false)
-    }
-  }, [])
-
-  const getAIResponse = useCallback(async (history: DBMessage[], modelToUse: string, conversationId: string) => {
-    if (!conversationId) return
-
-    setIsTyping(true)
-    abortControllerRef.current = new AbortController()
-
-    try {
-      const coreHistory: CoreMessage[] = history.reduce((acc: CoreMessage[], m) => {
-        if (m.role === 'user' || m.role === 'assistant' || m.role === 'system') {
-          acc.push({ role: m.role, content: m.content })
-        }
-        return acc
-      }, [])
-
-      const response = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          messages: coreHistory,
-          data: { modelId: modelToUse },
-        }),
-        signal: abortControllerRef.current.signal,
-      })
-
-      if (!response.body) throw new Error('No response body')
-
-      const assistantId = uuidv4()
-      const createdAt = new Date()
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: assistantId,
-          conversationId: conversationId,
-          content: '',
-          role: 'assistant',
-          createdAt,
-          parts: [],
-          model: modelToUse,
-          thinking: '',
-          thinkingDuration: undefined,
-        },
-      ])
-
-      let streamingContent = ''
-      let thinkingContent = ''
-      const dataStream = parseDataStream(response.body)
-      let streamingStarted = false
-      let thinkingStartTime: Date | null = null
-      let thinkingEndTime: Date | null = null
-
-      for await (const chunk of dataStream) {
-        // Check if abort was requested during streaming
-        if (abortControllerRef.current?.signal.aborted) {
-          console.log('Aborting stream')
-          break
-        }
-
-        if (!streamingStarted) {
-          streamingStarted = true
-          // Keep isTyping true during streaming to show stop button
-        }
-
-        console.log(chunk)
-
-        if (chunk.type === 'error') {
-          console.error('Error in stream:', chunk.value)
-          break
-        }
-
-        if (chunk.type === 'reasoning') {
-          if (!thinkingStartTime) {
-            thinkingStartTime = new Date()
-          }
-          thinkingContent += chunk.value
-          setMessages((prev) => prev.map((m) => (m.id === assistantId ? { ...m, thinking: thinkingContent } : m)))
-        }
-
-        if (chunk.type === 'text') {
-          if (thinkingStartTime && !thinkingEndTime) {
-            thinkingEndTime = new Date()
-          }
-          streamingContent += chunk.value
-          setMessages((prev) =>
-            prev.map((m) =>
-              m.id === assistantId
-                ? {
-                    ...m,
-                    content: streamingContent,
-                    thinking: thinkingContent,
-                    thinkingDuration:
-                      thinkingStartTime && thinkingEndTime
-                        ? Math.round((thinkingEndTime.getTime() - thinkingStartTime.getTime()) / 1000)
-                        : undefined,
-                  }
-                : m,
-            ),
-          )
-        }
-      }
-
-      // Save the final message (or partial message if aborted)
-      const finalAssistantMessage: DBMessage = {
-        id: assistantId,
-        conversationId: conversationId,
-        content: streamingContent,
-        role: 'assistant',
-        createdAt,
+      const userMessage: DBMessage = {
+        id: uuidv4(),
+        conversationId: '',
+        content: input,
+        role: 'user',
+        createdAt: new Date(),
+        model: selectedModel.id,
         parts: [],
-        model: modelToUse,
-        thinking: thinkingContent || undefined,
-        thinkingDuration:
-          thinkingStartTime && thinkingEndTime
-            ? Math.round((thinkingEndTime.getTime() - thinkingStartTime.getTime()) / 1000)
-            : undefined,
       }
-
-      // Only save to database if we have content (even partial)
-      if (streamingContent.trim()) {
-        await db.messages.put(finalAssistantMessage)
-
-        await db.conversations.update(conversationId, {
-          lastMessageAt: finalAssistantMessage.createdAt,
-          updatedAt: finalAssistantMessage.createdAt,
-        })
-        setConversations((prev) =>
-          prev
-            .map((c) =>
-              c.id === conversationId
-                ? { ...c, lastMessageAt: finalAssistantMessage.createdAt, updatedAt: finalAssistantMessage.createdAt }
-                : c,
-            )
-            .sort((a, b) => b.lastMessageAt.getTime() - a.lastMessageAt.getTime()),
-        )
-      } else {
-        // If no content was received (immediate abort), remove the empty message
-        setMessages((prev) => prev.filter((m) => m.id !== assistantId))
-      }
-    } catch (error) {
-      if ((error as Error).name === 'AbortError') {
-        // Handle abort case - ensure we clean up properly
-        console.log('Stream aborted by user')
-      } else {
-        console.error('Error getting AI response:', error)
-      }
-
-      // If there was an error and we have a partial message, clean it up
-      setMessages((prev) => {
-        const lastMessage = prev[prev.length - 1]
-        if (lastMessage?.role === 'assistant' && !lastMessage.content.trim()) {
-          return prev.slice(0, -1)
-        }
-        return prev
-      })
-    } finally {
-      setIsTyping(false)
-      abortControllerRef.current = null
-    }
-  }, [])
-
-  const regenerateResponse = useCallback(
-    async (assistantMessageId: string, modelToUse?: string) => {
-      if (!currentConversation) return
-
-      try {
-        const messageIndex = messages.findIndex((m) => m.id === assistantMessageId)
-        if (messageIndex === -1) return
-
-        const messagesForReprompt = messages.slice(0, messageIndex)
-        const messagesToDelete = messages.slice(messageIndex)
-        const messageIdsToDelete = messagesToDelete.map((m) => m.id)
-
-        await db.messages.bulkDelete(messageIdsToDelete)
-        setMessages(messagesForReprompt)
-
-        // Use the provided model or fall back to the original message's model or default
-        const assistantMessage = messages[messageIndex]
-        const finalModel = modelToUse || assistantMessage.model || model
-
-        await getAIResponse(messagesForReprompt, finalModel, currentConversation.id)
-      } catch (error) {
-        console.error('Error regenerating response:', error)
-      }
-    },
-    [currentConversation, messages, getAIResponse, model],
-  )
-
-  const editMessage = useCallback(
-    async (messageId: string, newContent: string) => {
-      if (!currentConversation) return
-
-      try {
-        const messageIndex = messages.findIndex((m) => m.id === messageId)
-        if (messageIndex === -1) return
-
-        const messagesToDelete = messages.slice(messageIndex + 1)
-        if (messagesToDelete.length > 0) {
-          const messageIdsToDelete = messagesToDelete.map((m) => m.id)
-          await db.messages.bulkDelete(messageIdsToDelete)
-        }
-
-        const newTimestamp = new Date()
-        const editedMessage: DBMessage = {
-          ...messages[messageIndex],
-          content: newContent,
-          createdAt: newTimestamp,
-        }
-        await db.messages.put(editedMessage)
-
-        const updatedMessages = [...messages.slice(0, messageIndex), editedMessage]
-        setMessages(updatedMessages)
-
-        await db.conversations.update(currentConversation.id, {
-          lastMessageAt: newTimestamp,
-          updatedAt: newTimestamp,
-        })
-        setConversations((prev) =>
-          prev.map((c) =>
-            c.id === currentConversation.id ? { ...c, lastMessageAt: newTimestamp, updatedAt: newTimestamp } : c,
-          ),
-        )
-        await getAIResponse(updatedMessages, model, currentConversation.id)
-      } catch (error) {
-        console.error('Error editing message:', error)
-      }
-    },
-    [currentConversation, messages, getAIResponse, model],
-  )
-
-  const handleSendMessage = useCallback(
-    async (message: string, selectedModel: string, attachments: File[] = []) => {
-      if (!message.trim() && attachments.length === 0) return
-
-      setModel(selectedModel)
-
-      const content =
-        message.trim() || (attachments.length > 0 ? `Uploaded files: ${attachments.map((f) => f.name).join(', ')}` : '')
-
-      let conversationId = currentConversationId
-      const isNewConversation = !conversationId || !currentConversation || pathname === '/'
-      let newMessagesHistory: DBMessage[]
-
-      if (isNewConversation) {
+      
+      if (!conversationId) {
         conversationId = uuidv4()
-        const now = new Date()
+        userMessage.conversationId = conversationId
         const newConv: DBConversation = {
           id: conversationId,
-          userId: session?.user?.id ? session.user.id : 'local-user',
-          title: generateTitle(content),
-          createdAt: now,
-          updatedAt: now,
-          lastMessageAt: now,
-        }
-        await db.conversations.add(newConv)
-        setConversations((prev) =>
-          [newConv, ...prev].sort((a, b) => b.lastMessageAt.getTime() - a.lastMessageAt.getTime()),
-        )
-
-        const newMessage: DBMessage = {
-          id: uuidv4(),
-          conversationId,
-          content,
-          role: 'user',
+          title: input.split(' ').slice(0, 4).join(' '),
           createdAt: new Date(),
-          parts: [],
+          updatedAt: new Date(),
+          lastMessageAt: new Date(),
         }
-        await db.messages.add(newMessage)
-
-        setCurrentConversationId(conversationId)
-        setMessages([newMessage])
-        newMessagesHistory = [newMessage]
-
-        window.history.pushState({}, '', `/chat/${conversationId}`)
+        const newConvId = await db.conversations.add(newConv)
+        console.log("newConvId", newConvId)
+        router.push(`/chat/${conversationId}`)
       } else {
-        const newMessage: DBMessage = {
-          id: uuidv4(),
+        userMessage.conversationId = conversationId
+      }
+      
+      await db.messages.add(userMessage)
+
+      const history = [...liveLocalMessages, userMessage]
+      const coreHistory: CoreMessage[] = history.map(m => ({ role: m.role as 'user' | 'assistant', content: m.content }))
+      
+      try {
+        const response = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            messages: coreHistory,
+            data: { modelId: selectedModel.id },
+          }),
+          signal: abortControllerRef.current.signal,
+        })
+
+        if (!response.body) throw new Error('No response body')
+
+        const assistantId = uuidv4()
+        const assistantMessage: DBMessage = {
+          id: assistantId,
           conversationId,
-          content,
-          role: 'user',
+          content: '',
+          role: 'assistant',
           createdAt: new Date(),
+          model: selectedModel.id,
           parts: [],
         }
-        await db.messages.add(newMessage)
-        await db.conversations.update(conversationId, {
-          lastMessageAt: newMessage.createdAt,
-          updatedAt: newMessage.createdAt,
-        })
-        setConversations((prev) =>
-          prev
-            .map((c) =>
-              c.id === conversationId
-                ? { ...c, lastMessageAt: newMessage.createdAt, updatedAt: newMessage.createdAt }
-                : c,
-            )
-            .sort((a, b) => b.lastMessageAt.getTime() - a.lastMessageAt.getTime()),
-        )
-        newMessagesHistory = [...messages, newMessage]
-        setMessages(newMessagesHistory)
+        await db.messages.add(assistantMessage)
+
+        const dataStream = parseDataStream(response.body)
+        let streamingContent = ''
+        let streamingThinking = ''
+        let finalThinkingDuration: number | undefined
+        
+        for await (const chunk of dataStream) {
+          if (abortControllerRef.current?.signal.aborted) break
+          if (chunk.type === 'text') {
+            streamingContent += chunk.value
+            await db.messages.update(assistantId, { content: streamingContent })
+          } else if (chunk.type === 'reasoning') {
+            streamingThinking += chunk.value
+            await db.messages.update(assistantId, { 
+              content: streamingContent,
+              thinking: streamingThinking 
+            })
+          } else if (chunk.type === 'finish') {
+            finalThinkingDuration = chunk.value?.thinkingDuration
+            await db.messages.update(assistantId, { 
+              content: streamingContent,
+              thinking: streamingThinking || undefined,
+              thinkingDuration: finalThinkingDuration
+            })
+          }
+        }
+        
+        if (!streamingContent.trim()) {
+          await db.messages.delete(assistantId)
+        }
+
+      } catch (error) {
+        if ((error as Error).name !== 'AbortError') {
+          console.error("Error in local stream:", error)
+          toast.error("An error occurred while getting the response.")
+        }
+      } finally {
+        setIsLocalStreaming(false)
+        abortControllerRef.current = null
       }
-      await getAIResponse(newMessagesHistory, selectedModel, conversationId)
-    },
-    [currentConversationId, currentConversation, pathname, session?.user?.id, messages, getAIResponse],
-  )
+    }
+  }, [isAuthenticated, currentChatId, selectedModel, createChat, sendMessage, router, liveLocalMessages])
+
+  const deleteConversation = useCallback(async (id: string) => {
+    if (isAuthenticated) {
+      await deleteConvexChat({ chatId: id as Id<"chats"> })
+      if (currentChatId === id) {
+        router.push('/')
+      }
+      toast.success('Chat deleted.')
+    } else {
+      await db.conversations.delete(id)
+      await db.messages.where('conversationId').equals(id).delete()
+      if (currentChatId === id) {
+        router.push('/')
+      }
+      toast.success('Conversation deleted.')
+    }
+  }, [isAuthenticated, deleteConvexChat, currentChatId, router])
+
+  useEffect(() => {
+    const newChatId = pathname.startsWith('/chat/') ? pathname.split('/')[2] : null
+    setCurrentChatId(newChatId)
+  }, [pathname])
+
+  useEffect(() => {
+    if (isAuthLoading || isAuthenticated || !currentChatId) {
+      return
+    }
+    const loadMessages = async () => {
+      const currentMessages = await db.messages.where('conversationId').equals(currentChatId).sortBy('createdAt')
+    }
+    loadMessages()
+  }, [currentChatId, isAuthenticated, isAuthLoading])
 
   return {
-    conversations,
-    currentConversationId,
-    currentConversation,
-    messages,
-    isTyping,
-    searchQuery,
-    filteredConversations,
-    createNewConversation,
-    setCurrentConversationId: navigateToConversation,
-    setSearchQuery,
+    messages: activeMessages,
+    chats: activeChats,
+    isStreaming: isAuthenticated ? isConvexStreaming : isLocalStreaming,
+    handleNewMessage,
     deleteConversation,
-    handleSendMessage,
-    stopGeneratingResponse,
-    regenerateResponse,
-    editMessage,
+    currentChatId,
+    setCurrentChatId,
+    selectedModel,
+    setSelectedModel,
   }
 }

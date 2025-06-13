@@ -14,8 +14,14 @@ import { models } from '@/lib/models'
 
 export default function ChatInterface() {
   const pathname = usePathname()
-  const { messages, isTyping, handleSendMessage, stopGeneratingResponse, regenerateResponse, editMessage } =
-    useConversations()
+  const {
+    messages: activeMessages,
+    isStreaming,
+    handleNewMessage,
+    currentChatId,
+    selectedModel,
+    setSelectedModel,
+  } = useConversations()
 
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const [pendingAttachments, setPendingAttachments] = useState<File[]>([])
@@ -24,7 +30,7 @@ export default function ChatInterface() {
   const [editingContent, setEditingContent] = useState('')
   const [showScrollToBottom, setShowScrollToBottom] = useState(false)
   const [retryDropdownId, setRetryDropdownId] = useState<string | null>(null)
-
+  const [isTyping, setIsTyping] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const editInputRef = useRef<HTMLTextAreaElement>(null)
@@ -43,7 +49,6 @@ export default function ChatInterface() {
 
   const handleFileUpload = (files: FileList | null) => {
     if (!files || files.length === 0) return
-
     const fileArray = Array.from(files)
     setPendingAttachments((prev) => [...prev, ...fileArray])
   }
@@ -52,10 +57,13 @@ export default function ChatInterface() {
     setPendingAttachments((prev) => prev.filter((_, i) => i !== index))
   }
 
-  const handleSendWithAttachments = (message: string, model: string) => {
-    setPendingAttachments([])
-    handleSendMessage(message, model, pendingAttachments)
-  }
+  const handleSend = () => {
+    if (inputValue.trim() || pendingAttachments.length > 0) {
+      handleNewMessage(inputValue, { attachments: [] /* TODO: Map pendingAttachments */ });
+      setInputValue('');
+      setPendingAttachments([]);
+    }
+  };
 
   const handlePromptClick = (prompt: string) => {
     setInputValue(prompt)
@@ -73,7 +81,7 @@ export default function ChatInterface() {
 
   const saveEdit = () => {
     if (editingMessageId && editingContent.trim()) {
-      editMessage(editingMessageId, editingContent.trim())
+      console.log("Editing not yet implemented in the new hook.");
       cancelEditing()
     }
   }
@@ -93,7 +101,7 @@ export default function ChatInterface() {
   }
 
   const handleRetryWithModel = (messageId: string, modelId: string) => {
-    regenerateResponse(messageId, modelId)
+    console.log("Regenerate not yet implemented in new hook.");
     setRetryDropdownId(null)
   }
 
@@ -113,38 +121,20 @@ export default function ChatInterface() {
         return 'bg-red-500'
       case 'openrouter':
         return 'bg-blue-500'
+      case 'groq':
+        return 'bg-yellow-500'
       default:
         return 'bg-gray-500'
     }
   }
 
-  // Focus the edit input when editing starts
   useEffect(() => {
     if (editingMessageId && editInputRef.current) {
       editInputRef.current.focus()
-      // Position cursor at end
       const length = editingContent.length
       editInputRef.current.setSelectionRange(length, length)
     }
   }, [editingMessageId, editingContent])
-
-  // Handle clicking outside to cancel edit
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (editingMessageId && editInputRef.current && !editInputRef.current.contains(event.target as Node)) {
-        // Check if clicked on save button
-        const target = event.target as HTMLElement
-        if (!target.closest('[data-edit-controls]')) {
-          cancelEditing()
-        }
-      }
-    }
-
-    if (editingMessageId) {
-      document.addEventListener('mousedown', handleClickOutside)
-      return () => document.removeEventListener('mousedown', handleClickOutside)
-    }
-  }, [editingMessageId])
 
   const scrollToBottom = (behavior: 'smooth' | 'auto' = 'smooth') => {
     messagesEndRef.current?.scrollIntoView({ behavior })
@@ -169,47 +159,30 @@ export default function ChatInterface() {
     }
   }, [handleScroll])
 
-  // Auto-scroll on new messages or typing start
   useEffect(() => {
     if (isAtBottomRef.current) {
-      setTimeout(() => scrollToBottom('smooth'), 100)
+      scrollToBottom('auto')
     }
-  }, [messages, isTyping])
+  }, [activeMessages])
 
-  // Handle escape key to stop streaming
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && isTyping) {
-        event.preventDefault()
-        stopGeneratingResponse()
-      }
-    }
-
-    if (isTyping) {
-      document.addEventListener('keydown', handleKeyDown)
-      return () => document.removeEventListener('keydown', handleKeyDown)
-    }
-  }, [isTyping, stopGeneratingResponse])
-
-  const showWelcomeScreen = pathname === '/' && messages.length === 0 && !isTyping && inputValue === ''
+  const showWelcomeScreen = !currentChatId && activeMessages.length === 0 && inputValue.length === 0;
 
   const isCurrentlyStreaming = (messageId: string) => {
-    return isTyping && messages[messages.length - 1]?.id === messageId
+    return isStreaming && activeMessages[activeMessages.length - 1]?.id === messageId
   }
 
   return (
     <>
-      {/* Welcome Screen or Messages */}
       <AnimatePresence mode="wait">
         {showWelcomeScreen ? (
           <WelcomeScreen key="welcome" onPromptClick={handlePromptClick} />
         ) : (
           <ScrollArea key="messages" className="h-full scrollbar-hide" ref={scrollAreaRef}>
             <div className="pt-16 px-4 md:px-4 pb-48 md:pb-40 space-y-4 max-w-4xl mx-auto">
-              {messages.map((message) => (
+              {activeMessages.map((message) => (
                 <div
                   key={message.id}
-                  className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start min-w-full'}`}
+                  className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
                 >
                   <div className="group flex flex-col gap-2 max-w-[85%] min-w-0">
                     <div
@@ -250,36 +223,21 @@ export default function ChatInterface() {
                         </div>
                       ) : (
                         <MessageRenderer
-                          content={message.content}
-                          thinking={message.role === 'assistant' ? message.thinking : undefined}
-                          thinkingDuration={message.role === 'assistant' ? message.thinkingDuration : undefined}
+                          content={message.content as string}
+                          thinking={message.thinking}
+                          thinkingDuration={message.thinkingDuration}
                           isTyping={message.role === 'assistant' && isCurrentlyStreaming(message.id)}
                           className="text-base leading-relaxed break-words overflow-wrap-anywhere"
                         />
                       )}
-                      {message.parts && message.parts.length > 0 && (
-                        <div className="mt-2 flex flex-wrap gap-2">
-                          {message.parts.map((part, index) => (
-                            <div
-                              key={index}
-                              className="flex items-center gap-2 bg-black/5 dark:bg-white/10 rounded px-2 py-1"
-                            >
-                              <Paperclip className="w-3 h-3" />
-                              <span className="text-xs truncate max-w-32">{part.type}</span>
-                            </div>
-                          ))}
-                        </div>
-                      )}
                     </div>
 
-                    {/* Assistant message actions: buttons and model info */}
-                    {message.role === 'assistant' && (
+                    {message.role === 'assistant' && !isCurrentlyStreaming(message.id) && (
                       <div className="flex items-center gap-4 opacity-0 group-hover:opacity-100 transition-opacity relative">
-                        {/* Action Buttons: only show when not typing */}
-                        {!isTyping && (
+                        {!isStreaming && (
                           <div className="flex items-center gap-1">
                             <button
-                              onClick={() => handleCopy(message.content, message.id)}
+                              onClick={() => handleCopy(message.content as string, message.id)}
                               className="p-1.5 text-rose-500/70 hover:text-rose-600 dark:text-rose-300/70 dark:hover:text-rose-300 hover:bg-rose-500/5 dark:hover:bg-rose-300/5 rounded transition-colors"
                               title="Copy message"
                             >
@@ -293,14 +251,12 @@ export default function ChatInterface() {
                               >
                                 <RotateCcw className="w-4 h-4" />
                               </button>
-
-                              {/* Model dropdown */}
                               {retryDropdownId === message.id && (
                                 <ModelDropdown
-                                  selectedModel={message.model}
+                                  selectedModel={selectedModel.id}
                                   onModelSelect={(modelId) => handleRetryWithModel(message.id, modelId)}
                                   onClose={() => setRetryDropdownId(null)}
-                                  className="absolute left-0" // The component will handle positioning
+                                  className="absolute left-0"
                                 />
                               )}
                             </div>
@@ -308,10 +264,10 @@ export default function ChatInterface() {
                         )}
 
                         {/* Model Display: show if model exists and not currently streaming this message */}
-                        {message.model && !isCurrentlyStreaming(message.id) && (
+                        {message?.modelId && !isCurrentlyStreaming(message.id) && (
                           <div className="flex items-center gap-1.5 text-xs text-black/50 dark:text-white/50">
-                            <div className={`w-2 h-2 rounded-full ${getProviderColor(message.model)}`} />
-                            <span>{getModelDisplayName(message.model)}</span>
+                            <div className={`w-2 h-2 rounded-full ${getProviderColor(message.modelId)}`} />
+                            <span>{getModelDisplayName(message?.modelId)}</span>
                           </div>
                         )}
                       </div>
@@ -320,7 +276,7 @@ export default function ChatInterface() {
                     {message.role === 'user' && editingMessageId !== message.id && (
                       <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                         <button
-                          onClick={() => startEditing(message.id, message.content)}
+                          onClick={() => startEditing(message.id, message.content as string)}
                           className="p-1.5 text-rose-500/70 hover:text-rose-600 dark:text-rose-300/70 dark:hover:text-rose-300 hover:bg-rose-500/5 dark:hover:bg-rose-300/5 rounded transition-colors"
                           title="Edit message"
                         >
@@ -332,7 +288,7 @@ export default function ChatInterface() {
                 </div>
               ))}
 
-              {isTyping && (
+              {isStreaming && activeMessages[activeMessages.length - 1]?.role === 'assistant' && (
                 <div className="flex justify-start">
                   <div className="text-black dark:text-white px-4 py-3">
                     <div className="flex gap-1.5 items-center">
@@ -349,7 +305,6 @@ export default function ChatInterface() {
         )}
       </AnimatePresence>
 
-      {/* Scroll to bottom button */}
       <AnimatePresence>
         {showScrollToBottom && (
           <motion.div
@@ -370,7 +325,6 @@ export default function ChatInterface() {
         )}
       </AnimatePresence>
 
-      {/* AI Input */}
       <div className="fixed md:absolute bottom-0 left-0 right-0 z-30">
         <input
           ref={fileInputRef}
@@ -383,13 +337,16 @@ export default function ChatInterface() {
           <AIInput
             value={inputValue}
             onValueChange={setInputValue}
-            onSend={handleSendWithAttachments}
+            onSend={handleSend}
+            isStreaming={isStreaming}
             isTyping={isTyping}
-            onStop={stopGeneratingResponse}
+            onStop={() => console.log("Stop generating not implemented.")}
             onAttachmentClick={() => fileInputRef.current?.click()}
             pendingAttachments={pendingAttachments}
             onRemoveAttachment={removeAttachment}
-            messagesLength={messages.length}
+            messagesLength={activeMessages.length}
+            selectedModel={selectedModel}
+            setSelectedModel={setSelectedModel}
           />
         </div>
       </div>

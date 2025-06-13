@@ -18,6 +18,9 @@ interface AIInputProps {
   pendingAttachments?: File[]
   onRemoveAttachment?: (index: number) => void
   messagesLength: number
+  isStreaming?: boolean
+  selectedModel: ModelInfo
+  setSelectedModel: (model: ModelInfo) => void
 }
 
 const getCategoryColor = (category: string) => {
@@ -49,14 +52,16 @@ export default function AIInput({
   value,
   onValueChange,
   onSend,
+  isStreaming,
   isTyping,
   onStop,
   onAttachmentClick,
   pendingAttachments = [],
   onRemoveAttachment,
   messagesLength,
+  selectedModel,
+  setSelectedModel,
 }: AIInputProps) {
-  const [selectedModel, setSelectedModel] = useState<ModelInfo>(models[0])
   const [showModelSelect, setShowModelSelect] = useState(false)
   const [thinkingEnabled, setThinkingEnabled] = useState(true)
   const [groupBy, setGroupBy] = useState<'provider' | 'category'>('provider')
@@ -397,7 +402,7 @@ export default function AIInput({
                 <Globe className="w-3.5 md:w-4 h-3.5 md:h-4" />
               </button>
             </div>
-            {isTyping ? (
+            {isStreaming ? (
               <button
                 type="button"
                 onClick={onStop}
@@ -410,7 +415,7 @@ export default function AIInput({
               <button
                 type="button"
                 onClick={handleSend}
-                disabled={(!value.trim() && pendingAttachments.length === 0) || isTyping}
+                disabled={(!value.trim() && pendingAttachments.length === 0) || isStreaming}
                 className={cn(
                   'p-2 md:p-2.5 transition-all duration-300 rounded-full',
                   (value.trim() || pendingAttachments.length > 0) && !isTyping
@@ -421,7 +426,7 @@ export default function AIInput({
                 <ArrowUpCircle
                   className={cn(
                     'w-5 md:w-6 h-5 md:h-6 transition-transform duration-300',
-                    (value.trim() || pendingAttachments.length > 0) && !isTyping && 'hover:translate-y-[-2px]',
+                    (value.trim() || pendingAttachments.length > 0) && !isStreaming && 'hover:translate-y-[-2px]',
                   )}
                 />
               </button>
