@@ -206,7 +206,7 @@ export default function ChatInterface() {
                           <div className="flex items-center gap-1 justify-end" data-edit-controls>
                             <button
                               onClick={cancelEditing}
-                              className="p-1.5 text-rose-500/70 hover:text-rose-600 dark:text-rose-300/70 dark:hover:text-rose-300 hover:bg-rose-500/5 dark:hover:bg-rose-300/5 rounded transition-colors"
+                              className="p-1.5 text-rose-500/70 hover:text-rose-600 dark:text-rose-300/70 dark:hover:text-rose-300 hover:bg-rose-500/5 dark:hover:bg-rose-300/5 rounded transition-all duration-150 ease-[0.25,1,0.5,1] hover:scale-110"
                               title="Cancel edit"
                             >
                               <X className="w-4 h-4" />
@@ -214,7 +214,7 @@ export default function ChatInterface() {
                             <button
                               onClick={saveEdit}
                               disabled={!editingContent.trim()}
-                              className="p-1.5 text-rose-500/70 hover:text-rose-600 dark:text-rose-300/70 dark:hover:text-rose-300 hover:bg-rose-500/5 dark:hover:bg-rose-300/5 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                              className="p-1.5 text-rose-500/70 hover:text-rose-600 dark:text-rose-300/70 dark:hover:text-rose-300 hover:bg-rose-500/5 dark:hover:bg-rose-300/5 rounded transition-all duration-150 ease-[0.25,1,0.5,1] hover:scale-110 disabled:opacity-50 disabled:cursor-not-allowed"
                               title="Save edit"
                             >
                               <Send className="w-4 h-4" />
@@ -233,12 +233,12 @@ export default function ChatInterface() {
                     </div>
 
                     {message.role === 'assistant' && !isCurrentlyStreaming(message.id) && (
-                      <div className="flex items-center gap-4 opacity-0 group-hover:opacity-100 transition-opacity relative">
+                      <div className="flex items-center gap-4 opacity-0 group-hover:opacity-100 transition-opacity duration-150 ease-[0.25,1,0.5,1] relative">
                         {!isStreaming && (
                           <div className="flex items-center gap-1">
                             <button
                               onClick={() => handleCopy(message.content as string, message.id)}
-                              className="p-1.5 text-rose-500/70 hover:text-rose-600 dark:text-rose-300/70 dark:hover:text-rose-300 hover:bg-rose-500/5 dark:hover:bg-rose-300/5 rounded transition-colors"
+                              className="p-1.5 text-rose-500/70 hover:text-rose-600 dark:text-rose-300/70 dark:hover:text-rose-300 hover:bg-rose-500/5 dark:hover:bg-rose-300/5 rounded transition-all duration-150 ease-[0.25,1,0.5,1] hover:scale-110"
                               title="Copy message"
                             >
                               {copiedId === message.id ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
@@ -246,7 +246,7 @@ export default function ChatInterface() {
                             <div className="relative">
                               <button
                                 onClick={() => handleRetryClick(message.id)}
-                                className="p-1.5 text-rose-500/70 hover:text-rose-600 dark:text-rose-300/70 dark:hover:text-rose-300 hover:bg-rose-500/5 dark:hover:bg-rose-300/5 rounded transition-colors"
+                                className="p-1.5 text-rose-500/70 hover:text-rose-600 dark:text-rose-300/70 dark:hover:text-rose-300 hover:bg-rose-500/5 dark:hover:bg-rose-300/5 rounded transition-all duration-150 ease-[0.25,1,0.5,1] hover:scale-110"
                                 title="Retry with model selection"
                               >
                                 <RotateCcw className="w-4 h-4" />
@@ -274,10 +274,10 @@ export default function ChatInterface() {
                     )}
 
                     {message.role === 'user' && editingMessageId !== message.id && (
-                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-150 ease-[0.25,1,0.5,1]">
                         <button
                           onClick={() => startEditing(message.id, message.content as string)}
-                          className="p-1.5 text-rose-500/70 hover:text-rose-600 dark:text-rose-300/70 dark:hover:text-rose-300 hover:bg-rose-500/5 dark:hover:bg-rose-300/5 rounded transition-colors"
+                          className="p-1.5 text-rose-500/70 hover:text-rose-600 dark:text-rose-300/70 dark:hover:text-rose-300 hover:bg-rose-500/5 dark:hover:bg-rose-300/5 rounded transition-all duration-150 ease-[0.25,1,0.5,1] hover:scale-110"
                           title="Edit message"
                         >
                           <Edit3 className="w-4 h-4" />
@@ -308,15 +308,15 @@ export default function ChatInterface() {
       <AnimatePresence>
         {showScrollToBottom && (
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 20 }}
-            transition={{ duration: 0.2, ease: 'easeOut' }}
+            initial={{ opacity: 0, y: 12, scale: 0.85 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 8, scale: 0.9 }}
+            transition={{ duration: 0.15, ease: [0.25, 1, 0.5, 1] }}
             className="fixed bottom-24 md:bottom-28 left-1/2 -translate-x-1/2 z-30"
           >
             <button
               onClick={() => scrollToBottom('smooth')}
-              className="group p-2 rounded-full bg-white/80 dark:bg-black/60 backdrop-blur-lg shadow-lg dark:shadow-2xl ring-1 ring-black/5 dark:ring-white/10 hover:scale-110 transition-transform duration-200"
+              className="group p-2 rounded-full bg-white/80 dark:bg-black/60 backdrop-blur-lg shadow-lg dark:shadow-2xl ring-1 ring-black/5 dark:ring-white/10 hover:scale-110 transition-transform duration-150 ease-[0.25,1,0.5,1]"
               title="Scroll to bottom"
             >
               <ChevronDown className="w-5 h-5 text-black/60 dark:text-white/60" />

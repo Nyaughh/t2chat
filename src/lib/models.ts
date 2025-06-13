@@ -18,6 +18,22 @@ export interface ModelInfo {
 
 export const models: ModelInfo[] = [
   {
+    id: 'gemini-2.0-flash-lite',
+    name: 'Gemini 2.0 Flash Lite',
+    description: 'Lightweight version for quick tasks',
+    provider: 'gemini',
+    category: 'google',
+    features: ['vision', 'code'],
+    isPro: false,
+    isNew: true,
+    supportsThinking: false,
+    unauthenticated: true,
+    attachmentsSuppport: {
+      pdf: true,
+      image: true,
+    },
+  },
+  {
     id: 'gemini-2.0-flash',
     name: 'Gemini 2.0 Flash',
     description: 'Latest and fastest model',
@@ -42,22 +58,6 @@ export const models: ModelInfo[] = [
     isPro: false,
     supportsThinking: true,
     unauthenticated: false,
-    attachmentsSuppport: {
-      pdf: true,
-      image: true,
-    },
-  },
-  {
-    id: 'gemini-2.0-flash-lite',
-    name: 'Gemini 2.0 Flash Lite',
-    description: 'Lightweight version for quick tasks',
-    provider: 'gemini',
-    category: 'google',
-    features: ['vision', 'code'],
-    isPro: false,
-    isNew: true,
-    supportsThinking: false,
-    unauthenticated: true,
     attachmentsSuppport: {
       pdf: true,
       image: true,

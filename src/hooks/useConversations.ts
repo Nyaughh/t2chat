@@ -41,7 +41,7 @@ export const useConversations = () => {
     []
   )
   const [isLocalStreaming, setIsLocalStreaming] = useState(false)
-  
+
   const activeMessages = useMemo(() => {
     if (isAuthLoading) return [];
     if (isAuthenticated) {
@@ -130,7 +130,7 @@ export const useConversations = () => {
         }
         const newConvId = await db.conversations.add(newConv)
         console.log("newConvId", newConvId)
-        router.push(`/chat/${conversationId}`)
+      router.push(`/chat/${conversationId}`)
       } else {
         userMessage.conversationId = conversationId
       }
@@ -141,19 +141,19 @@ export const useConversations = () => {
       const coreHistory: CoreMessage[] = history.map(m => ({ role: m.role as 'user' | 'assistant', content: m.content }))
       
       try {
-        const response = await fetch('/api/chat', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            messages: coreHistory,
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: coreHistory,
             data: { modelId: selectedModel.id },
-          }),
-          signal: abortControllerRef.current.signal,
-        })
+        }),
+        signal: abortControllerRef.current.signal,
+      })
 
-        if (!response.body) throw new Error('No response body')
+      if (!response.body) throw new Error('No response body')
 
-        const assistantId = uuidv4()
+      const assistantId = uuidv4()
         const assistantMessage: DBMessage = {
           id: assistantId,
           conversationId,
@@ -165,12 +165,12 @@ export const useConversations = () => {
         }
         await db.messages.add(assistantMessage)
 
-        const dataStream = parseDataStream(response.body)
+      const dataStream = parseDataStream(response.body)
         let streamingContent = ''
         let streamingThinking = ''
         let finalThinkingDuration: number | undefined
-        
-        for await (const chunk of dataStream) {
+
+      for await (const chunk of dataStream) {
           if (abortControllerRef.current?.signal.aborted) break
           if (chunk.type === 'text') {
             streamingContent += chunk.value
@@ -178,13 +178,13 @@ export const useConversations = () => {
           } else if (chunk.type === 'reasoning') {
             streamingThinking += chunk.value
             await db.messages.update(assistantId, { 
-              content: streamingContent,
+                    content: streamingContent,
               thinking: streamingThinking 
             })
           } else if (chunk.type === 'finish') {
             finalThinkingDuration = chunk.value?.thinkingDuration
             await db.messages.update(assistantId, { 
-              content: streamingContent,
+        content: streamingContent,
               thinking: streamingThinking || undefined,
               thinkingDuration: finalThinkingDuration
             })
@@ -193,17 +193,17 @@ export const useConversations = () => {
         
         if (!streamingContent.trim()) {
           await db.messages.delete(assistantId)
-        }
+      }
 
-      } catch (error) {
+    } catch (error) {
         if ((error as Error).name !== 'AbortError') {
           console.error("Error in local stream:", error)
           toast.error("An error occurred while getting the response.")
         }
-      } finally {
+    } finally {
         setIsLocalStreaming(false)
-        abortControllerRef.current = null
-      }
+      abortControllerRef.current = null
+    }
     }
   }, [isAuthenticated, currentChatId, selectedModel, createChat, sendMessage, router, liveLocalMessages])
 

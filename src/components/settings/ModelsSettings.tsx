@@ -205,8 +205,9 @@ export function ModelsSettings({ apiKeys, modelSettings }: ModelsSettingsProps) 
         </div>
         {showAddKeyForm ? (
           <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
+            initial={{ opacity: 0, y: -8, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            transition={{ duration: 0.18, ease: [0.25, 1, 0.5, 1] }}
             className="p-4 rounded-lg bg-black/5 dark:bg-white/5 mt-3 space-y-3"
           >
             <h4 className="font-semibold text-sm">{editingApiKey ? 'Edit' : 'Add'} API Key</h4>
@@ -295,7 +296,7 @@ export function ModelsSettings({ apiKeys, modelSettings }: ModelsSettingsProps) 
 
           <div className="space-y-3">
             {providerModels.map((model) => (
-              <div key={model.id} className="p-3 rounded-lg bg-black/5 dark:bg-white/5 transition-colors">
+              <div key={model.id} className="p-3 rounded-lg bg-black/5 dark:bg-white/5 transition-all duration-150 ease-[0.25,1,0.5,1] hover:bg-black/8 dark:hover:bg-white/8">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <div className="flex-shrink-0">
@@ -314,7 +315,7 @@ export function ModelsSettings({ apiKeys, modelSettings }: ModelsSettingsProps) 
                             })
                           }
                         />
-                        <div className="w-9 h-5 bg-black/20 peer-focus:outline-none rounded-full peer dark:bg-white/20 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-rose-500/70 dark:peer-checked:bg-rose-400/70"></div>
+                        <div className="w-9 h-5 bg-black/20 peer-focus:outline-none rounded-full peer dark:bg-white/20 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all after:duration-150 after:ease-[0.25,1,0.5,1] dark:border-gray-600 peer-checked:bg-rose-500/70 dark:peer-checked:bg-rose-400/70"></div>
                       </label>
                     </div>
                     <div>

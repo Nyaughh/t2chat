@@ -20,7 +20,12 @@ export function AccountSettings({ user }: AccountSettingsProps) {
 
   return (
     <div className="space-y-6">
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
+      <motion.div 
+        initial={{ opacity: 0, y: 10 }} 
+        animate={{ opacity: 1, y: 0 }} 
+        transition={{ duration: 0.2, ease: [0.25, 1, 0.5, 1] }}
+        className="space-y-6"
+      >
         <div>
           <h3 className="text-lg font-semibold text-black/80 dark:text-white/80">My Profile</h3>
           <div className="flex items-center gap-3">

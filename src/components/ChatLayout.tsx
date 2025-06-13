@@ -84,7 +84,7 @@ export default function ChatLayout({ children, userMetadata, isSignedIn }: ChatL
       {/* Sidebar */}
       <div
         className={cn(
-          'bg-white/50 dark:bg-[oklch(0.18_0.015_25)]/20 backdrop-blur-sm flex flex-col transition-all duration-300 ease-in-out h-full',
+          'bg-white/50 dark:bg-[oklch(0.18_0.015_25)]/20 backdrop-blur-sm flex flex-col transition-all duration-200 ease-[0.23,1,0.32,1] h-full',
           'md:flex-shrink-0 md:shadow-none',
           effectiveSidebarOpen ? 'md:w-60 md:opacity-100' : 'md:w-0 md:opacity-0 md:overflow-hidden',
           'fixed md:relative z-50 md:z-auto shadow-2xl md:shadow-none',
@@ -100,9 +100,9 @@ export default function ChatLayout({ children, userMetadata, isSignedIn }: ChatL
               variant="ghost"
               size="icon"
               onClick={toggleSidebar}
-              className="text-black/50 dark:text-white/50 hover:text-rose-600 dark:hover:text-rose-300 hover:bg-rose-500/5 dark:hover:bg-rose-300/5 h-9 w-9 rounded-xl transition-all duration-200 hover:scale-110 group"
+              className="text-black/50 dark:text-white/50 hover:text-rose-600 dark:hover:text-rose-300 hover:bg-rose-500/5 dark:hover:bg-rose-300/5 h-9 w-9 rounded-xl transition-all duration-150 ease-[0.25,1,0.5,1] hover:scale-110 group"
             >
-              <Menu className="w-4 h-4 group-hover:rotate-180 transition-transform duration-300" />
+              <Menu className="w-4 h-4 group-hover:rotate-180 transition-transform duration-200 ease-[0.25,1,0.5,1]" />
             </Button>
             <h1 className="text-xl font-bold bg-gradient-to-r from-rose-600 via-rose-500 to-rose-600 dark:from-rose-300 dark:via-rose-200 dark:to-rose-300 bg-clip-text text-transparent tracking-tight leading-none">
               T2Chat
@@ -113,15 +113,15 @@ export default function ChatLayout({ children, userMetadata, isSignedIn }: ChatL
             <Button
               onClick={createNewChat}
               className={cn(
-                'group w-full relative overflow-hidden bg-gradient-to-br from-rose-500/12 via-rose-500/8 to-rose-500/12 dark:from-rose-300/12 dark:via-rose-300/8 dark:to-rose-300/12 text-rose-600 dark:text-rose-300 h-10 text-sm font-semibold rounded-xl shadow-lg hover:shadow-xl shadow-rose-500/10 hover:shadow-rose-500/20 dark:shadow-rose-500/10 dark:hover:shadow-rose-500/20 transition-all duration-300 ease-out backdrop-blur-sm',
+                'group w-full relative overflow-hidden bg-gradient-to-br from-rose-500/12 via-rose-500/8 to-rose-500/12 dark:from-rose-300/12 dark:via-rose-300/8 dark:to-rose-300/12 text-rose-600 dark:text-rose-300 h-10 text-sm font-semibold rounded-xl shadow-lg hover:shadow-xl shadow-rose-500/10 hover:shadow-rose-500/20 dark:shadow-rose-500/10 dark:hover:shadow-rose-500/20 transition-all duration-200 ease-[0.25,1,0.5,1] backdrop-blur-sm',
                 isOnHomePage && 'opacity-50 cursor-not-allowed',
               )}
               variant="ghost"
               disabled={isOnHomePage}
             >
               <div className="absolute inset-0 bg-gradient-to-br from-white/20 via-transparent to-transparent dark:from-white/10 rounded-xl"></div>
-              <Plus className="w-4 h-4 mr-2 group-hover:rotate-90 transition-transform duration-300" />
-              <span className="relative z-10 tracking-[0.5px] group-hover:tracking-wide transition-all duration-300 ease-out">
+              <Plus className="w-4 h-4 mr-2 group-hover:rotate-90 transition-transform duration-200 ease-[0.25,1,0.5,1]" />
+              <span className="relative z-10 tracking-[0.5px] group-hover:tracking-wide transition-all duration-200 ease-[0.25,1,0.5,1]">
                 New chat
               </span>
             </Button>
@@ -149,7 +149,7 @@ export default function ChatLayout({ children, userMetadata, isSignedIn }: ChatL
                   key={chat.id}
                   onClick={() => handleConversationSelect(chat.id)}
                   className={cn(
-                    'group px-3 py-2.5 cursor-pointer transition-all duration-200 relative overflow-hidden',
+                    'group px-3 py-2.5 cursor-pointer transition-all duration-150 ease-[0.25,1,0.5,1] relative overflow-hidden',
                     chat.id === currentChatId
                       ? 'text-rose-600 dark:text-rose-300'
                       : 'hover:text-rose-600 dark:hover:text-rose-300 text-black/70 dark:text-white/70',
@@ -174,7 +174,7 @@ export default function ChatLayout({ children, userMetadata, isSignedIn }: ChatL
 
                   {/* Hover effect for non-active items */}
                   {chat.id !== currentChatId && (
-                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-rose-500/3 dark:via-rose-300/3 to-transparent opacity-0 hover:opacity-100 transition-opacity duration-200"></div>
+                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-rose-500/3 dark:via-rose-300/3 to-transparent opacity-0 hover:opacity-100 transition-opacity duration-150 ease-[0.25,1,0.5,1]"></div>
                   )}
 
                   <div className="flex items-center justify-between relative z-10">
@@ -187,7 +187,7 @@ export default function ChatLayout({ children, userMetadata, isSignedIn }: ChatL
                           e.stopPropagation()
                           deleteConversation(chat.id)
                         }}
-                        className="opacity-0 group-hover:opacity-100 p-1 -m-1 text-black/40 dark:text-white/40 hover:text-red-500 dark:hover:text-red-400 transition-all duration-200"
+                        className="opacity-0 group-hover:opacity-100 p-1 -m-1 text-black/40 dark:text-white/40 hover:text-red-500 dark:hover:text-red-400 transition-all duration-150 ease-[0.25,1,0.5,1]"
                       >
                         <X className="w-4 h-4" />
                       </button>
@@ -242,29 +242,29 @@ export default function ChatLayout({ children, userMetadata, isSignedIn }: ChatL
             <Link href="/auth">
               <Button
                 variant="ghost"
-                className="group w-full justify-start h-auto px-2.5 py-1.5 bg-gradient-to-r from-rose-500/5 via-transparent to-rose-500/5 dark:from-rose-300/5 dark:via-transparent dark:to-rose-300/5 hover:from-rose-500/10 hover:to-rose-500/10 dark:hover:from-rose-300/10 dark:hover:to-rose-300/10 border border-rose-500/10 dark:border-rose-300/10 hover:border-rose-500/20 dark:hover:border-rose-300/20 transition-all duration-300 rounded-lg backdrop-blur-sm"
+                className="group w-full justify-start h-auto px-2.5 py-1.5 bg-gradient-to-r from-rose-500/5 via-transparent to-rose-500/5 dark:from-rose-300/5 dark:via-transparent dark:to-rose-300/5 hover:from-rose-500/10 hover:to-rose-500/10 dark:hover:from-rose-300/10 dark:hover:to-rose-300/10 border border-rose-500/10 dark:border-rose-300/10 hover:border-rose-500/20 dark:hover:border-rose-300/20 transition-all duration-200 ease-[0.25,1,0.5,1] rounded-lg backdrop-blur-sm"
               >
                 <div className="flex items-center gap-3 w-full">
                   <AnimatePresence mode="wait">
                     <motion.div
                       key="sign-in"
-                      initial={{ opacity: 0, scale: 0.8 }}
+                      initial={{ opacity: 0, scale: 0.85 }}
                       animate={{ opacity: 1, scale: 1 }}
-                      exit={{ opacity: 0, scale: 0.8 }}
-                      transition={{ duration: 0.3, ease: 'easeOut' }}
+                      exit={{ opacity: 0, scale: 0.85 }}
+                      transition={{ duration: 0.18, ease: [0.25, 1, 0.5, 1] }}
                       className="flex items-center gap-3 w-full"
                     >
                       <div className="w-7 h-7 rounded-full bg-gradient-to-br from-rose-500/20 to-rose-600/20 dark:from-rose-300/20 dark:to-rose-400/20 flex items-center justify-center flex-shrink-0">
                         <div className="w-4 h-4 rounded-full bg-rose-500/30 dark:bg-rose-300/30"></div>
                       </div>
                       <div className="flex-1 text-center min-w-0">
-                        <div className="text-sm font-medium text-black/80 dark:text-white/80 group-hover:text-rose-600 dark:group-hover:text-rose-300 transition-colors">
+                        <div className="text-sm font-medium text-black/80 dark:text-white/80 group-hover:text-rose-600 dark:group-hover:text-rose-300 transition-colors duration-150 ease-[0.25,1,0.5,1]">
                           Sign in
                         </div>
                       </div>
                     </motion.div>
                   </AnimatePresence>
-                  <div className="w-4 h-4 text-black/40 dark:text-white/40 group-hover:text-rose-500 dark:group-hover:text-rose-300 transition-colors flex-shrink-0">
+                                        <div className="w-4 h-4 text-black/40 dark:text-white/40 group-hover:text-rose-500 dark:group-hover:text-rose-300 transition-colors duration-150 ease-[0.25,1,0.5,1] flex-shrink-0">
                     <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                     </svg>
@@ -283,11 +283,11 @@ export default function ChatLayout({ children, userMetadata, isSignedIn }: ChatL
           <AnimatePresence>
             {!effectiveSidebarOpen && (
               <motion.div
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: 20 }}
-                transition={{ duration: 0.3, ease: 'easeOut' }}
-                className="group relative p-2.5 rounded-xl bg-white/70 dark:bg-[oklch(0.18_0.015_25)]/30 backdrop-blur-xl border border-rose-500/10 dark:border-white/10 hover:border-rose-500/20 dark:hover:border-rose-300/20 transition-all duration-300 ease-out shadow-lg shadow-rose-500/5 dark:shadow-lg dark:shadow-black/20 hover:shadow-xl hover:shadow-rose-500/10 dark:hover:shadow-rose-500/10 flex items-center gap-2"
+                initial={{ opacity: 0, x: 15, scale: 0.9 }}
+                animate={{ opacity: 1, x: 0, scale: 1 }}
+                exit={{ opacity: 0, x: 15, scale: 0.9 }}
+                transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
+                className="group relative p-2.5 rounded-xl bg-white/70 dark:bg-[oklch(0.18_0.015_25)]/30 backdrop-blur-xl border border-rose-500/10 dark:border-white/10 hover:border-rose-500/20 dark:hover:border-rose-300/20 transition-all duration-200 ease-out shadow-lg shadow-rose-500/5 dark:shadow-lg dark:shadow-black/20 hover:shadow-xl hover:shadow-rose-500/10 dark:hover:shadow-rose-500/10 flex items-center gap-2"
               >
                 {/* Gradient overlays for premium look */}
                 <div className="absolute inset-0 bg-gradient-to-br from-rose-500/5 via-transparent to-rose-500/10 dark:from-rose-500/10 dark:via-transparent dark:to-rose-500/20 pointer-events-none rounded-xl"></div>
@@ -315,11 +315,11 @@ export default function ChatLayout({ children, userMetadata, isSignedIn }: ChatL
         {/* Menu and New Chat buttons for mobile/collapsed sidebar */}
         <div
           className={cn(
-            'absolute top-3 left-3 z-30 transition-all duration-300 ease-in-out',
+            'absolute top-3 left-3 z-30 transition-all duration-200 ease-[0.23,1,0.32,1]',
             effectiveSidebarOpen ? 'md:opacity-0' : 'opacity-100',
           )}
         >
-          <div className="group relative p-2.5 rounded-xl bg-white/70 dark:bg-[oklch(0.18_0.015_25)]/30 backdrop-blur-xl border border-rose-500/10 dark:border-white/10 hover:border-rose-500/20 dark:hover:border-rose-300/20 transition-all duration-300 ease-out shadow-lg shadow-rose-500/5 dark:shadow-lg dark:shadow-black/20 hover:shadow-xl hover:shadow-rose-500/10 dark:hover:shadow-rose-500/10 flex items-center gap-2">
+                      <div className="group relative p-2.5 rounded-xl bg-white/70 dark:bg-[oklch(0.18_0.015_25)]/30 backdrop-blur-xl border border-rose-500/10 dark:border-white/10 hover:border-rose-500/20 dark:hover:border-rose-300/20 transition-all duration-200 ease-[0.25,1,0.5,1] shadow-lg shadow-rose-500/5 dark:shadow-lg dark:shadow-black/20 hover:shadow-xl hover:shadow-rose-500/10 dark:hover:shadow-rose-500/10 flex items-center gap-2">
             {/* Gradient overlays for premium look */}
             <div className="absolute inset-0 bg-gradient-to-br from-rose-500/5 via-transparent to-rose-500/10 dark:from-rose-500/10 dark:via-transparent dark:to-rose-500/20 pointer-events-none rounded-xl"></div>
             <div className="absolute inset-0 bg-gradient-to-t from-transparent via-transparent to-white/20 dark:to-white/5 pointer-events-none rounded-xl"></div>
