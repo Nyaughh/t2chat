@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { Inter, Inter_Tight } from 'next/font/google'
 import './globals.css'
 import { ThemeProvider } from 'next-themes'
+import { ConvexClientProvider } from './_providers/ConvexProvider'
 
 const inter = Inter({
   variable: '--font-inter',
@@ -29,9 +30,11 @@ export default function RootLayout({
         <script crossOrigin="anonymous" async src="//unpkg.com/react-scan/dist/auto.global.js" />
       </head>
       <body className={`${inter.variable} ${interTight.variable} antialiased`} suppressHydrationWarning>
+        <ConvexClientProvider>
           <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
             {children}
           </ThemeProvider>
+        </ConvexClientProvider>
       </body>
     </html>
   )

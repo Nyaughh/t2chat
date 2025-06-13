@@ -11,8 +11,7 @@ import { useConversations } from '@/hooks/useConversations'
 import { useTouch } from '@/hooks/useTouch'
 import { useState, useEffect } from 'react'
 import { UserMetadata } from '@/lib/types'
-import { signInWithDiscord } from '@/lib/auth'
-import { signIn } from '@/lib/auth-client'
+import Link from 'next/link'
 
 interface ChatLayoutProps {
   children: React.ReactNode
@@ -228,10 +227,8 @@ export default function ChatLayout({ children, userMetadata, isSignedIn }: ChatL
             </div>
           )}
           {!isSignedIn && (
+            <Link href="/auth">
               <Button
-                onClick={() => signIn.social({
-                  provider: 'discord',
-                })}
                 variant="ghost"
                 className="group w-full justify-start h-auto px-2.5 py-1.5 bg-gradient-to-r from-rose-500/5 via-transparent to-rose-500/5 dark:from-rose-300/5 dark:via-transparent dark:to-rose-300/5 hover:from-rose-500/10 hover:to-rose-500/10 dark:hover:from-rose-300/10 dark:hover:to-rose-300/10 border border-rose-500/10 dark:border-rose-300/10 hover:border-rose-500/20 dark:hover:border-rose-300/20 transition-all duration-300 rounded-lg backdrop-blur-sm"
               >
@@ -262,6 +259,7 @@ export default function ChatLayout({ children, userMetadata, isSignedIn }: ChatL
                   </div>
                 </div>
               </Button>
+            </Link>
           )}
         </div>
       </div>

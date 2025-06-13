@@ -1,8 +1,12 @@
 export default {
-    providers: [
-      {
-        domain: process.env.NEXT_PUBLIC_CLERK_FRONTEND_API_URL,
-        applicationID: "convex",
-      },
-    ]
-  };
+  providers: [
+    {
+        // Your Convex site URL is provided in a system
+      // environment variable
+      domain: process.env.CONVEX_SITE_URL,
+
+      // Application ID has to be "convex"
+      applicationID: "convex",
+    },
+  ],
+}
