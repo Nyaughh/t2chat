@@ -102,6 +102,9 @@ export async function POST(req: Request) {
         'Custom-Header': 'value',
       },
       execute: async (dataStream) => {
+        let thinkingStartTime: number | null = null;
+        let thinkingEndTime: number | null = null;
+        
         for await (const chunk of fullStream) {
           if (chunk.type === 'text-delta') {
             dataStream.writeData({
@@ -109,6 +112,11 @@ export async function POST(req: Request) {
               value: chunk.textDelta,
             })
           } else if (chunk.type === 'reasoning') {
+            // Track thinking timing
+            if (!thinkingStartTime) {
+              thinkingStartTime = Date.now();
+            }
+            
             if (model.provider === 'google.generative-ai') {
               console.log('GOOGLE REASONING', chunk.textDelta)
               if (typeof chunk.textDelta === 'string' && chunk.textDelta.startsWith('**')) {
@@ -131,11 +139,21 @@ export async function POST(req: Request) {
               value: chunk.textDelta,
             })
           } else if (chunk.type === 'finish') {
+            // Calculate thinking duration
+            if (thinkingStartTime && !thinkingEndTime) {
+              thinkingEndTime = Date.now();
+            }
+            
+            const thinkingDuration = thinkingStartTime && thinkingEndTime 
+              ? Math.round((thinkingEndTime - thinkingStartTime) / 1000) 
+              : undefined;
+              
             dataStream.writeData({
               type: 'finish',
               value: {
                 finishReason: chunk.finishReason || 'unknown',
                 usage: chunk.usage || {},
+                ...(thinkingDuration && { thinkingDuration }),
               },
             })
           } else if (chunk.type === 'error') {

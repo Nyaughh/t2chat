@@ -17,7 +17,6 @@ interface MessageRendererProps {
 
 const MessageRenderer: React.FC<MessageRendererProps> = memo(
   ({ content, thinking, thinkingDuration, isTyping = false, className = '' }) => {
-    const { theme } = useTheme()
     const [isThinkingCollapsed, setIsThinkingCollapsed] = useState(true)
 
     // Generate a stable ID based on content

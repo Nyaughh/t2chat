@@ -89,10 +89,10 @@ export function ModelDropdown({ selectedModel, onModelSelect, onClose, className
       <AnimatePresence>
         <motion.div
           ref={dropdownRef}
-          initial={{ opacity: 0, y: showAbove ? 10 : -10, scale: 0.95 }}
+          initial={{ opacity: 0, y: showAbove ? 8 : -8, scale: 0.95 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
-          exit={{ opacity: 0, y: showAbove ? 10 : -10, scale: 0.95 }}
-          transition={{ duration: 0.2, ease: 'easeOut' }}
+          exit={{ opacity: 0, y: showAbove ? 8 : -8, scale: 0.95 }}
+          transition={{ duration: 0.15, ease: [0.25, 1, 0.5, 1] }}
           className={cn(
             'absolute left-0 bg-white dark:bg-[oklch(0.18_0.015_25)] rounded-lg border border-rose-200/50 dark:border-rose-500/20 shadow-2xl overflow-hidden w-[240px]',
             showAbove ? 'bottom-0 mb-1' : 'top-0 mt-1',
@@ -108,7 +108,7 @@ export function ModelDropdown({ selectedModel, onModelSelect, onClose, className
               {selectedModel && (
                 <button
                   onClick={handleRetrySame}
-                  className="w-full p-2 rounded-md transition-all duration-200 text-left border mb-2 bg-rose-50 dark:bg-rose-900/20 border-rose-200 dark:border-rose-500/30 hover:bg-rose-100/50 dark:hover:bg-rose-900/30"
+                  className="w-full p-2 rounded-md transition-all duration-150 ease-[0.25,1,0.5,1] text-left border mb-2 bg-rose-50 dark:bg-rose-900/20 border-rose-200 dark:border-rose-500/30 hover:bg-rose-100/50 dark:hover:bg-rose-900/30 hover:scale-[1.02]"
                 >
                   <div className="flex items-center gap-2">
                     <RotateCcw className="w-3.5 h-3.5 text-rose-500 dark:text-rose-300 flex-shrink-0" />
@@ -126,8 +126,8 @@ export function ModelDropdown({ selectedModel, onModelSelect, onClose, className
                   key={model.id}
                   onClick={() => handleModelSelect(model.id)}
                   className={cn(
-                    'w-full p-2 rounded-md transition-all duration-200 text-left border mb-1',
-                    'hover:bg-rose-100/50 dark:hover:bg-rose-900/20',
+                    'w-full p-2 rounded-md transition-all duration-150 ease-[0.25,1,0.5,1] text-left border mb-1',
+                    'hover:bg-rose-100/50 dark:hover:bg-rose-900/20 hover:scale-[1.02]',
                     selectedModel === model.id
                       ? 'bg-rose-100/50 dark:bg-rose-900/30 border-rose-500/50'
                       : 'border-transparent',

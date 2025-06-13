@@ -16,15 +16,15 @@ const prompts = [
 export default function WelcomeScreen({ onPromptClick }: WelcomeScreenProps) {
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20, scale: 0.95 }}
+      initial={{ opacity: 0, y: 15, scale: 0.95 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{
         opacity: 0,
-        y: -30,
+        y: -20,
         scale: 0.9,
-        transition: { duration: 0.4, ease: 'easeInOut' },
+        transition: { duration: 0.25, ease: [0.25, 1, 0.5, 1] },
       }}
-      transition={{ duration: 0.3, ease: 'easeOut' }}
+      transition={{ duration: 0.2, ease: [0.25, 1, 0.5, 1] }}
       className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center pb-24"
     >
       <div className="max-w-md">
@@ -38,7 +38,7 @@ export default function WelcomeScreen({ onPromptClick }: WelcomeScreenProps) {
             <button
               key={i}
               onClick={() => onPromptClick(prompt)}
-              className="w-full text-left p-3 md:p-4 rounded-lg bg-secondary/50 hover:bg-accent transition-colors duration-200 border border-border/50 hover:border-border"
+              className="w-full text-left p-3 md:p-4 rounded-lg bg-secondary/50 hover:bg-accent transition-all duration-150 ease-[0.25,1,0.5,1] border border-border/50 hover:border-border hover:scale-[1.02]"
             >
               <span className="text-foreground text-sm md:text-base">{prompt}</span>
             </button>
