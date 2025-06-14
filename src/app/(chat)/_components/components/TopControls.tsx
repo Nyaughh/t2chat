@@ -1,0 +1,105 @@
+'use client'
+
+import { Settings, Menu, Plus } from 'lucide-react'
+import { cn } from '@/lib/utils'
+import ThemeSwitcher from '@/components/ThemeSwitcher'
+import { useRouter } from 'next/navigation'
+
+interface TopControlsProps {
+  isSignedIn: boolean
+  effectiveSidebarOpen: boolean
+  isOnHomePage: boolean
+  onToggleSidebar: () => void
+  onSettingsClick: () => void
+  onNewChat: () => void
+}
+
+export function TopControls({
+  isSignedIn,
+  effectiveSidebarOpen,
+  isOnHomePage,
+  onToggleSidebar,
+  onSettingsClick,
+  onNewChat,
+}: TopControlsProps) {
+  const router = useRouter()
+
+  const handleSettingsClick = () => {
+    if (isSignedIn) {
+      onSettingsClick()
+    } else {
+      router.push('/auth')
+    }
+  }
+
+  return (
+    <>
+      {/* Settings & Theme Switcher - Always visible */}
+      <div className="absolute top-2.5 right-2.5 z-10">
+        <div className="group relative p-2 rounded-lg bg-white/70 dark:bg-[oklch(0.18_0.015_25)]/30 backdrop-blur-xl border border-rose-500/10 dark:border-white/10 hover:border-rose-500/20 dark:hover:border-rose-300/20 shadow-lg shadow-rose-500/5 dark:shadow-lg dark:shadow-black/20 hover:shadow-xl hover:shadow-rose-500/10 dark:hover:shadow-rose-500/10 flex items-center gap-1.5">
+          {/* Gradient overlays for premium look */}
+          <div className="absolute inset-0 bg-gradient-to-br from-rose-500/5 via-transparent to-rose-500/10 dark:from-rose-500/10 dark:via-transparent dark:to-rose-500/20 pointer-events-none rounded-lg"></div>
+          <div className="absolute inset-0 bg-gradient-to-t from-transparent via-transparent to-white/20 dark:to-white/5 pointer-events-none rounded-lg"></div>
+
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={handleSettingsClick}
+              className="relative z-10 text-rose-600 dark:text-rose-300 hover:text-rose-700 dark:hover:text-rose-200 h-5.5 w-5.5 p-0 hover:bg-transparent"
+              title={isSignedIn ? "Settings" : "Sign in to access settings"}
+            >
+              <Settings className="w-4.5 h-4.5" />
+            </button>
+            
+            {/* Vertical divider */}
+            <div className="relative z-10 w-px h-4.5 bg-rose-500/20 dark:bg-rose-300/20"></div>
+          </div>
+
+          <ThemeSwitcher />
+
+          {/* Premium glow effect in dark mode */}
+          <div className="absolute inset-0 -z-10 bg-gradient-to-r from-rose-300/0 via-rose-300/5 to-rose-300/0 rounded-lg blur-xl opacity-0 dark:opacity-20 pointer-events-none"></div>
+        </div>
+      </div>
+
+      {/* Menu and New Chat buttons for mobile/collapsed sidebar */}
+      <div
+        className={cn(
+          'absolute top-2.5 left-2.5 z-30',
+          effectiveSidebarOpen ? 'md:opacity-0' : 'opacity-100',
+        )}
+      >
+        <div className="group relative p-2 rounded-lg bg-white/70 dark:bg-[oklch(0.18_0.015_25)]/30 backdrop-blur-xl border border-rose-500/10 dark:border-white/10 hover:border-rose-500/20 dark:hover:border-rose-300/20 shadow-lg shadow-rose-500/5 dark:shadow-lg dark:shadow-black/20 hover:shadow-xl hover:shadow-rose-500/10 dark:hover:shadow-rose-500/10 flex items-center gap-1.5">
+          {/* Gradient overlays for premium look */}
+          <div className="absolute inset-0 bg-gradient-to-br from-rose-500/5 via-transparent to-rose-500/10 dark:from-rose-500/10 dark:via-transparent dark:to-rose-500/20 pointer-events-none rounded-lg"></div>
+          <div className="absolute inset-0 bg-gradient-to-t from-transparent via-transparent to-white/20 dark:to-white/5 pointer-events-none rounded-lg"></div>
+
+          <button
+            onClick={onToggleSidebar}
+            className="relative z-10 text-rose-600 dark:text-rose-300 hover:text-rose-700 dark:hover:text-rose-200 h-5.5 w-5.5 p-0 hover:bg-transparent"
+            title="Toggle sidebar"
+          >
+            <Menu className="w-4.5 h-4.5" />
+          </button>
+
+          {/* Vertical divider */}
+          <div className="relative z-10 w-px h-4.5 bg-rose-500/20 dark:bg-rose-300/20"></div>
+
+          <button
+            onClick={onNewChat}
+            className={cn(
+              'relative z-10 text-rose-600 dark:text-rose-300 hover:text-rose-700 dark:hover:text-rose-200 h-5.5 w-5.5 p-0 hover:bg-transparent',
+              isOnHomePage && 'opacity-30 cursor-not-allowed',
+            )}
+            title="New conversation"
+            disabled={isOnHomePage}
+          >
+            <Plus className="w-4.5 h-4.5" />
+          </button>
+
+          {/* Premium glow effect in dark mode */}
+          <div className="absolute inset-0 -z-10 bg-gradient-to-r from-rose-300/0 via-rose-300/5 to-rose-300/0 rounded-lg blur-xl opacity-0 dark:opacity-20 pointer-events-none"></div>
+        </div>
+      </div>
+    </>
+  )
+} 

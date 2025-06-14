@@ -1,4 +1,4 @@
-import ChatLayout from '@/components/ChatLayout'
+import ChatLayout from '@/app/(chat)/_components/ChatLayout'
 import { headers } from 'next/headers'
 import { api } from '../../../convex/_generated/api'
 import { fetchQuery } from "convex/nextjs";
