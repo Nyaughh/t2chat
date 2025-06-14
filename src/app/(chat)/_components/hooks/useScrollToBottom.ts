@@ -7,6 +7,7 @@ export function useScrollToBottom(activeMessages: any[]) {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const scrollAreaRef = useRef<HTMLDivElement>(null)
   const isAtBottomRef = useRef(true)
+  const hasInitialScrolled = useRef(false)
 
   const scrollToBottom = (behavior: 'smooth' | 'auto' = 'smooth') => {
     messagesEndRef.current?.scrollIntoView({ behavior })
@@ -32,7 +33,15 @@ export function useScrollToBottom(activeMessages: any[]) {
   }, [handleScroll])
 
   useEffect(() => {
-    if (isAtBottomRef.current) {
+    // For initial load with server messages, scroll immediately
+    if (activeMessages.length > 0 && !hasInitialScrolled.current) {
+      // Use timeout to ensure DOM has been updated
+      setTimeout(() => {
+        scrollToBottom('auto')
+        hasInitialScrolled.current = true
+      }, 50)
+    } else if (isAtBottomRef.current) {
+      // For subsequent messages, only scroll if already at bottom
       scrollToBottom('auto')
     }
   }, [activeMessages])

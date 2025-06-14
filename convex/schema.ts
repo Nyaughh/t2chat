@@ -24,6 +24,7 @@ export default defineSchema({
     thinking: v.optional(v.string()), // Store reasoning content separately
     thinkingDuration: v.optional(v.number()), // Store thinking duration in seconds
     isComplete: v.optional(v.boolean()), // For streaming messages
+    isCancelled: v.optional(v.boolean()), // For cancelling streaming messages
     attachments: v.optional(v.array(v.object({
       name: v.string(),
       type: v.string(),

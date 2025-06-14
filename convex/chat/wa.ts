@@ -231,6 +231,12 @@ export const sendMessage = action({
         let thinkingEndTime: number | null = null;
   
         for await (const chunk of fullStream) {
+          // Check if the message has been cancelled
+          const message = await ctx.runQuery(api.chat.queries.getMessage, { messageId: assistantMessageId });
+          if (message?.isCancelled) {
+            break;
+          }
+
           if (chunk.type === 'text-delta') {
             accumulatedContent += chunk.textDelta;
             

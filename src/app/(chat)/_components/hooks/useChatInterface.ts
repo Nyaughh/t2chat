@@ -4,15 +4,9 @@ import { useState } from 'react'
 import { useConversations } from '@/hooks/useConversations'
 import { useMessageActions } from './useMessageActions'
 import { useScrollToBottom } from './useScrollToBottom'
+import { Attachment, ConvexMessage } from '@/lib/types'
 
-interface Attachment {
-  name: string
-  type: string
-  size: number
-  url: string
-}
-
-export function useChatInterface() {
+export function useChatInterface(chatId?: string, initialMessages?: ConvexMessage[] | null) {
   const [inputValue, setInputValue] = useState('')
   const [isTyping, setIsTyping] = useState(false)
   const [attachments, setAttachments] = useState<Attachment[]>([])
@@ -27,7 +21,8 @@ export function useChatInterface() {
     selectedModel,
     setSelectedModel,
     isAuthenticated,
-  } = useConversations()
+    mounted,
+  } = useConversations(undefined, chatId, initialMessages)
 
   const messageActions = useMessageActions({ onRetryMessage: handleRetryMessage })
   const scrollToBottom = useScrollToBottom(activeMessages)
@@ -73,6 +68,7 @@ export function useChatInterface() {
     setSelectedModel,
     showWelcomeScreen,
     isAuthenticated,
+    mounted,
     
     // Attachments
     attachments,

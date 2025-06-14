@@ -12,8 +12,14 @@ import { Paperclip, FileText } from 'lucide-react'
 import { toast } from 'sonner'
 import { useState } from 'react'
 import { cn } from '@/lib/utils'
+import { ConvexMessage } from '@/lib/types'
 
-export default function ChatInterface() {
+interface ChatInterfaceProps {
+  chatId?: string
+  initialMessages?: ConvexMessage[] | null
+}
+
+export default function ChatInterface({ chatId, initialMessages }: ChatInterfaceProps = {}) {
   const {
     // State
     inputValue,
@@ -26,6 +32,7 @@ export default function ChatInterface() {
     setSelectedModel,
     showWelcomeScreen,
     isAuthenticated,
+    mounted,
     
     // Attachments
     attachments,
@@ -60,13 +67,11 @@ export default function ChatInterface() {
     messagesEndRef,
     scrollAreaRef,
     scrollToBottom,
-  } = useChatInterface()
+  } = useChatInterface(chatId, initialMessages)
 
   const maxFiles = 2
   const [uploadProgress, setUploadProgress] = useState<{ [key: string]: number }>({})
   const [isUploading, setIsUploading] = useState(false)
-
-
 
   const handleUploadComplete = (res: any) => {
     // Clear all progress and uploading state
@@ -161,10 +166,11 @@ export default function ChatInterface() {
             selectedModel={selectedModel}
             setSelectedModel={setSelectedModel}
             isSignedIn={isAuthenticated}
-                        attachments={attachments}
+            attachments={attachments}
             onRemoveAttachment={(index) => setAttachments(attachments.filter((_, i) => i !== index))}
             uploadProgress={uploadProgress}
             isUploading={isUploading}
+            mounted={mounted}
             uploadButton={
               (selectedModel.attachmentsSuppport.image || selectedModel.attachmentsSuppport.pdf) ? (
                 <div className={cn(
@@ -172,7 +178,6 @@ export default function ChatInterface() {
                   attachments.length >= maxFiles && "opacity-50 pointer-events-none"
                 )}>
                   <UploadButton
-                    
                     endpoint="fileUploader"
                     onBeforeUploadBegin={(files) => {
                       setIsUploading(true)

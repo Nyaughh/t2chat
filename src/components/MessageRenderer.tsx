@@ -4,8 +4,9 @@ import React, { memo, useMemo, useState } from 'react'
 import { useTheme } from 'next-themes'
 import { MemoizedMarkdown } from './MemoizedMarkdown'
 import { MarkdownContent } from './ui/markdown-content'
-import { ChevronDown } from 'lucide-react'
+import { ChevronDown, Brain } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { models } from '@/lib/models'
 
 interface MessageRendererProps {
   content: string
@@ -13,11 +14,19 @@ interface MessageRendererProps {
   thinkingDuration?: number
   isTyping?: boolean
   className?: string
+  modelId?: string
 }
 
 const MessageRenderer: React.FC<MessageRendererProps> = memo(
-  ({ content, thinking, thinkingDuration, isTyping = false, className = '' }) => {
+  ({ content, thinking, thinkingDuration, isTyping = false, className = '', modelId }) => {
     const [isThinkingCollapsed, setIsThinkingCollapsed] = useState(true)
+
+    // Check if the model supports thinking
+    const modelSupportsThinking = useMemo(() => {
+      if (!modelId) return false
+      const model = models.find(m => m.id === modelId)
+      return model?.supportsThinking || false
+    }, [modelId])
 
     // Generate a stable ID based on content
     const messageId = useMemo(() => {
@@ -44,54 +53,53 @@ const MessageRenderer: React.FC<MessageRendererProps> = memo(
 
     return (
       <div className={className}>
-        {/* Thinking section */}
-        {(thinking || (isTyping && !content)) && (
-          <div className="mb-3">
+        {/* Thinking section - only show for thinking-capable models */}
+        {(thinking || (isTyping && !content && modelSupportsThinking)) && (
+          <div className="mb-2">
             <button
               onClick={() => setIsThinkingCollapsed(!isThinkingCollapsed)}
-              className="flex items-center gap-2 w-full text-left group py-2 rounded-lg transition-colors cursor-pointer"
+              className="flex items-center gap-2 text-left group hover:bg-black/5 dark:hover:bg-white/5 rounded-md px-2 py-1 transition-colors"
             >
-              <div className="flex items-center justify-between w-full">
-                <span
-                  className={cn(
-                    'text-sm font-medium',
-                    isTyping && !thinkingDuration
-                      ? 'text-black/60 dark:text-white/60'
-                      : 'text-black/50 dark:text-white/50',
-                  )}
-                >
-                  {isTyping && !thinkingDuration ? (
-                    <span
-                      className="animate-[shine_2s_ease-in-out_infinite]"
-                      style={{
-                        background: 'linear-gradient(90deg, currentColor 50%, transparent 50%, currentColor 50%)',
-                        backgroundSize: '200% 100%',
-                        WebkitBackgroundClip: 'text',
-                        WebkitTextFillColor: 'transparent',
-                        backgroundClip: 'text',
-                        color: 'inherit',
-                      }}
-                    >
-                      Thinking...
-                    </span>
-                  ) : thinkingDuration ? (
-                    `Thought for ${thinkingDuration} second${thinkingDuration !== 1 ? 's' : ''}`
-                  ) : (
-                    'Thinking'
-                  )}
-                  <ChevronDown
-                    className={cn(
-                      'w-5 h-5 text-black/40 dark:text-white/40 transition-transform duration-200 ml-3 inline-block mb-[6px]',
-                      !isThinkingCollapsed && 'rotate-180',
-                    )}
-                  />
-                </span>
-              </div>
+              <Brain className="w-3.5 h-3.5 text-rose-500/70 dark:text-rose-300/70 flex-shrink-0" />
+              <span
+                className={cn(
+                  'text-xs font-medium flex-1',
+                  isTyping && !thinkingDuration
+                    ? 'text-black/60 dark:text-white/60'
+                    : 'text-black/50 dark:text-white/50',
+                )}
+              >
+                {isTyping && !thinkingDuration ? (
+                  <span
+                    className="animate-[shine_2s_ease-in-out_infinite]"
+                    style={{
+                      background: 'linear-gradient(90deg, currentColor 50%, transparent 50%, currentColor 50%)',
+                      backgroundSize: '200% 100%',
+                      WebkitBackgroundClip: 'text',
+                      WebkitTextFillColor: 'transparent',
+                      backgroundClip: 'text',
+                      color: 'inherit',
+                    }}
+                  >
+                    Thinking...
+                  </span>
+                ) : thinkingDuration ? (
+                  `Thought for ${thinkingDuration}s`
+                ) : (
+                  'Thinking'
+                )}
+              </span>
+              <ChevronDown
+                className={cn(
+                  'w-3.5 h-3.5 text-black/40 dark:text-white/40 transition-transform duration-200 flex-shrink-0',
+                  !isThinkingCollapsed && 'rotate-180',
+                )}
+              />
             </button>
 
             {!isThinkingCollapsed && thinking && (
-              <div className="mt-2 p-3 rounded-lg opacity-80">
-                <div className="text-black/70 dark:text-white/70">
+              <div className="mt-1 ml-6 pl-3 border-l-2 border-rose-500/20 dark:border-rose-300/20">
+                <div className="text-xs text-black/70 dark:text-white/70 leading-relaxed">
                   <MarkdownContent content={thinking} id={thinkingId} />
                 </div>
               </div>
@@ -110,7 +118,8 @@ const MessageRenderer: React.FC<MessageRendererProps> = memo(
       prevProps.thinking === nextProps.thinking &&
       prevProps.thinkingDuration === nextProps.thinkingDuration &&
       prevProps.isTyping === nextProps.isTyping &&
-      prevProps.className === nextProps.className
+      prevProps.className === nextProps.className &&
+      prevProps.modelId === nextProps.modelId
     )
   },
 )

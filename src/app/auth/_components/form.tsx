@@ -7,13 +7,13 @@ import { Github } from "lucide-react"
 export default function SignInForm() {
    return (
       <div className="space-y-4">
-         {/* Discord Sign In */}
+         {/* Discord Sign In
          <Button 
             onClick={signInWithDiscord}
             className="w-full h-12 bg-[#5865F2] hover:bg-[#4752C4] text-white border-0 rounded-xl font-medium text-base transition-all duration-200 relative overflow-hidden group"
-         >
+         > */}
             {/* Gradient overlay */}
-            <div className="absolute inset-0 bg-gradient-to-r from-[#4752C4] to-[#5865F2] opacity-0 group-hover:opacity-100 transition-opacity duration-200"></div>
+            {/* <div className="absolute inset-0 bg-gradient-to-r from-[#4752C4] to-[#5865F2] opacity-0 group-hover:opacity-100 transition-opacity duration-200"></div>
             
             <div className="relative z-10 flex items-center justify-center gap-3">
                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
@@ -21,7 +21,7 @@ export default function SignInForm() {
                </svg>
                <span>Continue with Discord</span>
             </div>
-         </Button>
+         </Button> */}
 
          {/* GitHub Sign In */}
          <Button 

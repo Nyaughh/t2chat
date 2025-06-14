@@ -23,6 +23,7 @@ export const useConvexChat = (chatId?: Id<"chats">) => {
   const deleteChat = useMutation(api.chat.mutations.deleteChat);
   const updateChatTitle = useMutation(api.chat.mutations.updateChatTitle);
   const deleteMessagesFromIndex = useMutation(api.chat.mutations.deleteMessagesFromIndex);
+  const cancelMessage = useMutation(api.chat.mutations.cancelMessage);
 
   const isStreaming = useMemo(() => {
     if (!messages) return false;
@@ -47,5 +48,6 @@ export const useConvexChat = (chatId?: Id<"chats">) => {
     deleteChat,
     updateChatTitle,
     deleteMessagesFromIndex,
+    cancelMessage,
   };
 }; 

@@ -4,15 +4,16 @@ import SettingsPage from '@/components/SettingsPage'
 import { useChatLayout } from './hooks/useChatLayout'
 import { Sidebar } from './components/Sidebar'
 import { TopControls } from './components/TopControls'
-import { UserMetadata } from '@/lib/types'
+import { UserMetadata, ConvexChat } from '@/lib/types'
 
 interface ChatLayoutProps {
   children: React.ReactNode
   isSignedIn: boolean
   userMetadata: UserMetadata
+  initialChats?: ConvexChat[] | null
 }
 
-export default function ChatLayout({ children, userMetadata, isSignedIn }: ChatLayoutProps) {
+export default function ChatLayout({ children, userMetadata, isSignedIn, initialChats }: ChatLayoutProps) {
   const {
     settingsOpen,
     setSettingsOpen,
@@ -30,7 +31,7 @@ export default function ChatLayout({ children, userMetadata, isSignedIn }: ChatL
     createNewChat,
     isOnHomePage,
     toggleSidebar,
-  } = useChatLayout()
+  } = useChatLayout(initialChats)
 
   return (
     <div className="flex h-[100dvh] bg-background overflow-hidden">

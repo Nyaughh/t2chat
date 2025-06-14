@@ -84,39 +84,77 @@ export const addMessage = mutation({
     },
   });
   
-  export const updateMessage = mutation({
+    export const updateMessage = mutation({
     args: {
       messageId: v.id("messages"),
       content: v.optional(v.string()),
       thinking: v.optional(v.string()),
       thinkingDuration: v.optional(v.number()),
       isComplete: v.optional(v.boolean()),
+      isCancelled: v.optional(v.boolean()),
     },
-    handler: async (ctx, { messageId, content, thinking, thinkingDuration, isComplete }) => {
+    handler: async (ctx, { messageId, content, thinking, thinkingDuration, isComplete, isCancelled }) => {
       const userId = await betterAuthComponent.getAuthUserId(ctx);
       if (!userId) {
         throw new Error("Authentication required");
       }
-  
+
       const message = await ctx.db.get(messageId);
       if (!message) {
         throw new Error("Message not found");
       }
-  
+
       // Verify chat ownership
       const chat = await ctx.db.get(message.chatId);
       if (!chat || chat.userId !== userId) {
         throw new Error("Access denied");
       }
-  
+
       const updateData: any = {};
       if (content !== undefined) updateData.content = content;
       if (thinking !== undefined) updateData.thinking = thinking;
       if (thinkingDuration !== undefined) updateData.thinkingDuration = thinkingDuration;
       if (isComplete !== undefined) updateData.isComplete = isComplete;
-  
+      if (isCancelled !== undefined) updateData.isCancelled = isCancelled;
+
       await ctx.db.patch(messageId, updateData);
-  
+
+      return messageId;
+    },
+  });
+
+  export const cancelMessage = mutation({
+    args: {
+      messageId: v.id("messages"),
+    },
+    handler: async (ctx, { messageId }) => {
+      const userId = await betterAuthComponent.getAuthUserId(ctx);
+      if (!userId) {
+        throw new Error("Authentication required");
+      }
+
+      const message = await ctx.db.get(messageId);
+      if (!message) {
+        throw new Error("Message not found");
+      }
+
+      // Verify chat ownership
+      const chat = await ctx.db.get(message.chatId);
+      if (!chat || chat.userId !== userId) {
+        throw new Error("Access denied");
+      }
+
+      // Only allow cancellation of incomplete assistant messages
+      if (message.role !== "assistant" || message.isComplete) {
+        throw new Error("Cannot cancel this message");
+      }
+
+      await ctx.db.patch(messageId, {
+        isCancelled: true,
+        isComplete: true,
+        content: message.content + "\n\n*Generation was stopped by user.*"
+      });
+
       return messageId;
     },
   });

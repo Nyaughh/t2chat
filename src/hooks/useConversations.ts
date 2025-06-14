@@ -8,17 +8,22 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { toast } from 'sonner'
 import { useConvexChat } from './use-convex-chat'
 import { models, type ModelInfo } from '@/lib/models'
-import type { ClientMessage, Attachment } from '@/lib/types'
+import type { ClientMessage, Attachment, ConvexChat, ConvexMessage } from '@/lib/types'
 import type { Id } from '../../convex/_generated/dataModel'
 import { parseDataStream } from '@/lib/stream-parser'
 import { CoreMessage } from 'ai'
 
-export const useConversations = () => {
+export const useConversations = (
+  initialChats?: ConvexChat[] | null,
+  chatId?: string,
+  initialMessages?: ConvexMessage[] | null
+) => {
 
   const router = useRouter()
   const pathname = usePathname()
-  const [currentChatId, setCurrentChatId] = useState<string | null>(null)
+  const [currentChatId, setCurrentChatId] = useState<string | null>(chatId || null)
   const [selectedModel, setSelectedModel] = useState<ModelInfo>(models[0])
+  const [mounted, setMounted] = useState(false)
 
   const {
     isAuthenticated,
@@ -31,6 +36,7 @@ export const useConversations = () => {
     retryMessage,
     deleteChat: deleteConvexChat,
     deleteMessagesFromIndex,
+    cancelMessage,
   } = useConvexChat(currentChatId as Id<"chats"> | undefined)
 
   const dexieConversations = useLiveQuery(() => db.conversations.orderBy('lastMessageAt').reverse().toArray(), [])
@@ -45,9 +51,26 @@ export const useConversations = () => {
   const [isLocalStreaming, setIsLocalStreaming] = useState(false)
 
   const activeMessages = useMemo(() => {
-    if (isAuthLoading) return [];
+    if (isAuthLoading) {
+      // Return initialMessages during auth loading if available
+      if (initialMessages && currentChatId) {
+        return initialMessages.map(msg => ({
+          id: msg._id,
+          role: msg.role,
+          content: msg.content,
+          modelId: msg.modelId,
+          thinking: msg.thinking,
+          thinkingDuration: msg.thinkingDuration,
+          attachments: msg.attachments,
+          createdAt: new Date(msg.createdAt),
+        } as ClientMessage & { modelId: string; attachments?: any[] }))
+      }
+      return [];
+    }
     if (isAuthenticated) {
-      return (convexMessages || []).map(msg => ({
+      // Use real-time convex messages once loaded, fallback to initial messages
+      const messagesToUse = convexMessages || initialMessages || []
+      return messagesToUse.map(msg => ({
         id: msg._id,
         role: msg.role,
         content: msg.content,
@@ -68,14 +91,25 @@ export const useConversations = () => {
       attachments: msg.attachments,
       createdAt: new Date(msg.createdAt),
     } as ClientMessage & { modelId: string; attachments?: any[] }))
-  }, [isAuthLoading, isAuthenticated, convexMessages, liveLocalMessages])
+  }, [isAuthLoading, isAuthenticated, convexMessages, liveLocalMessages, initialMessages, currentChatId])
 
   const activeChats = useMemo(() => {
     if (isAuthLoading) {
+      // Return initialChats during auth loading if available
+      if (initialChats) {
+        return initialChats.map(chat => ({
+          id: chat._id,
+          title: chat.title || "New Chat",
+          createdAt: new Date(chat.createdAt),
+          lastMessageAt: new Date(chat.updatedAt),
+        }))
+      }
       return []
     }
     if (isAuthenticated) {
-      return (convexChats || []).map(chat => ({
+      // Use real-time convex chats once loaded, fallback to initial chats
+      const chatsToUse = convexChats || initialChats || []
+      return chatsToUse.map(chat => ({
         id: chat._id,
         title: chat.title || "New Chat",
         createdAt: new Date(chat.createdAt),
@@ -83,7 +117,7 @@ export const useConversations = () => {
       }))
     }
     return dexieConversations || []
-  }, [isAuthLoading, isAuthenticated, convexChats, dexieConversations])
+  }, [isAuthLoading, isAuthenticated, convexChats, dexieConversations, initialChats])
 
   const currentConversation = useMemo(
     () => dexieConversations?.find((conv) => conv.id === currentChatId),
@@ -91,6 +125,33 @@ export const useConversations = () => {
   )
 
   const abortControllerRef = useRef<AbortController | null>(null)
+
+  // This effect correctly sets the displayed model on mount and on auth change
+  // without incorrectly writing to localStorage.
+  useEffect(() => {
+    setMounted(true);
+
+    const lastUsedModelId = localStorage.getItem('lastUsedModelId');
+    const availableModels = isAuthenticated ? models : models.filter((m) => m.isFree);
+    
+    // Default to the first available model.
+    let modelToDisplay = availableModels.length > 0 ? availableModels[0] : models[0];
+
+    if (lastUsedModelId) {
+      const preferredModel = models.find(m => m.id === lastUsedModelId);
+      // Check if the user's preferred model is valid in the current auth context.
+      if (preferredModel && availableModels.some(m => m.id === preferredModel.id)) {
+        modelToDisplay = preferredModel;
+      }
+    }
+    setSelectedModel(modelToDisplay);
+  }, [isAuthenticated]);
+
+  // This new function handles manual model selection, saving the user's preference.
+  const handleSetSelectedModel = (model: ModelInfo) => {
+    localStorage.setItem('lastUsedModelId', model.id);
+    setSelectedModel(model);
+  };
 
   const handleNewMessage = useCallback(async (
     input: string,
@@ -105,7 +166,10 @@ export const useConversations = () => {
       if (!chatId) {
         const newChatId = await createChat({ title: input.substring(0, 50) })
         chatId = newChatId
-        router.push(`/chat/${newChatId}`)
+        // Use setTimeout to ensure localStorage write completes before navigation
+        setTimeout(() => {
+          router.push(`/chat/${newChatId}`)
+        }, 0)
       }
       await sendMessage({ 
         chatId, 
@@ -142,7 +206,10 @@ export const useConversations = () => {
         }
         const newConvId = await db.conversations.add(newConv)
         console.log("newConvId", newConvId)
-      router.push(`/chat/${conversationId}`)
+        // Use setTimeout to ensure localStorage write completes before navigation
+        setTimeout(() => {
+          router.push(`/chat/${conversationId}`)
+        }, 0)
       } else {
         userMessage.conversationId = conversationId
       }
@@ -183,32 +250,45 @@ export const useConversations = () => {
         let finalThinkingDuration: number | undefined
 
       for await (const chunk of dataStream) {
-          if (abortControllerRef.current?.signal.aborted) break
+          if (abortControllerRef.current?.signal.aborted) {
+            // Check if message already has stop text (from immediate UI update)
+            const currentMessage = await db.messages.get(assistantId)
+            if (currentMessage && !currentMessage.content.includes("*Generation was stopped by user.*")) {
+              await db.messages.update(assistantId, { 
+                content: streamingContent + "\n\n*Generation was stopped by user.*"
+              })
+            }
+            break
+          }
           if (chunk.type === 'text') {
             streamingContent += chunk.value
             await db.messages.update(assistantId, { content: streamingContent })
           } else if (chunk.type === 'reasoning') {
             streamingThinking += chunk.value
             await db.messages.update(assistantId, { 
-                    content: streamingContent,
+              content: streamingContent,
               thinking: streamingThinking 
             })
           } else if (chunk.type === 'finish') {
             finalThinkingDuration = chunk.value?.thinkingDuration
             await db.messages.update(assistantId, { 
-        content: streamingContent,
+              content: streamingContent,
               thinking: streamingThinking || undefined,
               thinkingDuration: finalThinkingDuration
             })
           }
         }
         
-        if (!streamingContent.trim()) {
+        // Only delete if no content and not aborted
+        if (!streamingContent.trim() && !abortControllerRef.current?.signal.aborted) {
           await db.messages.delete(assistantId)
-      }
+        }
 
     } catch (error) {
-        if ((error as Error).name !== 'AbortError') {
+        if ((error as Error).name === 'AbortError') {
+          // Generation was stopped by user - no need to show error
+          console.log("Generation was stopped by user")
+        } else {
           console.error("Error in local stream:", error)
           toast.error("An error occurred while getting the response.")
         }
@@ -293,7 +373,16 @@ export const useConversations = () => {
         let finalThinkingDuration: number | undefined
 
         for await (const chunk of dataStream) {
-          if (abortControllerRef.current?.signal.aborted) break
+          if (abortControllerRef.current?.signal.aborted) {
+            // Check if message already has stop text (from immediate UI update)
+            const currentMessage = await db.messages.get(assistantId)
+            if (currentMessage && !currentMessage.content.includes("*Generation was stopped by user.*")) {
+              await db.messages.update(assistantId, { 
+                content: streamingContent + "\n\n*Generation was stopped by user.*"
+              })
+            }
+            break
+          }
           if (chunk.type === 'text') {
             streamingContent += chunk.value
             await db.messages.update(assistantId, { content: streamingContent })
@@ -313,12 +402,16 @@ export const useConversations = () => {
           }
         }
         
-        if (!streamingContent.trim()) {
+        // Only delete if no content and not aborted
+        if (!streamingContent.trim() && !abortControllerRef.current?.signal.aborted) {
           await db.messages.delete(assistantId)
         }
       }
     } catch (error) {
-      if ((error as Error).name !== 'AbortError') {
+      if ((error as Error).name === 'AbortError') {
+        // Generation was stopped by user - no need to show error
+        console.log("Retry generation was stopped by user")
+      } else {
         console.error("Error in retry:", error)
         toast.error("Failed to retry message.")
       }
@@ -332,16 +425,51 @@ export const useConversations = () => {
 
   const handleStopGeneration = useCallback(async () => {
     if (isAuthenticated && isConvexStreaming) {
-      // For Convex, we can't directly abort the streaming action due to consistency constraints
-      // The streaming will complete naturally and mark the message as complete
-      toast.info("Convex streaming cannot be stopped mid-generation.")
-    } else if (abortControllerRef.current) {
+      // For Convex, immediately show stopped in UI, then cancel on server
+      const lastMessage = convexMessages?.[convexMessages.length - 1]
+      if (lastMessage && lastMessage.role === 'assistant' && !lastMessage.isComplete) {
+        // Immediately show the stop message in UI
+        toast.success("Generation stopped.")
+        
+        // Cancel on server in background
+        try {
+          await cancelMessage({ messageId: lastMessage._id as Id<"messages"> })
+        } catch (error) {
+          console.error("Failed to cancel on server:", error)
+          // Don't show error to user since they already see "stopped" message
+        }
+      } else {
+        toast.info("No active generation to stop.")
+      }
+    } else if (isLocalStreaming && abortControllerRef.current) {
+      // For local streaming, immediately stop UI and update message
+      setIsLocalStreaming(false)
+      toast.success("Generation stopped.")
+      
+      // Find and immediately update the last streaming message
+      try {
+        const localMessages = await db.messages
+          .where('conversationId')
+          .equals(currentChatId || '')
+          .sortBy('createdAt')
+        
+        const lastMessage = localMessages[localMessages.length - 1]
+        if (lastMessage && lastMessage.role === 'assistant') {
+          await db.messages.update(lastMessage.id, {
+            content: lastMessage.content + "\n\n*Generation was stopped by user.*"
+          })
+        }
+      } catch (error) {
+        console.error("Failed to update stopped message:", error)
+      }
+      
+      // Abort the request in background
       abortControllerRef.current.abort()
       abortControllerRef.current = null
-      setIsLocalStreaming(false)
-      toast.info("Generation stopped.")
+    } else {
+      toast.info("No active generation to stop.")
     }
-  }, [isAuthenticated, isConvexStreaming])
+  }, [isAuthenticated, isConvexStreaming, isLocalStreaming, convexMessages, cancelMessage, currentChatId])
 
   const deleteConversation = useCallback(async (id: string) => {
     if (isAuthenticated) {
@@ -387,6 +515,7 @@ export const useConversations = () => {
     currentChatId,
     setCurrentChatId,
     selectedModel,
-    setSelectedModel,
+    setSelectedModel: handleSetSelectedModel,
+    mounted,
   }
 }

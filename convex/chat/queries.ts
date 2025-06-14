@@ -30,6 +30,29 @@ export const getChatMessages = query({
       return messages;
     },
   });
+
+  export const getMessage = query({
+    args: { messageId: v.id("messages") },
+    handler: async (ctx, { messageId }) => {
+      const userId = await betterAuthComponent.getAuthUserId(ctx);
+      if (!userId) {
+        throw new Error("Authentication required");
+      }
+
+      const message = await ctx.db.get(messageId);
+      if (!message) {
+        return null;
+      }
+
+      // Verify chat ownership
+      const chat = await ctx.db.get(message.chatId);
+      if (!chat || chat.userId !== userId) {
+        throw new Error("Access denied");
+      }
+
+      return message;
+    },
+  });
   
   export const getUserChats = query({
     args: {},

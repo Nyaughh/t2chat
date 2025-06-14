@@ -1,31 +1,53 @@
 import type { CoreMessage } from 'ai';
+import type { Id } from '../../convex/_generated/dataModel'
 
-type UserMetadata = {
-  name?: string | null
-  email?: string | null
-  image?: string | null
+export interface UserMetadata {
+  name?: string
+  email?: string
+  image?: string
 }
 
-export type Attachment = {
-  name: string;
-  type: string;
-  size: number;
-  url: string;
-};
+export interface Attachment {
+  name: string
+  type: string
+  size: number
+  url: string
+}
+
+export interface ClientMessage {
+  id: string
+  role: 'user' | 'assistant' | 'system' | 'data'
+  content: string
+  thinking?: string
+  thinkingDuration?: number
+  createdAt: Date
+}
+
+// Server-side Convex types
+export interface ConvexChat {
+  _id: Id<"chats">
+  title: string
+  createdAt: number
+  updatedAt: number
+}
+
+export interface ConvexMessage {
+  _id: Id<"messages">
+  chatId: Id<"chats">
+  role: "user" | "assistant"
+  content: string
+  modelId?: string
+  thinking?: string
+  thinkingDuration?: number
+  isComplete?: boolean
+  isCancelled?: boolean
+  attachments?: Attachment[]
+  createdAt: number
+}
 
 export type ToolInvocation = {
   toolName: string;
   args: any;
 };
 
-export type ClientMessage = CoreMessage & {
-  id: string;
-  attachments?: Attachment[];
-  toolInvocations?: ToolInvocation[];
-  thinking?: string;
-  thinkingDuration?: number;
-}
-
 export type Message = ClientMessage;
-
-export type { UserMetadata }

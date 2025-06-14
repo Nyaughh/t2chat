@@ -94,6 +94,7 @@ export function MessageItem({
                 thinkingDuration={message.thinkingDuration}
                 isTyping={message.role === 'assistant' && isCurrentlyStreaming(message.id)}
                 className="text-base leading-relaxed break-words overflow-wrap-anywhere"
+                modelId={message.modelId}
               />
               
               {/* Display attachments */}

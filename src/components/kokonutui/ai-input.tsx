@@ -32,6 +32,7 @@ interface AIInputProps {
   onRemoveAttachment?: (index: number) => void
   uploadProgress?: { [key: string]: number }
   isUploading?: boolean
+  mounted?: boolean
 }
 
 const getCategoryColor = (category: string) => {
@@ -75,6 +76,7 @@ export default function AIInput({
   onRemoveAttachment,
   uploadProgress = {},
   isUploading = false,
+  mounted = true,
 }: AIInputProps) {
   const [showModelSelect, setShowModelSelect] = useState(false)
   const [thinkingEnabled, setThinkingEnabled] = useState(true)
@@ -91,17 +93,8 @@ export default function AIInput({
   const supportsAttachments = selectedModel.attachmentsSuppport.image || selectedModel.attachmentsSuppport.pdf
   const maxFiles = 2
 
-  // Load last used model on mount or when sign-in status changes
+  // Load UI preferences from localStorage
   useEffect(() => {
-    const lastUsedModelId = localStorage.getItem('lastUsedModelId')
-    if (lastUsedModelId) {
-      const lastUsedModel = availableModels.find((m) => m.id === lastUsedModelId)
-      if (lastUsedModel) {
-        setSelectedModel(lastUsedModel)
-      }
-    }
-    
-    // Load other preferences from localStorage
     const savedThinkingEnabled = localStorage.getItem('thinkingEnabled')
     if (savedThinkingEnabled !== null) {
       setThinkingEnabled(savedThinkingEnabled === 'true')
@@ -116,15 +109,7 @@ export default function AIInput({
     if (savedGroupBy === 'provider' || savedGroupBy === 'category') {
       setGroupBy(savedGroupBy)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isSignedIn])
-
-  // Save selected model to local storage
-  useEffect(() => {
-    if (selectedModel) {
-      localStorage.setItem('lastUsedModelId', selectedModel.id)
-    }
-  }, [selectedModel])
+  }, [])
 
   // Save thinking mode preference
   useEffect(() => {
@@ -141,15 +126,7 @@ export default function AIInput({
     localStorage.setItem('groupBy', groupBy)
   }, [groupBy])
 
-  // When sign-in status changes, if the current model is no longer available,
-  // switch to the first available model.
-  useEffect(() => {
-    if (!availableModels.find((m) => m.id === selectedModel.id)) {
-      if (availableModels.length > 0) {
-        setSelectedModel(availableModels[0])
-      }
-    }
-  }, [availableModels, selectedModel, setSelectedModel])
+
 
   // Drag and drop handlers
   const handleDragOver = useCallback((e: React.DragEvent) => {
@@ -430,10 +407,12 @@ export default function AIInput({
                     <div
                       className={cn(
                         'w-2 md:w-2.5 h-2 md:h-2.5 rounded-full bg-gradient-to-r',
-                        getCategoryColor(selectedModel.category),
+                        getCategoryColor(mounted ? selectedModel.category : models[0].category),
                       )}
                     ></div>
-                    <span className="truncate max-w-[80px] md:max-w-[120px]">{selectedModel.name}</span>
+                    <span className="truncate max-w-[80px] md:max-w-[120px]">
+                      {mounted ? selectedModel.name : models[0].name}
+                    </span>
                   </div>
                   <ChevronDown
                     className={cn(
