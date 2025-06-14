@@ -120,6 +120,73 @@ export const addMessage = mutation({
       return messageId;
     },
   });
+
+  export const deleteMessage = mutation({
+    args: {
+      messageId: v.id("messages"),
+    },
+    handler: async (ctx, { messageId }) => {
+      const userId = await betterAuthComponent.getAuthUserId(ctx);
+      if (!userId) {
+        throw new Error("Authentication required");
+      }
+  
+      const message = await ctx.db.get(messageId);
+      if (!message) {
+        throw new Error("Message not found");
+      }
+  
+      // Verify chat ownership
+      const chat = await ctx.db.get(message.chatId);
+      if (!chat || chat.userId !== userId) {
+        throw new Error("Access denied");
+      }
+  
+      await ctx.db.delete(messageId);
+  
+      return { success: true };
+    },
+  });
+
+  export const deleteMessagesFromIndex = mutation({
+    args: {
+      chatId: v.id("chats"),
+      fromMessageId: v.id("messages"),
+    },
+    handler: async (ctx, { chatId, fromMessageId }) => {
+      const userId = await betterAuthComponent.getAuthUserId(ctx);
+      if (!userId) {
+        throw new Error("Authentication required");
+      }
+  
+      // Verify chat ownership
+      const chat = await ctx.db.get(chatId);
+      if (!chat || chat.userId !== userId) {
+        throw new Error("Chat not found or access denied");
+      }
+  
+      // Get all messages in the chat
+      const messages = await ctx.db
+        .query("messages")
+        .withIndex("by_chat", (q) => q.eq("chatId", chatId))
+        .order("asc")
+        .collect();
+  
+      // Find the index of the fromMessageId
+      const fromIndex = messages.findIndex(msg => msg._id === fromMessageId);
+      if (fromIndex === -1) {
+        throw new Error("Message not found in chat");
+      }
+  
+      // Delete all messages from that index onwards
+      const messagesToDelete = messages.slice(fromIndex);
+      for (const message of messagesToDelete) {
+        await ctx.db.delete(message._id);
+      }
+  
+      return { success: true, deletedCount: messagesToDelete.length };
+    },
+  });
   
   export const updateChatTitle = mutation({
     args: {

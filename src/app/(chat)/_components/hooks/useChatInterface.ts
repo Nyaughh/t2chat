@@ -21,13 +21,15 @@ export function useChatInterface() {
     messages: activeMessages,
     isStreaming,
     handleNewMessage,
+    handleRetryMessage,
+    handleStopGeneration,
     currentChatId,
     selectedModel,
     setSelectedModel,
     isAuthenticated,
   } = useConversations()
 
-  const messageActions = useMessageActions()
+  const messageActions = useMessageActions({ onRetryMessage: handleRetryMessage })
   const scrollToBottom = useScrollToBottom(activeMessages)
 
   const handleSend = (message: string, model: string, options: { webSearch?: boolean }) => {
@@ -79,6 +81,7 @@ export function useChatInterface() {
     // Actions
     handleSend,
     handlePromptClick,
+    handleStopGeneration,
     isCurrentlyStreaming,
     
     // Message actions

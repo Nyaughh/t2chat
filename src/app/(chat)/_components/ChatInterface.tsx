@@ -34,6 +34,7 @@ export default function ChatInterface() {
     // Actions
     handleSend,
     handlePromptClick,
+    handleStopGeneration,
     isCurrentlyStreaming,
     
     // Message actions
@@ -155,7 +156,7 @@ export default function ChatInterface() {
             onSend={handleSend}
             isStreaming={isStreaming}
             isTyping={isTyping}
-            onStop={() => console.log("Stop generating not implemented.")}
+            onStop={handleStopGeneration}
             messagesLength={activeMessages.length}
             selectedModel={selectedModel}
             setSelectedModel={setSelectedModel}

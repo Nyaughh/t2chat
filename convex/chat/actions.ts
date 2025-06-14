@@ -1,4 +1,3 @@
-
 import { v } from "convex/values";
 import { action, mutation, query } from "../_generated/server";
 import { api } from "../_generated/api";
@@ -65,8 +64,303 @@ const mapModel = (modelId: string) => {
   };
 };
 
+// Helper function to generate AI response
+const generateAIResponse = async (
+  ctx: any,
+  chatMessages: CoreMessage[],
+  modelId: string,
+  assistantMessageId: Id<"messages">,
+  webSearch?: boolean
+) => {
+  const { model, thinking, provider } = mapModel(modelId);
+  
+  if (!model) {
+    throw new Error("Invalid model selected");
+  }
 
+  // Initialize AI providers
+  const google = createGoogleGenerativeAI({
+    apiKey: process.env.GEMINI_API_KEY,
+  });
 
+  const openrouter = createOpenRouter({
+    apiKey: process.env.OPENROUTER_API_KEY,
+  });
+
+  const groq = createGroq({
+    apiKey: process.env.GROQ_API_KEY,
+  });
+
+  let aiModel;
+  if (provider === 'gemini') {
+    aiModel = google(model.id);
+  } else if (provider === 'openrouter') {
+    aiModel = openrouter(model.id);
+  } else if (provider === 'groq') {
+    aiModel = groq(model.id);
+  } else {
+    aiModel = google('gemini-2.0-flash');
+  }
+
+  // Stream the response
+  const { fullStream } = streamText({
+    system: basePersonality,
+    model: thinking
+      ? wrapLanguageModel({
+          model: aiModel,
+          middleware: extractReasoningMiddleware({ 
+            tagName: 'think', 
+            startWithReasoning: true 
+          }),
+        })
+      : aiModel,
+    messages: chatMessages,
+    maxSteps: 20,
+    tools: webSearch ? {
+      search: tool({
+        description: "Search the web for current information. Use this when you need up-to-date information that might not be in your training data.",
+        parameters: z.object({
+          query: z.string().describe("The search query to find relevant information"),
+        }),
+        execute: async ({ query }) => {
+          try {
+            // Use Tavily API for web search
+            const response = await fetch('https://api.tavily.com/search', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${process.env.TAVILY_API_KEY}`,
+              },
+              body: JSON.stringify({
+                query,
+                search_depth: 'basic',
+                include_answer: true,
+                include_raw_content: false,
+                max_results: 5,
+              }),
+            });
+
+            if (!response.ok) {
+              throw new Error(`Search API error: ${response.status}`);
+            }
+
+            const data = await response.json();
+            
+            // Format the search results
+            const results = data.results?.map((result: any) => ({
+              title: result.title,
+              url: result.url,
+              content: result.content,
+            })) || [];
+
+            return {
+              query,
+              answer: data.answer || '',
+              results,
+              timestamp: new Date().toISOString(),
+            };
+          } catch (error) {
+            console.error('Web search error:', error);
+            return {
+              query,
+              error: 'Failed to perform web search',
+              results: [],
+              timestamp: new Date().toISOString(),
+            };
+          }
+        },
+      }),
+    } : undefined,
+    providerOptions: {
+      google: {
+        thinkingConfig: thinking
+          ? {
+              thinkingBudget: 2048,
+            }
+          : {},
+      },
+      openrouter: {},
+    },
+    experimental_transform: [smoothStream({
+      chunking: "word",
+    })],
+  });
+
+  let accumulatedContent = "";
+  let accumulatedThinking = "";
+  let thinkingStartTime: number | null = null;
+  let thinkingEndTime: number | null = null;
+
+  for await (const chunk of fullStream) {
+    try {
+      if (chunk.type === 'text-delta') {
+        accumulatedContent += chunk.textDelta;
+        
+        // Update the message in real-time with error handling
+        await ctx.runMutation(api.chat.mutations.updateMessage, {
+          messageId: assistantMessageId,
+          content: accumulatedContent,
+          isComplete: false,
+        });
+      } else if (chunk.type === 'reasoning') {
+        // Track thinking start time
+        if (!thinkingStartTime) {
+          thinkingStartTime = Date.now();
+        }
+        
+        if (provider === 'gemini') {
+          // Handle Google's reasoning differently
+          if (typeof chunk.textDelta === 'string' && chunk.textDelta.startsWith('**')) {
+            // This is reasoning content - accumulate it
+            accumulatedThinking += chunk.textDelta;
+            
+            // Update the message with thinking content
+            await ctx.runMutation(api.chat.mutations.updateMessage, {
+              messageId: assistantMessageId,
+              thinking: accumulatedThinking,
+              isComplete: false,
+            });
+          } else {
+            // This is regular content mixed with reasoning
+            accumulatedContent += chunk.textDelta;
+            await ctx.runMutation(api.chat.mutations.updateMessage, {
+              messageId: assistantMessageId,
+              content: accumulatedContent,
+              isComplete: false,
+            });
+          }
+        } else {
+          // For other providers, reasoning is separate
+          accumulatedThinking += chunk.textDelta;
+          
+          // Update the message with thinking content
+          await ctx.runMutation(api.chat.mutations.updateMessage, {
+            messageId: assistantMessageId,
+            thinking: accumulatedThinking,
+            isComplete: false,
+          });
+        }
+      } else if (chunk.type === 'finish') {
+        // Track thinking end time
+        if (thinkingStartTime && !thinkingEndTime) {
+          thinkingEndTime = Date.now();
+        }
+        
+        // Calculate thinking duration in seconds
+        const duration = thinkingStartTime && thinkingEndTime 
+          ? Math.round((thinkingEndTime - thinkingStartTime) / 1000) 
+          : undefined;
+        
+        // Mark the message as complete with final thinking data
+        await ctx.runMutation(api.chat.mutations.updateMessage, {
+          messageId: assistantMessageId,
+          content: accumulatedContent,
+          thinking: accumulatedThinking || undefined,
+          thinkingDuration: duration,
+          isComplete: true,
+        });
+        break;
+      } else if (chunk.type === 'error') {
+        // Handle error
+        await ctx.runMutation(api.chat.mutations.updateMessage, {
+          messageId: assistantMessageId,
+          content: accumulatedContent + "\n\n*Error occurred while generating response.*",
+          thinking: accumulatedThinking || undefined,
+          isComplete: true,
+        });
+        break;
+      }
+    } catch (updateError) {
+      // If we can't update the message (e.g., due to conflicts), continue streaming
+      // but don't fail the entire operation
+      console.warn('Failed to update message during streaming:', updateError);
+    }
+  }
+
+  // Ensure the message is marked as complete even if the loop exits unexpectedly
+  try {
+    await ctx.runMutation(api.chat.mutations.updateMessage, {
+      messageId: assistantMessageId,
+      content: accumulatedContent || "Generation was interrupted.",
+      thinking: accumulatedThinking || undefined,
+      isComplete: true,
+    });
+  } catch (finalUpdateError) {
+    console.warn('Failed to mark message as complete:', finalUpdateError);
+  }
+};
+
+export const retryMessage = action({
+  args: {
+    chatId: v.id("chats"),
+    fromMessageId: v.id("messages"),
+    modelId: v.string(),
+    webSearch: v.optional(v.boolean()),
+  },
+  handler: async (ctx, { chatId, fromMessageId, modelId, webSearch }): Promise<{
+    success: boolean;
+    assistantMessageId: Id<"messages">;
+  }> => {
+    // Verify authentication and chat ownership first
+    const userId = await betterAuthComponent.getAuthUserId(ctx);
+    if (!userId) {
+      throw new Error("Authentication required");
+    }
+    const chat = await ctx.runQuery(api.chat.queries.getChat, { chatId });
+    if (!chat) {
+      throw new Error("Chat not found or access denied");
+    }
+
+    try {
+      // Delete messages from the retry point onwards
+      await ctx.runMutation(api.chat.mutations.deleteMessagesFromIndex, {
+        chatId,
+        fromMessageId,
+      });
+
+      // Get remaining chat history for context
+      const messages = await ctx.runQuery(api.chat.queries.getChatMessages, { chatId });
+      
+      // Convert to AI SDK format
+      const chatMessages: CoreMessage[] = messages
+        .filter((msg: any) => msg.isComplete !== false)
+        .map((msg: any) => ({
+          role: msg.role as "user" | "assistant",
+          content: msg.content,
+        }));
+
+      // Create new assistant message placeholder
+      const assistantMessageId: Id<"messages"> = await ctx.runMutation(api.chat.mutations.addMessage, {
+        chatId,
+        role: "assistant",
+        content: "",
+        modelId,
+        isComplete: false,
+      });
+
+      // Generate the AI response
+      await generateAIResponse(ctx, chatMessages, modelId, assistantMessageId, webSearch);
+
+      return {
+        success: true,
+        assistantMessageId,
+      };
+
+    } catch (error) {
+      console.error('Error in retryMessage action:', error);
+      
+      // Add error message to chat
+      await ctx.runMutation(api.chat.mutations.addMessage, {
+        chatId,
+        role: "assistant",
+        content: "I apologize, but I encountered an error while retrying the message. Please try again.",
+        modelId,
+      });
+
+      throw error;
+    }
+  },
+});
 
 // ACTIONS - for external API calls
 
@@ -146,36 +440,6 @@ export const sendMessage = action({
     
 
     try {
-      const { model, thinking, provider } = mapModel(modelId);
-      
-      if (!model) {
-        throw new Error("Invalid model selected");
-      }
-
-      // Initialize AI providers
-      const google = createGoogleGenerativeAI({
-        apiKey: process.env.GEMINI_API_KEY,
-      });
-
-      const openrouter = createOpenRouter({
-        apiKey: process.env.OPENROUTER_API_KEY,
-      });
-
-      const groq = createGroq({
-        apiKey: process.env.GROQ_API_KEY,
-      });
-
-      let aiModel;
-      if (provider === 'gemini') {
-        aiModel = google(model.id);
-      } else if (provider === 'openrouter') {
-        aiModel = openrouter(model.id);
-      } else if (provider === 'groq') {
-        aiModel = groq(model.id);
-      } else {
-        aiModel = google('gemini-2.0-flash');
-      }
-
       // Create assistant message placeholder
       const assistantMessageId: Id<"messages"> = await ctx.runMutation(api.chat.mutations.addMessage, {
         chatId,
@@ -185,174 +449,8 @@ export const sendMessage = action({
         isComplete: false,
       });
 
-      // Stream the response
-      const { fullStream } = streamText({
-        system: basePersonality,
-        model: thinking
-          ? wrapLanguageModel({
-              model: aiModel,
-              middleware: extractReasoningMiddleware({ 
-                tagName: 'think', 
-                startWithReasoning: true 
-              }),
-            })
-          : aiModel,
-        messages: chatMessages,
-        maxSteps: 20,
-        tools: webSearch ? {
-          search: tool({
-            description: "Search the web for current information. Use this when you need up-to-date information that might not be in your training data.",
-            parameters: z.object({
-              query: z.string().describe("The search query to find relevant information"),
-            }),
-            execute: async ({ query }) => {
-              try {
-                // Use Tavily API for web search
-                const response = await fetch('https://api.tavily.com/search', {
-                  method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${process.env.TAVILY_API_KEY}`,
-                  },
-                  body: JSON.stringify({
-                    query,
-                    search_depth: 'basic',
-                    include_answer: true,
-                    include_raw_content: false,
-                    max_results: 5,
-                  }),
-                });
-
-                if (!response.ok) {
-                  throw new Error(`Search API error: ${response.status}`);
-                }
-
-                const data = await response.json();
-                
-                // Format the search results
-                const results = data.results?.map((result: any) => ({
-                  title: result.title,
-                  url: result.url,
-                  content: result.content,
-                })) || [];
-
-                return {
-                  query,
-                  answer: data.answer || '',
-                  results,
-                  timestamp: new Date().toISOString(),
-                };
-              } catch (error) {
-                console.error('Web search error:', error);
-                return {
-                  query,
-                  error: 'Failed to perform web search',
-                  results: [],
-                  timestamp: new Date().toISOString(),
-                };
-              }
-            },
-          }),
-        } : undefined,
-        providerOptions: {
-          google: {
-            thinkingConfig: thinking
-              ? {
-                  thinkingBudget: 2048,
-                }
-              : {},
-          },
-          openrouter: {},
-        },
-        experimental_transform: [smoothStream({
-          chunking: "word",
-        })],
-      });
-
-      let accumulatedContent = "";
-      let accumulatedThinking = "";
-      let thinkingStartTime: number | null = null;
-      let thinkingEndTime: number | null = null;
-
-      for await (const chunk of fullStream) {
-        if (chunk.type === 'text-delta') {
-          accumulatedContent += chunk.textDelta;
-          
-          // Update the message in real-time
-          await ctx.runMutation(api.chat.mutations.updateMessage, {
-            messageId: assistantMessageId,
-            content: accumulatedContent,
-            isComplete: false,
-          });
-        } else if (chunk.type === 'reasoning') {
-          // Track thinking start time
-          if (!thinkingStartTime) {
-            thinkingStartTime = Date.now();
-          }
-          
-          if (provider === 'gemini') {
-            // Handle Google's reasoning differently
-            if (typeof chunk.textDelta === 'string' && chunk.textDelta.startsWith('**')) {
-              // This is reasoning content - accumulate it
-              accumulatedThinking += chunk.textDelta;
-              
-              // Update the message with thinking content
-              await ctx.runMutation(api.chat.mutations.updateMessage, {
-                messageId: assistantMessageId,
-                thinking: accumulatedThinking,
-                isComplete: false,
-              });
-            } else {
-              // This is regular content mixed with reasoning
-              accumulatedContent += chunk.textDelta;
-              await ctx.runMutation(api.chat.mutations.updateMessage, {
-                messageId: assistantMessageId,
-                content: accumulatedContent,
-                isComplete: false,
-              });
-            }
-          } else {
-            // For other providers, reasoning is separate
-            accumulatedThinking += chunk.textDelta;
-            
-            // Update the message with thinking content
-            await ctx.runMutation(api.chat.mutations.updateMessage, {
-              messageId: assistantMessageId,
-              thinking: accumulatedThinking,
-              isComplete: false,
-            });
-          }
-        } else if (chunk.type === 'finish') {
-          // Track thinking end time
-          if (thinkingStartTime && !thinkingEndTime) {
-            thinkingEndTime = Date.now();
-          }
-          
-          // Calculate thinking duration in seconds
-          const duration = thinkingStartTime && thinkingEndTime 
-            ? Math.round((thinkingEndTime - thinkingStartTime) / 1000) 
-            : undefined;
-          
-          // Mark the message as complete with final thinking data
-          await ctx.runMutation(api.chat.mutations.updateMessage, {
-            messageId: assistantMessageId,
-            content: accumulatedContent,
-            thinking: accumulatedThinking || undefined,
-            thinkingDuration: duration,
-            isComplete: true,
-          });
-          break;
-        } else if (chunk.type === 'error') {
-          // Handle error
-          await ctx.runMutation(api.chat.mutations.updateMessage, {
-            messageId: assistantMessageId,
-            content: accumulatedContent + "\n\n*Error occurred while generating response.*",
-            thinking: accumulatedThinking || undefined,
-            isComplete: true,
-          });
-          break;
-        }
-      }
+      // Generate the AI response
+      await generateAIResponse(ctx, chatMessages, modelId, assistantMessageId, webSearch);
 
       return {
         success: true,

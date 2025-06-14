@@ -3,7 +3,11 @@
 import { useState, useRef, useEffect } from 'react'
 import { models } from '@/lib/models'
 
-export function useMessageActions() {
+interface UseMessageActionsProps {
+  onRetryMessage?: (messageId: string, modelId?: string) => void
+}
+
+export function useMessageActions(props?: UseMessageActionsProps) {
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null)
   const [editingContent, setEditingContent] = useState('')
@@ -52,7 +56,9 @@ export function useMessageActions() {
   }
 
   const handleRetryWithModel = (messageId: string, modelId: string) => {
-    console.log("Regenerate not yet implemented in new hook.")
+    if (props?.onRetryMessage) {
+      props.onRetryMessage(messageId, modelId)
+    }
     setRetryDropdownId(null)
   }
 
