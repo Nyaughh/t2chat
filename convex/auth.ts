@@ -25,7 +25,7 @@ import {
   
   export const createAuth = (ctx: GenericCtx) =>
     betterAuth({
-      baseURL: "http://localhost:3000",
+      baseURL: process.env.BETTER_AUTH_URL!,
       database: convexAdapter(ctx, betterAuthComponent),
       socialProviders: {
         github: {
@@ -42,10 +42,6 @@ import {
       },
       plugins: [
         convex(),
-      ],
-      trustedOrigins: [
-        "http://localhost:3000",
-        "*",
       ],
     });
   
