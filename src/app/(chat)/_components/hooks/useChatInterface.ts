@@ -4,11 +4,18 @@ import { useState } from 'react'
 import { useConversations } from '@/hooks/useConversations'
 import { useMessageActions } from './useMessageActions'
 import { useScrollToBottom } from './useScrollToBottom'
-import { useFileUpload } from './useFileUpload'
+
+interface Attachment {
+  name: string
+  type: string
+  size: number
+  url: string
+}
 
 export function useChatInterface() {
   const [inputValue, setInputValue] = useState('')
   const [isTyping, setIsTyping] = useState(false)
+  const [attachments, setAttachments] = useState<Attachment[]>([])
 
   const {
     messages: activeMessages,
@@ -17,17 +24,27 @@ export function useChatInterface() {
     currentChatId,
     selectedModel,
     setSelectedModel,
+    isAuthenticated,
   } = useConversations()
 
   const messageActions = useMessageActions()
-  const { pendingAttachments, fileInputRef, handleFileUpload, removeAttachment, clearAttachments } = useFileUpload()
   const scrollToBottom = useScrollToBottom(activeMessages)
 
-  const handleSend = () => {
-    if (inputValue.trim() || pendingAttachments.length > 0) {
-      handleNewMessage(inputValue, { attachments: [] /* TODO: Map pendingAttachments */ })
+  const handleSend = (message: string, model: string, options: { webSearch?: boolean }) => {
+    if (message.trim() || attachments.length > 0) {
+      const mappedAttachments = attachments.map(a => ({
+        name: a.name,
+        type: a.type,
+        size: a.size,
+        url: a.url,
+      }))
+      handleNewMessage(message, { 
+        attachments: mappedAttachments, 
+        modelId: model,
+        webSearch: options.webSearch 
+      })
       setInputValue('')
-      clearAttachments()
+      setAttachments([])
     }
   }
 
@@ -53,12 +70,11 @@ export function useChatInterface() {
     selectedModel,
     setSelectedModel,
     showWelcomeScreen,
+    isAuthenticated,
     
-    // File upload
-    pendingAttachments,
-    fileInputRef,
-    handleFileUpload,
-    removeAttachment,
+    // Attachments
+    attachments,
+    setAttachments,
     
     // Actions
     handleSend,

@@ -14,6 +14,8 @@ export interface ModelInfo {
     image: boolean
   }
   isApiKeyOnly?: boolean
+  toolCalls?: boolean
+  isFree?: boolean
 }
 
 export const models: ModelInfo[] = [
@@ -29,9 +31,10 @@ export const models: ModelInfo[] = [
     supportsThinking: false,
     unauthenticated: true,
     attachmentsSuppport: {
-      pdf: true,
-      image: true,
+      pdf: false,
+      image: false,
     },
+    isFree: true,
   },
   {
     id: 'gemini-2.0-flash',
@@ -44,9 +47,10 @@ export const models: ModelInfo[] = [
     supportsThinking: false,
     unauthenticated: false,
     attachmentsSuppport: {
-      pdf: true,
+      pdf: false,
       image: true,
     },
+    toolCalls: true
   },
   {
     id: 'gemini-2.0-flash-thinking-exp-01-21',
@@ -59,8 +63,8 @@ export const models: ModelInfo[] = [
     supportsThinking: true,
     unauthenticated: false,
     attachmentsSuppport: {
-      pdf: true,
-      image: true,
+      pdf: false,
+      image: false,
     },
   },
   {
@@ -74,7 +78,7 @@ export const models: ModelInfo[] = [
     supportsThinking: false,
     unauthenticated: false,
     attachmentsSuppport: {
-      pdf: true,
+      pdf: false,
       image: true,
     },
   },
@@ -92,6 +96,7 @@ export const models: ModelInfo[] = [
       pdf: true,
       image: true,
     },
+    toolCalls: true
   },
   {
     id: 'google/gemini-flash-1.5',
@@ -107,6 +112,7 @@ export const models: ModelInfo[] = [
       pdf: true,
       image: true,
     },
+    isFree: true,
   },
   {
     id: 'anthropic/claude-3.5-sonnet',
@@ -164,8 +170,8 @@ export const models: ModelInfo[] = [
     supportsThinking: false,
     unauthenticated: false,
     attachmentsSuppport: {
-      pdf: true,
-      image: true,
+      pdf: false,
+      image: false,
     },
   },
   {
@@ -179,9 +185,10 @@ export const models: ModelInfo[] = [
     supportsThinking: false,
     unauthenticated: true,
     attachmentsSuppport: {
-      pdf: true,
-      image: true,
+      pdf: false,
+      image: false,
     },
+    isFree: true,
   },
   {
     id: 'llama-3.3-70b-versatile',

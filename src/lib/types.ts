@@ -7,9 +7,10 @@ type UserMetadata = {
 }
 
 export type Attachment = {
-  type: 'image' | 'pdf' | 'text';
   name: string;
-  content: string; // base64 encoded for images/pdfs, raw for text
+  type: string;
+  size: number;
+  url: string;
 };
 
 export type ToolInvocation = {

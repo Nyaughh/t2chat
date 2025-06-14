@@ -20,6 +20,12 @@ interface DBMessage {
   model?: string
   thinking?: string
   thinkingDuration?: number
+  attachments?: Array<{
+    name: string
+    type: string
+    size: number
+    url: string
+  }>
 }
 
 const db = new Dexie('t2Chat') as Dexie & {

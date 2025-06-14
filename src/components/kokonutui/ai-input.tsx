@@ -2,25 +2,36 @@
 
 import type React from 'react'
 
-import { useState } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { cn } from '@/lib/utils'
 import { useAutoResizeTextarea } from '@/hooks/resize-textarea'
-import { ArrowUpCircle, Paperclip, Globe, ChevronDown, Sparkles, Lightbulb, Plus, Square } from 'lucide-react'
+import { ArrowUpCircle, Paperclip, Globe, ChevronDown, Sparkles, Lightbulb, Plus, Square, X, FileText, Image, Upload } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { ModelInfo, models } from '@/lib/models'
+
+interface Attachment {
+  name: string
+  type: string
+  size: number
+  url: string
+}
+
 interface AIInputProps {
   value: string
   onValueChange: (value: string) => void
-  onSend?: (message: string, model: string) => void
+  onSend?: (message: string, model: string, options: { webSearch?: boolean }) => void
   isTyping?: boolean
   onStop?: () => void
-  onAttachmentClick?: () => void
-  pendingAttachments?: File[]
-  onRemoveAttachment?: (index: number) => void
   messagesLength: number
   isStreaming?: boolean
   selectedModel: ModelInfo
   setSelectedModel: (model: ModelInfo) => void
+  isSignedIn: boolean
+  uploadButton?: React.ReactNode
+  attachments?: Attachment[]
+  onRemoveAttachment?: (index: number) => void
+  uploadProgress?: { [key: string]: number }
+  isUploading?: boolean
 }
 
 const getCategoryColor = (category: string) => {
@@ -55,24 +66,140 @@ export default function AIInput({
   isStreaming,
   isTyping,
   onStop,
-  onAttachmentClick,
-  pendingAttachments = [],
-  onRemoveAttachment,
   messagesLength,
   selectedModel,
   setSelectedModel,
+  isSignedIn,
+  uploadButton,
+  attachments = [],
+  onRemoveAttachment,
+  uploadProgress = {},
+  isUploading = false,
 }: AIInputProps) {
   const [showModelSelect, setShowModelSelect] = useState(false)
   const [thinkingEnabled, setThinkingEnabled] = useState(true)
+  const [webSearchEnabled, setWebSearchEnabled] = useState(false)
   const [groupBy, setGroupBy] = useState<'provider' | 'category'>('provider')
+  const [isDragOver, setIsDragOver] = useState(false)
   const { textareaRef, adjustHeight } = useAutoResizeTextarea({
     minHeight: 40,
     maxHeight: 160,
   })
+  const uploadButtonRef = useRef<HTMLDivElement>(null)
+
+  const availableModels = isSignedIn ? models : models.filter((m) => m.isFree)
+  const supportsAttachments = selectedModel.attachmentsSuppport.image || selectedModel.attachmentsSuppport.pdf
+  const maxFiles = 2
+
+  // Load last used model on mount or when sign-in status changes
+  useEffect(() => {
+    const lastUsedModelId = localStorage.getItem('lastUsedModelId')
+    if (lastUsedModelId) {
+      const lastUsedModel = availableModels.find((m) => m.id === lastUsedModelId)
+      if (lastUsedModel) {
+        setSelectedModel(lastUsedModel)
+      }
+    }
+    
+    // Load other preferences from localStorage
+    const savedThinkingEnabled = localStorage.getItem('thinkingEnabled')
+    if (savedThinkingEnabled !== null) {
+      setThinkingEnabled(savedThinkingEnabled === 'true')
+    }
+    
+    const savedWebSearchEnabled = localStorage.getItem('webSearchEnabled')
+    if (savedWebSearchEnabled !== null) {
+      setWebSearchEnabled(savedWebSearchEnabled === 'true')
+    }
+    
+    const savedGroupBy = localStorage.getItem('groupBy')
+    if (savedGroupBy === 'provider' || savedGroupBy === 'category') {
+      setGroupBy(savedGroupBy)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isSignedIn])
+
+  // Save selected model to local storage
+  useEffect(() => {
+    if (selectedModel) {
+      localStorage.setItem('lastUsedModelId', selectedModel.id)
+    }
+  }, [selectedModel])
+
+  // Save thinking mode preference
+  useEffect(() => {
+    localStorage.setItem('thinkingEnabled', thinkingEnabled.toString())
+  }, [thinkingEnabled])
+
+  // Save web search preference
+  useEffect(() => {
+    localStorage.setItem('webSearchEnabled', webSearchEnabled.toString())
+  }, [webSearchEnabled])
+
+  // Save groupBy preference
+  useEffect(() => {
+    localStorage.setItem('groupBy', groupBy)
+  }, [groupBy])
+
+  // When sign-in status changes, if the current model is no longer available,
+  // switch to the first available model.
+  useEffect(() => {
+    if (!availableModels.find((m) => m.id === selectedModel.id)) {
+      if (availableModels.length > 0) {
+        setSelectedModel(availableModels[0])
+      }
+    }
+  }, [availableModels, selectedModel, setSelectedModel])
+
+  // Drag and drop handlers
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (supportsAttachments && attachments.length < maxFiles) {
+      setIsDragOver(true)
+    }
+  }, [supportsAttachments, attachments.length, maxFiles])
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragOver(false)
+  }, [])
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragOver(false)
+
+    if (!supportsAttachments || attachments.length >= maxFiles) return
+
+    const files = Array.from(e.dataTransfer.files)
+    const remainingSlots = maxFiles - attachments.length
+    const filesToAdd = files.slice(0, remainingSlots)
+
+    // Filter files based on model support
+    const supportedFiles = filesToAdd.filter(file => {
+      const isImage = selectedModel.attachmentsSuppport.image && file.type.startsWith('image/')
+      const isPdf = selectedModel.attachmentsSuppport.pdf && file.type === 'application/pdf'
+      return isImage || isPdf
+    })
+
+    // Try to trigger the upload button
+    if (uploadButtonRef.current && supportedFiles.length > 0) {
+      const button = uploadButtonRef.current.querySelector('input[type="file"]')
+      
+      if (button) {
+        const dt = new DataTransfer()
+        supportedFiles.forEach(file => dt.items.add(file))
+        ;(button as HTMLInputElement).files = dt.files
+        button.dispatchEvent(new Event('change', { bubbles: true }))
+      }
+    }
+  }, [supportsAttachments, attachments.length, maxFiles, selectedModel])
 
   const handleSend = () => {
     if (value.trim() && onSend && !isTyping) {
-      onSend(value.trim(), selectedModel.id)
+      onSend(value.trim(), selectedModel.id, { webSearch: webSearchEnabled })
       if (messagesLength === 0) {
         setTimeout(() => {
           onValueChange('')
@@ -107,7 +234,7 @@ export default function AIInput({
     }
   }
 
-  const groupedModels = models.reduce(
+  const groupedModels = availableModels.reduce(
     (acc, model) => {
       const groupKey = groupBy === 'provider' ? model.provider : model.category
       if (!acc[groupKey]) {
@@ -142,30 +269,117 @@ export default function AIInput({
 
   return (
     <div className="relative">
-      <div className="relative flex flex-col bg-white/70 dark:bg-[oklch(0.18_0.015_25)]/30 backdrop-blur-xl border-t border-x border-rose-500/10 dark:border-white/10 overflow-visible rounded-t-2xl shadow-lg shadow-rose-500/5 dark:shadow-lg dark:shadow-black/20">
+      <div 
+        className={cn(
+          "relative flex flex-col bg-white/70 dark:bg-[oklch(0.18_0.015_25)]/30 backdrop-blur-xl border-t border-x border-rose-500/10 dark:border-white/10 overflow-visible rounded-t-2xl shadow-lg shadow-rose-500/5 dark:shadow-lg dark:shadow-black/20 transition-all duration-200",
+          isDragOver && "border-rose-500/30 dark:border-rose-300/30 bg-rose-500/5 dark:bg-rose-300/5"
+        )}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+      >
+        {/* Drag overlay */}
+        {isDragOver && (
+          <div className="absolute inset-0 z-50 flex items-center justify-center bg-rose-500/10 dark:bg-rose-300/10 backdrop-blur-sm rounded-t-2xl border-2 border-dashed border-rose-500/50 dark:border-rose-300/50">
+            <div className="text-center">
+              <Upload className="w-8 h-8 mx-auto mb-2 text-rose-500 dark:text-rose-300" />
+              <p className="text-sm font-medium text-rose-600 dark:text-rose-300">
+                Drop files here ({maxFiles - attachments.length} remaining)
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Subtle gradient overlay for premium look */}
         <div className="absolute inset-0 bg-gradient-to-br from-rose-500/5 via-transparent to-rose-500/10 dark:from-rose-500/10 dark:via-transparent dark:to-rose-500/20 pointer-events-none rounded-t-2xl"></div>
         <div className="absolute inset-0 bg-gradient-to-t from-transparent via-transparent to-white/20 dark:to-white/5 pointer-events-none rounded-t-2xl"></div>
 
-        {/* Pending Attachments */}
-        {pendingAttachments.length > 0 && (
-          <div className="relative z-10 p-4 pb-2 border-b border-black/10 dark:border-white/10">
-            <div className="flex flex-wrap gap-2">
-              {pendingAttachments.map((file, index) => (
+        {/* Attachments Display */}
+        {(attachments.length > 0 || isUploading) && (
+          <div className="relative z-10 px-3 md:px-4 pt-3 border-b border-rose-500/10 dark:border-white/10">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-xs font-medium text-rose-600 dark:text-rose-300">
+                Attachments ({attachments.length}/{maxFiles})
+                {isUploading && (
+                  <span className="ml-2 text-rose-500/70 dark:text-rose-300/70">
+                    Uploading...
+                  </span>
+                )}
+              </span>
+            </div>
+            <div className="flex flex-wrap gap-2 pb-2">
+              {attachments.map((attachment, index) => (
                 <div
                   key={index}
-                  className="flex items-center gap-2 bg-rose-500/5 dark:bg-rose-300/5 border border-rose-500/20 dark:border-rose-300/20 rounded-lg px-3 py-2 group"
+                  className="flex items-center gap-2 bg-white/50 dark:bg-[oklch(0.22_0.015_25)]/40 rounded-lg px-3 py-2 text-sm border border-rose-500/10 dark:border-white/10"
                 >
-                  <Paperclip className="w-4 h-4 text-rose-500/70 dark:text-rose-300/70" />
-                  <span className="text-base text-black dark:text-white truncate max-w-40">{file.name}</span>
-                  <button
-                    onClick={() => onRemoveAttachment?.(index)}
-                    className="text-black/40 dark:text-white/40 hover:text-red-500 dark:hover:text-red-400 transition-colors"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
+                  {attachment.type.startsWith('image/') ? (
+                    <div className="flex items-center gap-2">
+                      <Image className="w-4 h-4 text-rose-500/70 dark:text-rose-300/70" />
+                      {attachment.url && (
+                        <img 
+                          src={attachment.url} 
+                          alt={attachment.name}
+                          className="w-8 h-8 object-cover rounded border border-rose-500/20 dark:border-white/20"
+                        />
+                      )}
+                    </div>
+                  ) : (
+                    <FileText className="w-4 h-4 text-rose-500/70 dark:text-rose-300/70" />
+                  )}
+                  <div className="flex flex-col min-w-0">
+                    <span className="text-black/70 dark:text-white/70 truncate max-w-[120px] text-xs font-medium">
+                      {attachment.name}
+                    </span>
+                    <span className="text-black/40 dark:text-white/40 text-xs">
+                      {(attachment.size / 1024).toFixed(1)}KB
+                    </span>
+                  </div>
+                  {onRemoveAttachment && (
+                    <button
+                      onClick={() => onRemoveAttachment(index)}
+                      className="p-1 text-rose-500/60 hover:text-rose-600 dark:text-rose-300/60 dark:hover:text-rose-300 hover:bg-rose-500/10 dark:hover:bg-rose-300/10 rounded transition-all duration-200"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  )}
+                </div>
+              ))}
+              
+              {/* Upload Progress Items */}
+              {Object.entries(uploadProgress).map(([fileName, progress]) => (
+                <div
+                  key={`uploading-${fileName}`}
+                  className="flex items-center gap-2 bg-rose-500/5 dark:bg-rose-300/5 rounded-lg px-3 py-2 text-sm border border-rose-500/20 dark:border-rose-300/20"
+                >
+                  <div className="flex items-center gap-2">
+                    <div className="relative">
+                      {fileName.toLowerCase().includes('.pdf') ? (
+                        <FileText className="w-4 h-4 text-rose-500/70 dark:text-rose-300/70" />
+                      ) : (
+                        <Image className="w-4 h-4 text-rose-500/70 dark:text-rose-300/70" />
+                      )}
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <div className="w-6 h-6 border-2 border-rose-500/30 border-t-rose-500 rounded-full animate-spin"></div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex flex-col min-w-0 flex-1">
+                    <span className="text-rose-600 dark:text-rose-300 truncate max-w-[120px] text-xs font-medium">
+                      {fileName}
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 bg-rose-200/50 dark:bg-rose-800/30 rounded-full h-1.5 overflow-hidden">
+                        <div 
+                          className="h-full bg-rose-500 dark:bg-rose-400 transition-all duration-300 ease-out"
+                          style={{ width: `${progress}%` }}
+                        />
+                      </div>
+                      <span className="text-rose-500/70 dark:text-rose-300/70 text-xs">
+                        {Math.round(progress)}%
+                      </span>
+                    </div>
+                  </div>
                 </div>
               ))}
             </div>
@@ -416,19 +630,23 @@ export default function AIInput({
                   )}
                 </AnimatePresence>
               </div>
+              {isSignedIn && (selectedModel.attachmentsSuppport.image || selectedModel.attachmentsSuppport.pdf) && (
+                <div ref={uploadButtonRef}>
+                  {uploadButton}
+                </div>
+              )}
+              {isSignedIn && selectedModel.features.includes('web') && (
               <button
                 type="button"
-                onClick={onAttachmentClick}
-                className="p-2 md:p-2.5 text-rose-500/60 dark:text-rose-300/60 hover:text-rose-600 dark:hover:text-rose-300 transition-all duration-200 rounded-lg bg-white/50 dark:bg-[oklch(0.22_0.015_25)]/40 hover:bg-rose-500/5 dark:hover:bg-white/5"
-              >
-                <Paperclip className="w-3.5 md:w-4 h-3.5 md:h-4" />
-              </button>
-              <button
-                type="button"
-                className="p-2 md:p-2.5 text-rose-500/60 dark:text-rose-300/60 hover:text-rose-600 dark:hover:text-rose-300 transition-all duration-200 rounded-lg bg-white/50 dark:bg-[oklch(0.22_0.015_25)]/40 hover:bg-rose-500/5 dark:hover:bg-white/5"
+                onClick={() => setWebSearchEnabled(!webSearchEnabled)}
+                className={cn(
+                  "p-2 md:p-2.5 text-rose-500/60 dark:text-rose-300/60 hover:text-rose-600 dark:hover:text-rose-300 transition-all duration-200 rounded-lg bg-white/50 dark:bg-[oklch(0.22_0.015_25)]/40 hover:bg-rose-500/5 dark:hover:bg-white/5",
+                  webSearchEnabled && "bg-rose-500/10 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400"
+                )}
               >
                 <Globe className="w-3.5 md:w-4 h-3.5 md:h-4" />
               </button>
+              )}
             </div>
             {isStreaming ? (
               <button
@@ -443,10 +661,10 @@ export default function AIInput({
               <button
                 type="button"
                 onClick={handleSend}
-                disabled={(!value.trim() && pendingAttachments.length === 0) || isStreaming}
+                disabled={!value.trim() || isStreaming}
                 className={cn(
                   'p-2 md:p-2.5 transition-all duration-300 rounded-full',
-                  (value.trim() || pendingAttachments.length > 0) && !isTyping
+                  (value.trim()) && !isTyping
                     ? 'text-rose-500 dark:text-rose-300 hover:shadow-md hover:shadow-rose-500/20 dark:hover:shadow-rose-500/20 scale-100'
                     : 'text-black/30 dark:text-rose-300/30 scale-95',
                 )}
@@ -454,7 +672,7 @@ export default function AIInput({
                 <ArrowUpCircle
                   className={cn(
                     'w-5 md:w-6 h-5 md:h-6 transition-transform duration-300',
-                    (value.trim() || pendingAttachments.length > 0) && !isStreaming && 'hover:translate-y-[-2px]',
+                    (value.trim()) && !isStreaming && 'hover:translate-y-[-2px]',
                   )}
                 />
               </button>

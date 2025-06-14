@@ -9,7 +9,10 @@
  */
 
 import type * as auth from "../auth.js";
-import type * as chat from "../chat.js";
+import type * as chat_actions from "../chat/actions.js";
+import type * as chat_mutations from "../chat/mutations.js";
+import type * as chat_queries from "../chat/queries.js";
+import type * as chat_wa from "../chat/wa.js";
 import type * as http from "../http.js";
 
 import type {
@@ -28,7 +31,10 @@ import type {
  */
 declare const fullApi: ApiFromModules<{
   auth: typeof auth;
-  chat: typeof chat;
+  "chat/actions": typeof chat_actions;
+  "chat/mutations": typeof chat_mutations;
+  "chat/queries": typeof chat_queries;
+  "chat/wa": typeof chat_wa;
   http: typeof http;
 }>;
 declare const fullApiWithMounts: typeof fullApi;

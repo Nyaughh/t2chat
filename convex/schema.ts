@@ -3,12 +3,15 @@ import { v } from "convex/values";
 
 export default defineSchema({
   users: defineTable({
-    // Fields are optional
-  }),
+    name: v.optional(v.string()),
+    email: v.optional(v.string()),
+    image: v.optional(v.string()),
+    tokenIdentifier: v.optional(v.string()),
+  }).index("by_token", ["tokenIdentifier"]),
   
   chats: defineTable({
     userId: v.id("users"),
-    title: v.optional(v.string()),
+    title: v.string(),
     createdAt: v.number(),
     updatedAt: v.number(),
   }).index("by_user", ["userId"]),
@@ -20,8 +23,14 @@ export default defineSchema({
     modelId: v.optional(v.string()),
     thinking: v.optional(v.string()), // Store reasoning content separately
     thinkingDuration: v.optional(v.number()), // Store thinking duration in seconds
-    createdAt: v.number(),
     isComplete: v.optional(v.boolean()), // For streaming messages
+    attachments: v.optional(v.array(v.object({
+      name: v.string(),
+      type: v.string(),
+      size: v.number(),
+      url: v.string(),
+    }))),
+    createdAt: v.number(),
   }).index("by_chat", ["chatId"])
     .index("by_chat_created", ["chatId", "createdAt"]),
 });

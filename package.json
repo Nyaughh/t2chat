@@ -45,6 +45,7 @@
     "@tailwindcss/typography": "^0.5.16",
     "@types/react-syntax-highlighter": "^15.5.13",
     "@types/uuid": "^10.0.0",
+    "@uploadthing/react": "^7.3.1",
     "ai": "^4.3.16",
     "better-auth": "^1.2.9",
     "class-variance-authority": "^0.7.1",
@@ -79,6 +80,7 @@
     "sonner": "^2.0.5",
     "tailwind-merge": "^3.3.0",
     "tailwindcss-animate": "^1.0.7",
+    "uploadthing": "^7.7.2",
     "uuid": "^11.1.0",
     "vaul": "^1.1.2",
     "zod": "^3.25.56"

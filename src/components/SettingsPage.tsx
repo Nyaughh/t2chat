@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { cn } from '@/lib/utils'
-import { X, User, Database, Brain, Sparkles, Settings } from 'lucide-react'
+import { X, User, Database, Brain, Sparkles, Settings, Paperclip } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Button } from '@/components/ui/button'
 import { useIsMobile } from '@/hooks/use-mobile'
@@ -13,6 +13,7 @@ import {
   type CustomizationState,
   type ModelSettingsState,
 } from './settings'
+import { AttachmentsSettings } from './settings/attachments'
 
 interface SettingsPageProps {
   isOpen: boolean
@@ -24,7 +25,7 @@ interface SettingsPageProps {
   }
 }
 
-type SettingsSection = 'account' | 'models' | 'customize' | 'data'
+type SettingsSection = 'account' | 'models' | 'customize' | 'data' | 'attachments'
 
 // This should be exported from AccountSettings.tsx and re-exported from index.tsx
 
@@ -67,6 +68,7 @@ export default function SettingsPage({ isOpen, onClose, user }: SettingsPageProp
     { id: 'models', label: 'Models & Keys', icon: Brain },
     { id: 'customize', label: 'Customization', icon: Sparkles },
     { id: 'data', label: 'Manage Data', icon: Database },
+    { id: 'attachments', label: 'Attachments', icon: Paperclip },
   ]
 
   const renderContent = () => {
@@ -79,6 +81,8 @@ export default function SettingsPage({ isOpen, onClose, user }: SettingsPageProp
         return <CustomizeSettings customization={customization} />
       case 'data':
         return <DataSettings />
+      case 'attachments':
+        return <AttachmentsSettings />
       default:
         return null
     }

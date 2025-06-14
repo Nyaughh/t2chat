@@ -8,19 +8,19 @@ export const useConvexChat = (chatId?: Id<"chats">) => {
 
   // Queries
   const messages = useQuery(
-    api.chat.getChatMessages,
+    api.chat.queries.getChatMessages,
     chatId && isAuthenticated ? { chatId } : "skip"
   );
   const chats = useQuery(
-    api.chat.getUserChats,
+    api.chat.queries.getUserChats,
     isAuthenticated ? {} : "skip"
   );
 
   // Mutations & Actions
-  const createChat = useMutation(api.chat.createChat);
-  const sendMessage = useAction(api.chat.sendMessage);
-  const deleteChat = useMutation(api.chat.deleteChat);
-  const updateChatTitle = useMutation(api.chat.updateChatTitle);
+  const createChat = useMutation(api.chat.mutations.createChat);
+  const sendMessage = useAction(api.chat.actions.sendMessage);
+  const deleteChat = useMutation(api.chat.mutations.deleteChat);
+  const updateChatTitle = useMutation(api.chat.mutations.updateChatTitle);
 
   const isStreaming = useMemo(() => {
     if (!messages) return false;

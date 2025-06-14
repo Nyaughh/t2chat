@@ -59,7 +59,14 @@ import {
   } =
     betterAuthComponent.createAuthFunctions<DataModel>({
       onCreateUser: async (ctx, user) => {
-        return ctx.db.insert("users", {});
+        // Generate a unique token identifier for the user
+        const tokenIdentifier = `${user.email}_${Date.now()}`;
+        return ctx.db.insert("users", {
+          name: user.name,
+          email: user.email,
+          image: user.image,
+          tokenIdentifier,
+        });
       },
   
       onDeleteUser: async (ctx, userId) => {
@@ -74,8 +81,6 @@ import {
       if (!userMetadata) {
         return null;
       }
-      // Get user data from your application's database
-      // (skip this if you have no fields in your users table schema)
       const user = await ctx.db.get(userMetadata.userId as Id<"users">);
       return {
         ...user,

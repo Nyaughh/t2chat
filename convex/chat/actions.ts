@@ -1,19 +1,23 @@
+
 import { v } from "convex/values";
-import { action, mutation, query } from "./_generated/server";
-import { api } from "./_generated/api";
-import { Id } from "./_generated/dataModel";
-import { betterAuthComponent } from "./auth";
-import { models } from "../src/lib/models"
+import { action, mutation, query } from "../_generated/server";
+import { api } from "../_generated/api";
+import { Id } from "../_generated/dataModel";
+import { betterAuthComponent } from "../auth";
+import { models } from "../../src/lib/models"
 // AI SDK imports for the action
 import {
   streamText,
   wrapLanguageModel,
   extractReasoningMiddleware,
   smoothStream,
+  tool,
+  CoreMessage,
 } from 'ai';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { createOpenRouter } from '@openrouter/ai-sdk-provider';
 import { createGroq } from '@ai-sdk/groq';
+import { z } from 'zod';
 
 // Base personality prompt
 const basePersonality = `You are T2Chat, a knowledgeable AI assistant helping with various tasks and questions. You combine expertise with approachability.
@@ -44,7 +48,6 @@ interface ModelInfo {
 }
 
 const mapModel = (modelId: string) => {
-  console.log(modelId)
   const model = models.find((m) => m.id === modelId);
 
   if (!model) {
@@ -62,228 +65,8 @@ const mapModel = (modelId: string) => {
   };
 };
 
-// QUERIES - for real-time subscriptions
 
-export const getChatMessages = query({
-  args: { chatId: v.id("chats") },
-  handler: async (ctx, { chatId }) => {
-    // Check authentication
-    const userId = await betterAuthComponent.getAuthUserId(ctx);
-    if (!userId) {
-      throw new Error("Authentication required");
-    }
 
-    // Verify chat ownership
-    const chat = await ctx.db.get(chatId);
-    if (!chat || chat.userId !== userId) {
-      throw new Error("Chat not found or access denied");
-    }
-
-    // Get messages ordered by creation time
-    const messages = await ctx.db
-      .query("messages")
-      .withIndex("by_chat_created", (q) => q.eq("chatId", chatId))
-      .order("asc")
-      .collect();
-
-    return messages;
-  },
-});
-
-export const getUserChats = query({
-  args: {},
-  handler: async (ctx) => {
-    const userId = await betterAuthComponent.getAuthUserId(ctx);
-    if (!userId) {
-      throw new Error("Authentication required");
-    }
-
-    const chats = await ctx.db
-      .query("chats")
-      .withIndex("by_user", (q) => q.eq("userId", userId as Id<"users">))
-      .order("desc")
-      .collect();
-
-    return chats;
-  },
-});
-
-export const getChat = query({
-  args: { chatId: v.id("chats") },
-  handler: async (ctx, { chatId }) => {
-    const userId = await betterAuthComponent.getAuthUserId(ctx);
-    if (!userId) {
-      throw new Error("Authentication required");
-    }
-
-    const chat = await ctx.db.get(chatId);
-    if (!chat || chat.userId !== userId) {
-      throw new Error("Chat not found or access denied");
-    }
-
-    return chat;
-  },
-});
-
-// MUTATIONS - for database modifications
-
-export const createChat = mutation({
-  args: {
-    title: v.optional(v.string()),
-  },
-  handler: async (ctx, { title }) => {
-    const userId = await betterAuthComponent.getAuthUserId(ctx);
-    if (!userId) {
-      throw new Error("Authentication required");
-    }
-
-    const now = Date.now();
-    const chatId = await ctx.db.insert("chats", {
-      userId: userId as Id<"users">,
-      title: title || "New Chat",
-      createdAt: now,
-      updatedAt: now,
-    });
-
-    return chatId;
-  },
-});
-
-export const addMessage = mutation({
-  args: {
-    chatId: v.id("chats"),
-    role: v.union(v.literal("user"), v.literal("assistant")),
-    content: v.string(),
-    modelId: v.optional(v.string()),
-    thinking: v.optional(v.string()),
-    thinkingDuration: v.optional(v.number()),
-    isComplete: v.optional(v.boolean()),
-  },
-  handler: async (ctx, { chatId, role, content, modelId, thinking, thinkingDuration, isComplete }) => {
-    const userId = await betterAuthComponent.getAuthUserId(ctx);
-    if (!userId) {
-      throw new Error("Authentication required");
-    }
-
-    // Verify chat ownership
-    const chat = await ctx.db.get(chatId);
-    if (!chat || chat.userId !== userId) {
-      throw new Error("Chat not found or access denied");
-    }
-
-    const messageId = await ctx.db.insert("messages", {
-      chatId,
-      role,
-      content,
-      modelId,
-      thinking,
-      thinkingDuration,
-      createdAt: Date.now(),
-      isComplete: isComplete ?? true,
-    });
-
-    // Update chat's updatedAt timestamp
-    await ctx.db.patch(chatId, {
-      updatedAt: Date.now(),
-    });
-
-    return messageId;
-  },
-});
-
-export const updateMessage = mutation({
-  args: {
-    messageId: v.id("messages"),
-    content: v.optional(v.string()),
-    thinking: v.optional(v.string()),
-    thinkingDuration: v.optional(v.number()),
-    isComplete: v.optional(v.boolean()),
-  },
-  handler: async (ctx, { messageId, content, thinking, thinkingDuration, isComplete }) => {
-    const userId = await betterAuthComponent.getAuthUserId(ctx);
-    if (!userId) {
-      throw new Error("Authentication required");
-    }
-
-    const message = await ctx.db.get(messageId);
-    if (!message) {
-      throw new Error("Message not found");
-    }
-
-    // Verify chat ownership
-    const chat = await ctx.db.get(message.chatId);
-    if (!chat || chat.userId !== userId) {
-      throw new Error("Access denied");
-    }
-
-    const updateData: any = {};
-    if (content !== undefined) updateData.content = content;
-    if (thinking !== undefined) updateData.thinking = thinking;
-    if (thinkingDuration !== undefined) updateData.thinkingDuration = thinkingDuration;
-    if (isComplete !== undefined) updateData.isComplete = isComplete;
-
-    await ctx.db.patch(messageId, updateData);
-
-    return messageId;
-  },
-});
-
-export const updateChatTitle = mutation({
-  args: {
-    chatId: v.id("chats"),
-    title: v.string(),
-  },
-  handler: async (ctx, { chatId, title }) => {
-    const userId = await betterAuthComponent.getAuthUserId(ctx);
-    if (!userId) {
-      throw new Error("Authentication required");
-    }
-
-    const chat = await ctx.db.get(chatId);
-    if (!chat || chat.userId !== userId) {
-      throw new Error("Chat not found or access denied");
-    }
-
-    await ctx.db.patch(chatId, {
-      title,
-      updatedAt: Date.now(),
-    });
-
-    return chatId;
-  },
-});
-
-export const deleteChat = mutation({
-  args: {
-    chatId: v.id("chats"),
-  },
-  handler: async (ctx, { chatId }) => {
-    const userId = await betterAuthComponent.getAuthUserId(ctx);
-    if (!userId) {
-      throw new Error("Authentication required");
-    }
-
-    const chat = await ctx.db.get(chatId);
-    if (!chat || chat.userId !== userId) {
-      throw new Error("Chat not found or access denied");
-    }
-
-    // Delete all messages in the chat
-    const messages = await ctx.db
-      .query("messages")
-      .withIndex("by_chat", (q) => q.eq("chatId", chatId))
-      .collect();
-
-    for (const message of messages) {
-      await ctx.db.delete(message._id);
-    }
-
-    // Delete the chat
-    await ctx.db.delete(chatId);
-
-    return { success: true };
-  },
-});
 
 // ACTIONS - for external API calls
 
@@ -292,35 +75,60 @@ export const sendMessage = action({
     chatId: v.id("chats"),
     message: v.string(),
     modelId: v.string(),
+    attachments: v.optional(v.array(v.object({
+      name: v.string(),
+      type: v.string(),
+      size: v.number(),
+      url: v.string(),
+    }))),
+    webSearch: v.optional(v.boolean()),
   },
-  handler: async (ctx, { chatId, message, modelId }): Promise<{
+  handler: async (ctx, { chatId, message, modelId, attachments, webSearch }): Promise<{
     success: boolean;
     userMessageId: Id<"messages">;
     assistantMessageId: Id<"messages">;
   }> => {
+    if (attachments?.length) { 
+      
+      console.log("Using Node Runtime")
+      return ctx.runAction(
+      api.chat.wa.sendMessage, {
+        chatId,
+        message,
+        modelId,
+        attachments,
+        webSearch
+      }
+    )
+  }
+
+  console.log("Using Convex Runtime")
+
     // Verify authentication and chat ownership first
     const userId = await betterAuthComponent.getAuthUserId(ctx);
     if (!userId) {
       throw new Error("Authentication required");
     }
-
-    const chat = await ctx.runQuery(api.chat.getChat, { chatId });
+    const chat = await ctx.runQuery(api.chat.queries.getChat, { chatId });
     if (!chat) {
       throw new Error("Chat not found or access denied");
     }
 
-    // Add user message to the database
-    const userMessageId: Id<"messages"> = await ctx.runMutation(api.chat.addMessage, {
+
+
+    // Get chat history for context
+    const messages = await ctx.runQuery(api.chat.queries.getChatMessages, { chatId });
+
+        // Add user message to the database
+    const userMessageId: Id<"messages"> = await ctx.runMutation(api.chat.mutations.addMessage, {
       chatId,
       role: "user",
       content: message,
+      attachments
     });
-
-    // Get chat history for context
-    const messages = await ctx.runQuery(api.chat.getChatMessages, { chatId });
     
     // Convert to AI SDK format
-    const chatMessages = messages
+    const chatMessages: CoreMessage[] = messages
       .filter((msg: any) => msg.isComplete !== false)
       .map((msg: any) => ({
         role: msg.role as "user" | "assistant",
@@ -330,8 +138,12 @@ export const sendMessage = action({
     // Add the new user message
     chatMessages.push({
       role: "user" as const,
-      content: message,
-    });
+      content: [{
+        type: 'text',
+        text: message
+      }]
+  })
+    
 
     try {
       const { model, thinking, provider } = mapModel(modelId);
@@ -365,7 +177,7 @@ export const sendMessage = action({
       }
 
       // Create assistant message placeholder
-      const assistantMessageId: Id<"messages"> = await ctx.runMutation(api.chat.addMessage, {
+      const assistantMessageId: Id<"messages"> = await ctx.runMutation(api.chat.mutations.addMessage, {
         chatId,
         role: "assistant",
         content: "",
@@ -386,6 +198,62 @@ export const sendMessage = action({
             })
           : aiModel,
         messages: chatMessages,
+        maxSteps: 20,
+        tools: webSearch ? {
+          search: tool({
+            description: "Search the web for current information. Use this when you need up-to-date information that might not be in your training data.",
+            parameters: z.object({
+              query: z.string().describe("The search query to find relevant information"),
+            }),
+            execute: async ({ query }) => {
+              try {
+                // Use Tavily API for web search
+                const response = await fetch('https://api.tavily.com/search', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${process.env.TAVILY_API_KEY}`,
+                  },
+                  body: JSON.stringify({
+                    query,
+                    search_depth: 'basic',
+                    include_answer: true,
+                    include_raw_content: false,
+                    max_results: 5,
+                  }),
+                });
+
+                if (!response.ok) {
+                  throw new Error(`Search API error: ${response.status}`);
+                }
+
+                const data = await response.json();
+                
+                // Format the search results
+                const results = data.results?.map((result: any) => ({
+                  title: result.title,
+                  url: result.url,
+                  content: result.content,
+                })) || [];
+
+                return {
+                  query,
+                  answer: data.answer || '',
+                  results,
+                  timestamp: new Date().toISOString(),
+                };
+              } catch (error) {
+                console.error('Web search error:', error);
+                return {
+                  query,
+                  error: 'Failed to perform web search',
+                  results: [],
+                  timestamp: new Date().toISOString(),
+                };
+              }
+            },
+          }),
+        } : undefined,
         providerOptions: {
           google: {
             thinkingConfig: thinking
@@ -411,7 +279,7 @@ export const sendMessage = action({
           accumulatedContent += chunk.textDelta;
           
           // Update the message in real-time
-          await ctx.runMutation(api.chat.updateMessage, {
+          await ctx.runMutation(api.chat.mutations.updateMessage, {
             messageId: assistantMessageId,
             content: accumulatedContent,
             isComplete: false,
@@ -429,7 +297,7 @@ export const sendMessage = action({
               accumulatedThinking += chunk.textDelta;
               
               // Update the message with thinking content
-              await ctx.runMutation(api.chat.updateMessage, {
+              await ctx.runMutation(api.chat.mutations.updateMessage, {
                 messageId: assistantMessageId,
                 thinking: accumulatedThinking,
                 isComplete: false,
@@ -437,7 +305,7 @@ export const sendMessage = action({
             } else {
               // This is regular content mixed with reasoning
               accumulatedContent += chunk.textDelta;
-              await ctx.runMutation(api.chat.updateMessage, {
+              await ctx.runMutation(api.chat.mutations.updateMessage, {
                 messageId: assistantMessageId,
                 content: accumulatedContent,
                 isComplete: false,
@@ -448,7 +316,7 @@ export const sendMessage = action({
             accumulatedThinking += chunk.textDelta;
             
             // Update the message with thinking content
-            await ctx.runMutation(api.chat.updateMessage, {
+            await ctx.runMutation(api.chat.mutations.updateMessage, {
               messageId: assistantMessageId,
               thinking: accumulatedThinking,
               isComplete: false,
@@ -466,7 +334,7 @@ export const sendMessage = action({
             : undefined;
           
           // Mark the message as complete with final thinking data
-          await ctx.runMutation(api.chat.updateMessage, {
+          await ctx.runMutation(api.chat.mutations.updateMessage, {
             messageId: assistantMessageId,
             content: accumulatedContent,
             thinking: accumulatedThinking || undefined,
@@ -476,7 +344,7 @@ export const sendMessage = action({
           break;
         } else if (chunk.type === 'error') {
           // Handle error
-          await ctx.runMutation(api.chat.updateMessage, {
+          await ctx.runMutation(api.chat.mutations.updateMessage, {
             messageId: assistantMessageId,
             content: accumulatedContent + "\n\n*Error occurred while generating response.*",
             thinking: accumulatedThinking || undefined,
@@ -496,7 +364,7 @@ export const sendMessage = action({
       console.error('Error in sendMessage action:', error);
       
       // Add error message to chat
-      await ctx.runMutation(api.chat.addMessage, {
+      await ctx.runMutation(api.chat.mutations.addMessage, {
         chatId,
         role: "assistant",
         content: "I apologize, but I encountered an error while processing your message. Please try again.",

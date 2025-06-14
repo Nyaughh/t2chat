@@ -7,6 +7,11 @@ import { useChatInterface } from './hooks/useChatInterface'
 import { MessageList } from './components/MessageList'
 import { ScrollToBottomButton } from './components/ScrollToBottomButton'
 import { ChatErrorBoundary } from '@/components/ChatErrorBoundary'
+import { UploadButton } from '@/lib/uploadthing'
+import { Paperclip, FileText } from 'lucide-react'
+import { toast } from 'sonner'
+import { useState } from 'react'
+import { cn } from '@/lib/utils'
 
 export default function ChatInterface() {
   const {
@@ -20,12 +25,11 @@ export default function ChatInterface() {
     selectedModel,
     setSelectedModel,
     showWelcomeScreen,
+    isAuthenticated,
     
-    // File upload
-    pendingAttachments,
-    fileInputRef,
-    handleFileUpload,
-    removeAttachment,
+    // Attachments
+    attachments,
+    setAttachments,
     
     // Actions
     handleSend,
@@ -56,6 +60,51 @@ export default function ChatInterface() {
     scrollAreaRef,
     scrollToBottom,
   } = useChatInterface()
+
+  const maxFiles = 2
+  const [uploadProgress, setUploadProgress] = useState<{ [key: string]: number }>({})
+  const [isUploading, setIsUploading] = useState(false)
+
+
+
+  const handleUploadComplete = (res: any) => {
+    // Clear all progress and uploading state
+    setUploadProgress({})
+    setIsUploading(false)
+
+    if (res) {
+      const remainingSlots = maxFiles - attachments.length
+      const filesToAdd = res.slice(0, remainingSlots)
+      setAttachments([...attachments, ...filesToAdd])
+      if (res.length > remainingSlots) {
+        toast.error(`Only added ${remainingSlots} files. Maximum ${maxFiles} files allowed.`)
+      } else {
+        // Determine file types in the uploaded files
+        const pdfCount = filesToAdd.filter((file: any) => file.type?.includes('pdf')).length
+        const imageCount = filesToAdd.filter((file: any) => file.type?.startsWith('image/')).length
+        
+        let message = `Added ${filesToAdd.length} file${filesToAdd.length > 1 ? 's' : ''}`
+        if (pdfCount > 0 && imageCount > 0) {
+          message = `Added ${imageCount} image${imageCount > 1 ? 's' : ''} and ${pdfCount} PDF${pdfCount > 1 ? 's' : ''}`
+        } else if (pdfCount > 0) {
+          message = `Added ${pdfCount} PDF${pdfCount > 1 ? 's' : ''}`
+        } else if (imageCount > 0) {
+          message = `Added ${imageCount} image${imageCount > 1 ? 's' : ''}`
+        }
+        
+        toast.success(message)
+      }
+    }
+  }
+
+  const handleUploadError = (error: Error, fileType: 'image' | 'pdf' | 'file' = 'image') => {
+    // Clear all progress and uploading state
+    setUploadProgress({})
+    setIsUploading(false)
+
+    const type = fileType === 'pdf' ? 'PDF' : fileType === 'file' ? 'File' : 'Image'
+    toast.error(`${type} upload failed: ${error.message}`)
+  }
 
   return (
     <>
@@ -99,13 +148,6 @@ export default function ChatInterface() {
       />
 
       <div className="fixed md:absolute bottom-0 left-0 right-0 z-30">
-        <input
-          ref={fileInputRef}
-          type="file"
-          multiple
-          className="hidden"
-          onChange={(e) => handleFileUpload(e.target.files)}
-        />
         <div className="max-w-4xl mx-auto w-full px-4 md:px-4">
           <AIInput
             value={inputValue}
@@ -114,12 +156,84 @@ export default function ChatInterface() {
             isStreaming={isStreaming}
             isTyping={isTyping}
             onStop={() => console.log("Stop generating not implemented.")}
-            onAttachmentClick={() => fileInputRef.current?.click()}
-            pendingAttachments={pendingAttachments}
-            onRemoveAttachment={removeAttachment}
             messagesLength={activeMessages.length}
             selectedModel={selectedModel}
             setSelectedModel={setSelectedModel}
+            isSignedIn={isAuthenticated}
+                        attachments={attachments}
+            onRemoveAttachment={(index) => setAttachments(attachments.filter((_, i) => i !== index))}
+            uploadProgress={uploadProgress}
+            isUploading={isUploading}
+            uploadButton={
+              (selectedModel.attachmentsSuppport.image || selectedModel.attachmentsSuppport.pdf) ? (
+                <div className={cn(
+                  "flex gap-1",
+                  attachments.length >= maxFiles && "opacity-50 pointer-events-none"
+                )}>
+                  <UploadButton
+                    
+                    endpoint="fileUploader"
+                    onBeforeUploadBegin={(files) => {
+                      setIsUploading(true)
+                      // Filter files based on model support
+                      const supportedFiles = files.filter(file => {
+                        const isImage = selectedModel.attachmentsSuppport.image && file.type.startsWith('image/')
+                        const isPdf = selectedModel.attachmentsSuppport.pdf && file.type === 'application/pdf'
+                        return isImage || isPdf
+                      })
+                      
+                      if (supportedFiles.length === 0) {
+                        setIsUploading(false)
+                        const supportedTypes = []
+                        if (selectedModel.attachmentsSuppport.image) supportedTypes.push('images')
+                        if (selectedModel.attachmentsSuppport.pdf) supportedTypes.push('PDFs')
+                        toast.error(`This model only supports ${supportedTypes.join(' and ')}`)
+                        return []
+                      }
+                      
+                      // Set initial progress for supported files
+                      const initialProgress: { [key: string]: number } = {}
+                      supportedFiles.forEach(file => {
+                        initialProgress[file.name] = 0
+                      })
+                      setUploadProgress(initialProgress)
+                      return supportedFiles
+                    }}
+                    onUploadProgress={(progress) => {
+                      // Update progress for all current files
+                      setUploadProgress(prev => {
+                        const updated = { ...prev }
+                        Object.keys(updated).forEach(fileName => {
+                          updated[fileName] = progress
+                        })
+                        return updated
+                      })
+                    }}
+                    onClientUploadComplete={(res) => {
+                      handleUploadComplete(res)
+                    }}
+                    onUploadError={(error: Error) => {
+                      handleUploadError(error, 'file')
+                    }}
+                    appearance={{
+                      button: "p-2 md:p-2.5 text-rose-500/60 dark:text-rose-300/60 hover:text-rose-600 dark:hover:text-rose-300 transition-all duration-200 rounded-lg bg-white/50 dark:bg-[oklch(0.22_0.015_25)]/40 hover:bg-rose-500/5 dark:hover:bg-white/5 ut-button:bg-transparent ut-button:p-0 ut-button:w-full ut-button:h-full ut-allowed-content:hidden",
+                      container: "w-auto h-auto",
+                      allowedContent: "hidden"
+                    }}
+                    content={{
+                      button({ ready, isUploading }) {
+                        if (isUploading) return <div className="w-3.5 md:w-4 h-3.5 md:h-4 border-2 border-rose-500/30 border-t-rose-500 rounded-full animate-spin" />
+                        if (ready) return <Paperclip className="w-3.5 md:w-4 h-3.5 md:h-4" />;
+                        return "...";
+                      },
+                      allowedContent() {
+                        return null;
+                      }
+                    }}
+                  />
+                </div>
+              ) : null
+            }
           />
         </div>
       </div>

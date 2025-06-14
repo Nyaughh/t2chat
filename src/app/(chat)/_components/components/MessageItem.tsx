@@ -1,9 +1,16 @@
 'use client'
 
-import { Edit3 } from 'lucide-react'
+import { Edit3, FileText, Image as ImageIcon, ExternalLink } from 'lucide-react'
 import MessageRenderer from '@/components/MessageRenderer'
 import { EditMessageForm } from './EditMessageForm'
 import { MessageActions } from './MessageActions'
+
+interface Attachment {
+  name: string
+  type: string
+  size: number
+  url: string
+}
 
 interface MessageItemProps {
   message: {
@@ -13,6 +20,7 @@ interface MessageItemProps {
     thinking?: string
     thinkingDuration?: number
     modelId?: string
+    attachments?: Attachment[]
   }
   editingMessageId: string | null
   editingContent: string
@@ -79,13 +87,55 @@ export function MessageItem({
               onSave={onSaveEdit}
             />
           ) : (
-            <MessageRenderer
-              content={message.content}
-              thinking={message.thinking}
-              thinkingDuration={message.thinkingDuration}
-              isTyping={message.role === 'assistant' && isCurrentlyStreaming(message.id)}
-              className="text-base leading-relaxed break-words overflow-wrap-anywhere"
-            />
+            <>
+              <MessageRenderer
+                content={message.content}
+                thinking={message.thinking}
+                thinkingDuration={message.thinkingDuration}
+                isTyping={message.role === 'assistant' && isCurrentlyStreaming(message.id)}
+                className="text-base leading-relaxed break-words overflow-wrap-anywhere"
+              />
+              
+              {/* Display attachments */}
+              {message.attachments && message.attachments.length > 0 && (
+                <div className="mt-3 space-y-2">
+                  {message.attachments.map((attachment, index) => (
+                    <div key={index}>
+                      {attachment.type.startsWith('image/') ? (
+                        <div className="relative group">
+                          <img
+                            src={attachment.url}
+                            alt={attachment.name}
+                            className="max-w-sm max-h-64 rounded-lg border border-rose-500/20 dark:border-white/20 shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+                            onClick={() => window.open(attachment.url, '_blank')}
+                          />
+                          <div className="absolute inset-0 bg-black/0 hover:bg-black/10 dark:hover:bg-white/10 rounded-lg transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+                            <ExternalLink className="w-6 h-6 text-white drop-shadow-lg" />
+                          </div>
+                          <div className="mt-1 text-xs text-black/60 dark:text-white/60">
+                            {attachment.name} ({(attachment.size / 1024).toFixed(1)}KB)
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-3 p-3 bg-white/30 dark:bg-black/20 rounded-lg border border-rose-500/20 dark:border-white/20 hover:bg-white/40 dark:hover:bg-black/30 transition-colors cursor-pointer"
+                             onClick={() => window.open(attachment.url, '_blank')}>
+                          <FileText className="w-8 h-8 text-rose-500/70 dark:text-rose-300/70 flex-shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <div className="text-sm font-medium text-black/80 dark:text-white/80 truncate">
+                              {attachment.name}
+                            </div>
+                            <div className="text-xs text-black/60 dark:text-white/60">
+                              {(attachment.size / 1024).toFixed(1)}KB • {attachment.type}
+                            </div>
+                          </div>
+                          <ExternalLink className="w-4 h-4 text-black/40 dark:text-white/40 flex-shrink-0" />
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
           )}
         </div>
 

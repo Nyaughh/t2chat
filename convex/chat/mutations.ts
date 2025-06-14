@@ -1,0 +1,179 @@
+import { action, mutation, query } from "../_generated/server";
+import { api } from "../_generated/api";
+import { betterAuthComponent } from "../auth";
+import { v } from "convex/values";
+import { Id } from "../_generated/dataModel";
+// MUTATIONS - for database modifications
+
+export const createChat = mutation({
+    args: {
+      title: v.optional(v.string()),
+    },
+    handler: async (ctx, { title }) => {
+      const userId = await betterAuthComponent.getAuthUserId(ctx);
+      if (!userId) {
+        throw new Error("Authentication required");
+      }
+  
+      const now = Date.now();
+      const chatId = await ctx.db.insert("chats", {
+        userId: userId as Id<"users">,
+        title: title || "New Chat",
+        createdAt: now,
+        updatedAt: now,
+      });
+  
+      return chatId;
+    },
+  });
+  
+  
+  
+export const addMessage = mutation({
+    args: {
+      chatId: v.id("chats"),
+      role: v.union(v.literal("user"), v.literal("assistant")),
+      content: v.string(),
+      modelId: v.optional(v.string()),
+      thinking: v.optional(v.string()),
+      thinkingDuration: v.optional(v.number()),
+      isComplete: v.optional(v.boolean()),
+      attachments: v.optional(v.array(v.object({
+        name: v.string(),
+        type: v.string(),
+        size: v.number(),
+        url: v.string(),
+      }))),
+    },
+    handler: async (ctx, { chatId, role, content, modelId, thinking, thinkingDuration, isComplete, attachments }) => {
+      const userId = await betterAuthComponent.getAuthUserId(ctx);
+      if (!userId) {
+        throw new Error("Authentication required");
+      }
+  
+      // Verify chat ownership
+      const chat = await ctx.db.get(chatId);
+      if (!chat || chat.userId !== userId) {
+        throw new Error("Chat not found or access denied");
+      }
+  
+      const messageData: any = {
+        chatId,
+        role,
+        content,
+        modelId,
+        thinking,
+        thinkingDuration,
+        createdAt: Date.now(),
+        isComplete: isComplete ?? true,
+      };
+  
+      if (attachments) {
+        messageData.attachments = attachments;
+      }
+  
+  
+      const messageId = await ctx.db.insert("messages", messageData);
+  
+      // Update chat's updatedAt timestamp
+      await ctx.db.patch(chatId, {
+        updatedAt: Date.now(),
+      });
+  
+      return messageId;
+    },
+  });
+  
+  export const updateMessage = mutation({
+    args: {
+      messageId: v.id("messages"),
+      content: v.optional(v.string()),
+      thinking: v.optional(v.string()),
+      thinkingDuration: v.optional(v.number()),
+      isComplete: v.optional(v.boolean()),
+    },
+    handler: async (ctx, { messageId, content, thinking, thinkingDuration, isComplete }) => {
+      const userId = await betterAuthComponent.getAuthUserId(ctx);
+      if (!userId) {
+        throw new Error("Authentication required");
+      }
+  
+      const message = await ctx.db.get(messageId);
+      if (!message) {
+        throw new Error("Message not found");
+      }
+  
+      // Verify chat ownership
+      const chat = await ctx.db.get(message.chatId);
+      if (!chat || chat.userId !== userId) {
+        throw new Error("Access denied");
+      }
+  
+      const updateData: any = {};
+      if (content !== undefined) updateData.content = content;
+      if (thinking !== undefined) updateData.thinking = thinking;
+      if (thinkingDuration !== undefined) updateData.thinkingDuration = thinkingDuration;
+      if (isComplete !== undefined) updateData.isComplete = isComplete;
+  
+      await ctx.db.patch(messageId, updateData);
+  
+      return messageId;
+    },
+  });
+  
+  export const updateChatTitle = mutation({
+    args: {
+      chatId: v.id("chats"),
+      title: v.string(),
+    },
+    handler: async (ctx, { chatId, title }) => {
+      const userId = await betterAuthComponent.getAuthUserId(ctx);
+      if (!userId) {
+        throw new Error("Authentication required");
+      }
+  
+      const chat = await ctx.db.get(chatId);
+      if (!chat || chat.userId !== userId) {
+        throw new Error("Chat not found or access denied");
+      }
+  
+      await ctx.db.patch(chatId, {
+        title,
+        updatedAt: Date.now(),
+      });
+  
+      return chatId;
+    },
+  });
+  
+  export const deleteChat = mutation({
+    args: {
+      chatId: v.id("chats"),
+    },
+    handler: async (ctx, { chatId }) => {
+      const userId = await betterAuthComponent.getAuthUserId(ctx);
+      if (!userId) {
+        throw new Error("Authentication required");
+      }
+  
+      const chat = await ctx.db.get(chatId);
+      if (!chat || chat.userId !== userId) {
+        throw new Error("Chat not found or access denied");
+      }
+  
+      // Delete all messages in the chat
+      const messages = await ctx.db
+        .query("messages")
+        .withIndex("by_chat", (q) => q.eq("chatId", chatId))
+        .collect();
+  
+      for (const message of messages) {
+        await ctx.db.delete(message._id);
+      }
+  
+      // Delete the chat
+      await ctx.db.delete(chatId);
+  
+      return { success: true };
+    },
+  });

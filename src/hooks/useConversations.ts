@@ -52,8 +52,9 @@ export const useConversations = () => {
         modelId: msg.modelId,
         thinking: msg.thinking,
         thinkingDuration: msg.thinkingDuration,
+        attachments: msg.attachments,
         createdAt: new Date(msg.createdAt),
-      } as ClientMessage & { modelId: string }))
+      } as ClientMessage & { modelId: string; attachments?: any[] }))
     }
     return liveLocalMessages.map(msg => ({
       id: msg.id,
@@ -62,8 +63,9 @@ export const useConversations = () => {
       modelId: msg.model,
       thinking: msg.thinking,
       thinkingDuration: msg.thinkingDuration,
+      attachments: msg.attachments,
       createdAt: new Date(msg.createdAt),
-    } as ClientMessage & { modelId: string }))
+    } as ClientMessage & { modelId: string; attachments?: any[] }))
   }, [isAuthLoading, isAuthenticated, convexMessages, liveLocalMessages])
 
   const activeChats = useMemo(() => {
@@ -92,6 +94,8 @@ export const useConversations = () => {
     input: string,
     options?: {
       attachments?: Attachment[];
+      modelId?: string;
+      webSearch?: boolean;
     }
   ) => {
     if (isAuthenticated) {
@@ -101,7 +105,13 @@ export const useConversations = () => {
         chatId = newChatId
         router.push(`/chat/${newChatId}`)
       }
-      await sendMessage({ chatId, message: input, modelId: selectedModel.id })
+      await sendMessage({ 
+        chatId, 
+        message: input, 
+        modelId: options?.modelId || selectedModel.id,
+        attachments: options?.attachments,
+        webSearch: options?.webSearch,
+      })
     } else {
       setIsLocalStreaming(true)
       console.log("message", input)
@@ -243,6 +253,7 @@ export const useConversations = () => {
     messages: activeMessages,
     chats: activeChats,
     isStreaming: isAuthenticated ? isConvexStreaming : isLocalStreaming,
+    isAuthenticated,
     handleNewMessage,
     deleteConversation,
     currentChatId,
