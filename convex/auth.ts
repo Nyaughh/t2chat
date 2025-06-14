@@ -4,7 +4,7 @@ import {
     type AuthFunctions,
     type PublicAuthFunctions,
   } from "@convex-dev/better-auth";
-  import { convex } from "@convex-dev/better-auth/plugins";
+  import { convex, crossDomain } from "@convex-dev/better-auth/plugins";
   import { betterAuth } from "better-auth";
   import { api, components, internal } from "./_generated/api";
   import { query, type GenericCtx } from "./_generated/server";
@@ -42,6 +42,9 @@ import {
       },
       plugins: [
         convex(),
+        crossDomain({
+          siteUrl: process.env.VERCEL_URL!
+        })
       ],
     });
   
