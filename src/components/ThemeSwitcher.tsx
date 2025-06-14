@@ -13,7 +13,16 @@ const ThemeSwitcher = () => {
   }, [])
 
   if (!mounted) {
-    return null
+    // Show a fallback icon to prevent hydration flash
+    return (
+      <button
+        className="relative z-10 text-rose-600 dark:text-rose-300 hover:text-rose-700 dark:hover:text-rose-200 h-5.5 w-5.5 p-0 hover:bg-transparent"
+        title="Theme switcher"
+        disabled
+      >
+        <Sun className="w-4.5 h-4.5" />
+      </button>
+    )
   }
 
   const toggleTheme = () => {
@@ -29,21 +38,14 @@ const ThemeSwitcher = () => {
   return (
     <button
       onClick={toggleTheme}
-      className="relative z-10 text-rose-600 dark:text-rose-300 hover:text-rose-700 dark:hover:text-rose-200 h-6 w-6 p-0 hover:bg-transparent"
+      className="relative z-10 text-rose-600 dark:text-rose-300 hover:text-rose-700 dark:hover:text-rose-200 h-5.5 w-5.5 p-0 hover:bg-transparent"
       title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
     >
-      <div className="relative w-5 h-5">
-        <Sun
-          className={`absolute inset-0 w-5 h-5 text-rose-600 dark:text-rose-500 transition-all duration-300 ${
-            theme === 'dark' ? 'opacity-0 rotate-90 scale-75' : 'opacity-100 rotate-0 scale-100'
-          }`}
-        />
-        <Moon
-          className={`absolute inset-0 w-5 h-5 text-rose-300 dark:text-rose-300 transition-all duration-300 ${
-            theme === 'dark' ? 'opacity-100 rotate-0 scale-100' : 'opacity-0 -rotate-90 scale-75'
-          }`}
-        />
-      </div>
+      {theme === 'dark' ? (
+        <Moon className="w-4.5 h-4.5" />
+      ) : (
+        <Sun className="w-4.5 h-4.5" />
+      )}
     </button>
   )
 }

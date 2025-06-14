@@ -66,8 +66,8 @@ export default function AIInput({
   const [thinkingEnabled, setThinkingEnabled] = useState(true)
   const [groupBy, setGroupBy] = useState<'provider' | 'category'>('provider')
   const { textareaRef, adjustHeight } = useAutoResizeTextarea({
-    minHeight: 80,
-    maxHeight: 200,
+    minHeight: 40,
+    maxHeight: 160,
   })
 
   const handleSend = () => {
@@ -183,7 +183,7 @@ export default function AIInput({
             onKeyDown={handleKeyDown}
             placeholder="Ask me anything..."
             disabled={isTyping}
-            className="w-full px-4 md:px-5 py-4 resize-none bg-transparent border-0 outline-none text-base md:text-lg min-h-[70px] md:min-h-[80px] leading-relaxed placeholder:text-black/40 dark:placeholder:text-rose-200/30 text-black dark:text-white"
+            className="w-full px-3 md:px-4 py-2 resize-none bg-transparent border-0 outline-none text-sm md:text-base min-h-[40px] leading-normal placeholder:text-black/40 dark:placeholder:text-rose-200/30 text-black dark:text-white"
             style={{
               overflow: 'hidden',
               outline: 'none',
@@ -191,6 +191,7 @@ export default function AIInput({
               boxShadow: 'none',
               WebkitAppearance: 'none',
               fontFamily: 'inherit',
+              height: '40px', // Match the minHeight to prevent hydration mismatch
             }}
           />
         </div>
@@ -203,26 +204,26 @@ export default function AIInput({
                   type="button"
                   onClick={() => setShowModelSelect(!showModelSelect)}
                   className={cn(
-                    'h-8 md:h-10 px-3 md:px-4 text-sm md:text-base transition-all duration-200 rounded-lg',
+                    'h-7 md:h-8 px-2.5 md:px-3 text-xs md:text-sm transition-all duration-200 rounded-md',
                     'bg-white/50 dark:bg-[oklch(0.22_0.015_25)]/40',
-                    'flex items-center gap-1.5 md:gap-2',
+                    'flex items-center gap-1 md:gap-1.5',
                     'text-black/70 dark:text-white/70',
                     'hover:text-black dark:hover:text-white',
                     'hover:bg-black/5 dark:hover:bg-white/5',
                   )}
                 >
-                  <div className="flex items-center gap-1.5 md:gap-2">
+                  <div className="flex items-center gap-1 md:gap-1.5">
                     <div
                       className={cn(
-                        'w-2.5 md:w-3 h-2.5 md:h-3 rounded-full bg-gradient-to-r',
+                        'w-2 md:w-2.5 h-2 md:h-2.5 rounded-full bg-gradient-to-r',
                         getCategoryColor(selectedModel.category),
                       )}
                     ></div>
-                    <span className="truncate max-w-[100px] md:max-w-none">{selectedModel.name}</span>
+                    <span className="truncate max-w-[80px] md:max-w-[120px]">{selectedModel.name}</span>
                   </div>
                   <ChevronDown
                     className={cn(
-                      'w-3.5 md:w-4 h-3.5 md:h-4 transition-transform duration-200',
+                      'w-3 md:w-3.5 h-3 md:h-3.5 transition-transform duration-200',
                       showModelSelect && 'transform rotate-180',
                     )}
                   />
@@ -235,20 +236,20 @@ export default function AIInput({
                       animate={{ opacity: 1, y: 0, scale: 1 }}
                       exit={{ opacity: 0, y: -10, scale: 0.95 }}
                       transition={{ duration: 0.2, ease: 'easeOut' }}
-                      className="absolute z-50 bottom-full mb-2 left-0 bg-white dark:bg-[oklch(0.18_0.015_25)] rounded-lg border border-rose-200/50 dark:border-rose-500/20 shadow-2xl overflow-hidden w-[320px]"
+                      className="absolute z-50 bottom-full mb-2 left-0 bg-white dark:bg-[oklch(0.18_0.015_25)] rounded-lg border border-rose-200/50 dark:border-rose-500/20 shadow-2xl overflow-hidden w-[280px]"
                     >
                       {/* Header */}
-                      <div className="p-4 border-b border-rose-200/30 dark:border-rose-500/20">
-                        <div className="flex items-center justify-between mb-3">
-                          <h3 className="text-base font-semibold text-rose-900 dark:text-rose-100">Select Model</h3>
+                      <div className="p-3 border-b border-rose-200/30 dark:border-rose-500/20">
+                        <div className="flex items-center justify-between mb-2">
+                          <h3 className="text-sm font-semibold text-rose-900 dark:text-rose-100">Select Model</h3>
                           <button className="group relative p-2 rounded-xl bg-white/70 dark:bg-[oklch(0.18_0.015_25)]/30 backdrop-blur-xl border border-rose-500/10 dark:border-white/10 hover:border-rose-500/20 dark:hover:border-rose-300/20 transition-all duration-300 ease-out shadow-lg shadow-rose-500/5 dark:shadow-lg dark:shadow-black/20 hover:shadow-xl hover:shadow-rose-500/10 dark:hover:shadow-rose-500/10">
                             {/* Gradient overlays for premium look */}
                             <div className="absolute inset-0 bg-gradient-to-br from-rose-500/5 via-transparent to-rose-500/10 dark:from-rose-500/10 dark:via-transparent dark:to-rose-500/20 pointer-events-none rounded-xl"></div>
                             <div className="absolute inset-0 bg-gradient-to-t from-transparent via-transparent to-white/20 dark:to-white/5 pointer-events-none rounded-xl"></div>
 
-                            <div className="relative z-10 flex items-center gap-1.5">
-                              <span className="text-sm font-medium text-rose-600 dark:text-rose-300">Pro</span>
-                              <Plus className="w-3.5 h-3.5 text-rose-600 dark:text-rose-300" />
+                            <div className="relative z-10 flex items-center gap-1">
+                              <span className="text-xs font-medium text-rose-600 dark:text-rose-300">Pro</span>
+                              <Plus className="w-3 h-3 text-rose-600 dark:text-rose-300" />
                             </div>
 
                             {/* Premium glow effect in dark mode */}
@@ -259,76 +260,70 @@ export default function AIInput({
                         {/* Group By Toggle */}
                       </div>
 
-                      {/* Thinking Mode Toggle */}
-                      <div className="p-3 border-b border-rose-200/30 dark:border-rose-500/20">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            handleThinkingToggle(!thinkingEnabled)
-                          }}
-                          className={cn(
-                            'group w-full relative overflow-hidden bg-gradient-to-br from-rose-500/12 via-rose-500/8 to-rose-500/12 dark:from-rose-300/12 dark:via-rose-300/8 dark:to-rose-300/12 text-rose-600 dark:text-rose-300 h-12 text-base font-semibold rounded-xl shadow-lg hover:shadow-xl shadow-rose-500/10 hover:shadow-rose-500/20 dark:shadow-rose-500/10 dark:hover:shadow-rose-500/20 transition-all duration-300 ease-out backdrop-blur-sm',
-                            !thinkingEnabled && 'opacity-50',
-                          )}
-                        >
-                          <div className="absolute inset-0 bg-gradient-to-br from-white/20 via-transparent to-transparent dark:from-white/10 rounded-xl"></div>
-                          <div className="relative z-10 flex items-center justify-center gap-2">
-                            <Lightbulb className="w-5 h-5" />
-                            <span className="tracking-[0.5px] transition-all duration-300 ease-out">Thinking Mode</span>
-                            <div
+                      {/* Compact Controls */}
+                      <div className="px-3 py-2 border-b border-rose-200/30 dark:border-rose-500/20">
+                        <div className="flex items-center justify-between gap-3">
+                          {/* Thinking Mode Toggle */}
+                          <div className="flex items-center gap-2">
+                            <Lightbulb className="w-3.5 h-3.5 text-rose-500/70 dark:text-rose-300/70" />
+                            <span className="text-xs text-rose-900 dark:text-rose-100">Thinking</span>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleThinkingToggle(!thinkingEnabled)
+                              }}
                               className={cn(
-                                'text-sm px-2 py-0.5 rounded-full transition-colors ml-1',
-                                thinkingEnabled
-                                  ? 'bg-rose-500/20 text-rose-600 dark:text-rose-400'
-                                  : 'bg-rose-500/10 text-rose-600/60 dark:text-rose-300/60',
+                                'relative w-8 h-4 rounded-full transition-colors duration-200',
+                                thinkingEnabled 
+                                  ? 'bg-rose-500 dark:bg-rose-400' 
+                                  : 'bg-rose-200 dark:bg-rose-800'
                               )}
                             >
-                              {thinkingEnabled ? 'On' : 'Off'}
-                            </div>
+                              <div
+                                className={cn(
+                                  'absolute top-0.5 left-0.5 w-3 h-3 bg-white rounded-full transition-transform duration-200',
+                                  thinkingEnabled ? 'translate-x-4' : 'translate-x-0'
+                                )}
+                              />
+                            </button>
                           </div>
-                        </button>
+
+                          {/* Group By Toggle */}
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-rose-900 dark:text-rose-100">Group by</span>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                setGroupBy(groupBy === 'provider' ? 'category' : 'provider')
+                              }}
+                              className="text-xs px-2 py-1 rounded-md bg-rose-100 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 hover:bg-rose-200 dark:hover:bg-rose-900/50 transition-colors duration-200 w-16 text-center"
+                            >
+                              {groupBy === 'provider' ? 'Provider' : 'Category'}
+                            </button>
+                          </div>
+                        </div>
                       </div>
 
-                      <div className="p-3 border-b border-rose-200/30 dark:border-rose-500/20">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            setGroupBy(groupBy === 'provider' ? 'category' : 'provider')
-                          }}
-                          className={cn(
-                            'group w-full relative overflow-hidden bg-gradient-to-br from-rose-500/12 via-rose-500/8 to-rose-500/12 dark:from-rose-300/12 dark:via-rose-300/8 dark:to-rose-300/12 text-rose-600 dark:text-rose-300 h-12 text-base font-semibold rounded-xl shadow-lg hover:shadow-xl shadow-rose-500/10 hover:shadow-rose-500/20 dark:shadow-rose-500/10 dark:hover:shadow-rose-500/20 transition-all duration-300 ease-out backdrop-blur-sm',
-                          )}
-                        >
-                          <div className="absolute inset-0 bg-gradient-to-br from-white/20 via-transparent to-transparent dark:from-white/10 rounded-xl"></div>
-                          <div className="relative z-10 flex items-center justify-center gap-2">
-                            <span className="tracking-[0.5px] transition-all duration-300 ease-out">Group by</span>
-                            <div className="text-sm px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-600 dark:text-rose-400 transition-colors">
-                              {groupBy === 'provider' ? 'Category' : 'Provider'}
-                            </div>
-                          </div>
-                        </button>
-                      </div>
-
-                      <div
-                        className="max-h-[400px] overflow-y-auto"
+                                              <div
+                        className="max-h-[300px] overflow-y-auto"
                         style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgb(244 63 94 / 0.3) transparent' }}
                       >
                         {/* Grouped Models */}
                         {Object.entries(sortedGroupedModels).map(([groupKey, groupModels]) => (
                           <div
                             key={groupKey}
-                            className="p-3 border-b border-rose-200/30 dark:border-rose-500/20 last:border-b-0"
+                            className="p-2 border-b border-rose-200/30 dark:border-rose-500/20 last:border-b-0"
                           >
-                            <div className="flex items-center gap-2 mb-2">
+                            <div className="flex items-center gap-1.5 mb-1.5">
                               <div
                                 className={cn(
-                                  'w-3 h-3 rounded-full bg-gradient-to-r',
+                                  'w-2.5 h-2.5 rounded-full bg-gradient-to-r',
                                   getCategoryColor(
                                     groupBy === 'provider' ? groupModels[0]?.category || groupKey : groupKey,
                                   ),
                                 )}
                               ></div>
-                              <span className="text-sm font-medium text-rose-500/70 dark:text-rose-300/70 capitalize">
+                              <span className="text-xs font-medium text-rose-500/70 dark:text-rose-300/70 capitalize">
                                 {groupKey === 'openrouter' ? 'OpenRouter' : groupKey}
                               </span>
                               <span className="text-xs text-rose-400/60 dark:text-rose-400/60">
@@ -344,18 +339,51 @@ export default function AIInput({
                                     setShowModelSelect(false)
                                   }}
                                   className={cn(
-                                    'w-full p-2 rounded-md transition-all duration-200 text-left border',
-                                    'hover:bg-rose-100/50 dark:hover:bg-rose-900/20',
+                                    'group w-full p-1.5 cursor-pointer transition-all duration-150 ease-[0.25,1,0.5,1] relative overflow-hidden text-left',
                                     selectedModel.id === model.id
-                                      ? 'bg-rose-100/50 dark:bg-rose-900/30 border-rose-500/50'
-                                      : 'border-transparent',
+                                      ? 'text-rose-600 dark:text-rose-300'
+                                      : 'hover:text-rose-600 dark:hover:text-rose-300 text-black/70 dark:text-white/70',
                                     !thinkingEnabled && model.supportsThinking && 'opacity-40 cursor-not-allowed',
                                   )}
                                   disabled={!thinkingEnabled && model.supportsThinking}
                                 >
-                                  <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-2 min-w-0 flex-1">
-                                      <span className="text-base text-rose-900 dark:text-rose-100 truncate">
+                                  {/* Premium background for active state */}
+                                  {selectedModel.id === model.id && (
+                                    <>
+                                      {/* Main gradient background with sharp edges */}
+                                      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-rose-500/8 dark:via-rose-300/8 to-transparent"></div>
+
+                                      {/* Top shadow lighting */}
+                                      <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-rose-500/30 dark:via-rose-300/30 to-transparent"></div>
+
+                                      {/* Bottom shadow lighting */}
+                                      <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-rose-500/30 dark:via-rose-300/30 to-transparent"></div>
+
+                                      {/* Premium inner glow */}
+                                      <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-4 bg-gradient-to-r from-transparent via-rose-500/5 dark:via-rose-300/5 to-transparent blur-sm"></div>
+                                    </>
+                                  )}
+
+                                  {/* Hover effect for non-active items */}
+                                  {selectedModel.id !== model.id && (
+                                    <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-150 ease-[0.25,1,0.5,1]">
+                                      {/* Main gradient background with sharp edges */}
+                                      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-rose-500/8 dark:via-rose-300/8 to-transparent"></div>
+
+                                      {/* Top shadow lighting */}
+                                      <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-rose-500/30 dark:via-rose-300/30 to-transparent"></div>
+
+                                      {/* Bottom shadow lighting */}
+                                      <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-rose-500/30 dark:via-rose-300/30 to-transparent"></div>
+
+                                      {/* Premium inner glow */}
+                                      <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-4 bg-gradient-to-r from-transparent via-rose-500/5 dark:via-rose-300/5 to-transparent blur-sm"></div>
+                                    </div>
+                                  )}
+
+                                  <div className="flex items-center justify-between relative z-10">
+                                    <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                                      <span className="text-sm truncate">
                                         {model.name}
                                       </span>
                                       {groupBy === 'category' && model.provider === 'openrouter' && (
@@ -369,7 +397,7 @@ export default function AIInput({
                                       <div className="flex-shrink-0 relative">
                                         <Lightbulb
                                           className={cn(
-                                            'w-4 h-4',
+                                            'w-3.5 h-3.5',
                                             thinkingEnabled && selectedModel.id === model.id
                                               ? 'text-rose-500'
                                               : 'text-rose-400/60 dark:text-rose-500/60',

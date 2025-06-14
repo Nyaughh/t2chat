@@ -50,6 +50,51 @@ export default function ChatLayout({ children, userMetadata, isSignedIn }: ChatL
     );
   }, [activeChats, searchQuery]);
 
+  const groupedChats = useMemo(() => {
+    if (!filteredChats) return [];
+    
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const lastWeek = new Date(today);
+    lastWeek.setDate(lastWeek.getDate() - 7);
+    const lastMonth = new Date(today);
+    lastMonth.setMonth(lastMonth.getMonth() - 1);
+
+    const groups = {
+      today: [] as typeof filteredChats,
+      yesterday: [] as typeof filteredChats,
+      lastWeek: [] as typeof filteredChats,
+      lastMonth: [] as typeof filteredChats,
+      older: [] as typeof filteredChats,
+    };
+
+    filteredChats.forEach(chat => {
+      const chatDate = new Date(chat.createdAt || chat.lastMessageAt);
+      
+      if (chatDate >= today) {
+        groups.today.push(chat);
+      } else if (chatDate >= yesterday) {
+        groups.yesterday.push(chat);
+      } else if (chatDate >= lastWeek) {
+        groups.lastWeek.push(chat);
+      } else if (chatDate >= lastMonth) {
+        groups.lastMonth.push(chat);
+      } else {
+        groups.older.push(chat);
+      }
+    });
+
+    return [
+      { title: 'Today', chats: groups.today },
+      { title: 'Yesterday', chats: groups.yesterday },
+      { title: 'Last 7 days', chats: groups.lastWeek },
+      { title: 'Last 30 days', chats: groups.lastMonth },
+      { title: 'Older', chats: groups.older },
+    ].filter(group => group.chats.length > 0);
+  }, [filteredChats]);
+
   useEffect(() => {
     setMounted(true)
   }, [])
@@ -67,7 +112,7 @@ export default function ChatLayout({ children, userMetadata, isSignedIn }: ChatL
       toggleSidebar()
     }
   }
-  // Use a consistent sidebar state for SSR
+  // Use a consistent sidebar state for SSR - default to closed to prevent flash
   const effectiveSidebarOpen = mounted ? sidebarOpen : false
   // Check if we're on home page (no current conversation)
   const isOnHomePage = !currentChatId
@@ -94,16 +139,17 @@ export default function ChatLayout({ children, userMetadata, isSignedIn }: ChatL
         onTouchMove={onTouchMove}
         onTouchEnd={onTouchEnd}
       >
-        <div className="p-4 flex-shrink-0">
+        <div className="pt-2.5 pl-2.5 pr-4 pb-4 flex-shrink-0">
           <div className="flex items-center gap-2 mb-4">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={toggleSidebar}
-              className="text-black/50 dark:text-white/50 hover:text-rose-600 dark:hover:text-rose-300 hover:bg-rose-500/5 dark:hover:bg-rose-300/5 h-9 w-9 rounded-xl transition-all duration-150 ease-[0.25,1,0.5,1] hover:scale-110 group"
-            >
-              <Menu className="w-4 h-4 group-hover:rotate-180 transition-transform duration-200 ease-[0.25,1,0.5,1]" />
-            </Button>
+            <div className="p-2 rounded-lg">
+              <button
+                onClick={toggleSidebar}
+                className="text-rose-600 dark:text-rose-300 hover:text-rose-700 dark:hover:text-rose-200 h-5.5 w-5.5 p-0 hover:bg-transparent flex items-center justify-center"
+                title="Close sidebar"
+              >
+              <Menu className="w-4.5 h-4.5" />
+              </button>
+            </div>
             <h1 className="text-xl font-bold bg-gradient-to-r from-rose-600 via-rose-500 to-rose-600 dark:from-rose-300 dark:via-rose-200 dark:to-rose-300 bg-clip-text text-transparent tracking-tight leading-none">
               T2Chat
             </h1>
@@ -143,55 +189,81 @@ export default function ChatLayout({ children, userMetadata, isSignedIn }: ChatL
 
         <div className="flex-1 min-h-0 px-4">
           <div className="h-full overflow-y-auto scrollbar-hide">
-            <div className="space-y-1 py-2">
-              {(filteredChats || []).map((chat: { id: string; title: string }) => (
-                <div
-                  key={chat.id}
-                  onClick={() => handleConversationSelect(chat.id)}
-                  className={cn(
-                    'group px-3 py-2.5 cursor-pointer transition-all duration-150 ease-[0.25,1,0.5,1] relative overflow-hidden',
-                    chat.id === currentChatId
-                      ? 'text-rose-600 dark:text-rose-300'
-                      : 'hover:text-rose-600 dark:hover:text-rose-300 text-black/70 dark:text-white/70',
-                  )}
-                >
-                  {/* Premium background for active state */}
-                  {chat.id === currentChatId && (
-                    <>
-                      {/* Main gradient background with sharp edges */}
-                      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-rose-500/8 dark:via-rose-300/8 to-transparent"></div>
+            <div className="py-2">
+              {groupedChats.map((group, groupIndex) => (
+                <div key={group.title} className={cn("mb-4", groupIndex === 0 && "mt-0")}>
+                  {/* Group header */}
+                  <div className="px-3 py-1.5 mb-2">
+                    <h3 className="text-xs font-medium text-black/50 dark:text-white/50 uppercase tracking-wider">
+                      {group.title}
+                    </h3>
+                  </div>
 
-                      {/* Top shadow lighting */}
-                      <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-rose-500/30 dark:via-rose-300/30 to-transparent"></div>
-
-                      {/* Bottom shadow lighting */}
-                      <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-rose-500/30 dark:via-rose-300/30 to-transparent"></div>
-
-                      {/* Premium inner glow */}
-                      <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-4 bg-gradient-to-r from-transparent via-rose-500/5 dark:via-rose-300/5 to-transparent blur-sm"></div>
-                    </>
-                  )}
-
-                  {/* Hover effect for non-active items */}
-                  {chat.id !== currentChatId && (
-                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-rose-500/3 dark:via-rose-300/3 to-transparent opacity-0 hover:opacity-100 transition-opacity duration-150 ease-[0.25,1,0.5,1]"></div>
-                  )}
-
-                  <div className="flex items-center justify-between relative z-10">
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm truncate">{chat.title}</div>
-                    </div>
-                    {activeChats.length > 1 && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          deleteConversation(chat.id)
-                        }}
-                        className="opacity-0 group-hover:opacity-100 p-1 -m-1 text-black/40 dark:text-white/40 hover:text-red-500 dark:hover:text-red-400 transition-all duration-150 ease-[0.25,1,0.5,1]"
+                  {/* Group chats */}
+                  <div className="space-y-1">
+                    {group.chats.map((chat: { id: string; title: string }) => (
+                      <div
+                        key={chat.id}
+                        onClick={() => handleConversationSelect(chat.id)}
+                        className={cn(
+                          'group px-3 py-2.5 cursor-pointer transition-all duration-150 ease-[0.25,1,0.5,1] relative overflow-hidden',
+                          chat.id === currentChatId
+                            ? 'text-rose-600 dark:text-rose-300'
+                            : 'hover:text-rose-600 dark:hover:text-rose-300 text-black/70 dark:text-white/70',
+                        )}
                       >
-                        <X className="w-4 h-4" />
-                      </button>
-                    )}
+                        {/* Premium background for active state */}
+                        {chat.id === currentChatId && (
+                          <>
+                            {/* Main gradient background with sharp edges */}
+                            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-rose-500/8 dark:via-rose-300/8 to-transparent"></div>
+
+                            {/* Top shadow lighting */}
+                            <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-rose-500/30 dark:via-rose-300/30 to-transparent"></div>
+
+                            {/* Bottom shadow lighting */}
+                            <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-rose-500/30 dark:via-rose-300/30 to-transparent"></div>
+
+                            {/* Premium inner glow */}
+                            <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-4 bg-gradient-to-r from-transparent via-rose-500/5 dark:via-rose-300/5 to-transparent blur-sm"></div>
+                          </>
+                        )}
+
+                        {/* Hover effect for non-active items */}
+                        {chat.id !== currentChatId && (
+                          <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-150 ease-[0.25,1,0.5,1]">
+                            {/* Main gradient background with sharp edges */}
+                            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-rose-500/8 dark:via-rose-300/8 to-transparent"></div>
+
+                            {/* Top shadow lighting */}
+                            <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-rose-500/30 dark:via-rose-300/30 to-transparent"></div>
+
+                            {/* Bottom shadow lighting */}
+                            <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-rose-500/30 dark:via-rose-300/30 to-transparent"></div>
+
+                            {/* Premium inner glow */}
+                            <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-4 bg-gradient-to-r from-transparent via-rose-500/5 dark:via-rose-300/5 to-transparent blur-sm"></div>
+                          </div>
+                        )}
+
+                        <div className="flex items-center justify-between relative z-10">
+                          <div className="flex-1 min-w-0">
+                            <div className="text-sm truncate">{chat.title}</div>
+                          </div>
+                          {activeChats.length > 1 && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                deleteConversation(chat.id)
+                              }}
+                              className="opacity-0 group-hover:opacity-100 p-1 -m-1 text-black/40 dark:text-white/40 hover:text-red-500 dark:hover:text-red-400 transition-all duration-150 ease-[0.25,1,0.5,1]"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
               ))}
@@ -278,80 +350,76 @@ export default function ChatLayout({ children, userMetadata, isSignedIn }: ChatL
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative w-full md:w-auto">
-        {/* Settings & Theme Switcher */}
-        <div className="absolute top-3 right-3 z-10">
-          <AnimatePresence>
-            {!effectiveSidebarOpen && (
-              <motion.div
-                initial={{ opacity: 0, x: 15, scale: 0.9 }}
-                animate={{ opacity: 1, x: 0, scale: 1 }}
-                exit={{ opacity: 0, x: 15, scale: 0.9 }}
-                transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
-                className="group relative p-2.5 rounded-xl bg-white/70 dark:bg-[oklch(0.18_0.015_25)]/30 backdrop-blur-xl border border-rose-500/10 dark:border-white/10 hover:border-rose-500/20 dark:hover:border-rose-300/20 transition-all duration-200 ease-out shadow-lg shadow-rose-500/5 dark:shadow-lg dark:shadow-black/20 hover:shadow-xl hover:shadow-rose-500/10 dark:hover:shadow-rose-500/10 flex items-center gap-2"
+        {/* Settings & Theme Switcher - Always visible */}
+        <div className="absolute top-2.5 right-2.5 z-10">
+          <div className="group relative p-2 rounded-lg bg-white/70 dark:bg-[oklch(0.18_0.015_25)]/30 backdrop-blur-xl border border-rose-500/10 dark:border-white/10 hover:border-rose-500/20 dark:hover:border-rose-300/20 shadow-lg shadow-rose-500/5 dark:shadow-lg dark:shadow-black/20 hover:shadow-xl hover:shadow-rose-500/10 dark:hover:shadow-rose-500/10 flex items-center gap-1.5">
+            {/* Gradient overlays for premium look */}
+            <div className="absolute inset-0 bg-gradient-to-br from-rose-500/5 via-transparent to-rose-500/10 dark:from-rose-500/10 dark:via-transparent dark:to-rose-500/20 pointer-events-none rounded-lg"></div>
+            <div className="absolute inset-0 bg-gradient-to-t from-transparent via-transparent to-white/20 dark:to-white/5 pointer-events-none rounded-lg"></div>
+
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={() => {
+                  if (isSignedIn) {
+                    setSettingsOpen(true)
+                  } else {
+                    router.push('/auth')
+                  }
+                }}
+                className="relative z-10 text-rose-600 dark:text-rose-300 hover:text-rose-700 dark:hover:text-rose-200 h-5.5 w-5.5 p-0 hover:bg-transparent"
+                title={isSignedIn ? "Settings" : "Sign in to access settings"}
               >
-                {/* Gradient overlays for premium look */}
-                <div className="absolute inset-0 bg-gradient-to-br from-rose-500/5 via-transparent to-rose-500/10 dark:from-rose-500/10 dark:via-transparent dark:to-rose-500/20 pointer-events-none rounded-xl"></div>
-                <div className="absolute inset-0 bg-gradient-to-t from-transparent via-transparent to-white/20 dark:to-white/5 pointer-events-none rounded-xl"></div>
+                <Settings className="w-4.5 h-4.5" />
+              </button>
+              
+              {/* Vertical divider */}
+              <div className="relative z-10 w-px h-4.5 bg-rose-500/20 dark:bg-rose-300/20"></div>
+            </div>
 
-                <button
-                  className="relative z-10 text-rose-600 dark:text-rose-300 hover:text-rose-700 dark:hover:text-rose-200 h-6 w-6 p-0 hover:bg-transparent"
-                  title="Settings"
-                >
-                  <Settings className="w-5 h-5 group-hover:rotate-90 transition-transform duration-300" />
-                </button>
+            <ThemeSwitcher />
 
-                {/* Vertical divider */}
-                <div className="relative z-10 w-px h-5 bg-rose-500/20 dark:bg-rose-300/20"></div>
-
-                <ThemeSwitcher />
-
-                {/* Premium glow effect in dark mode */}
-                <div className="absolute inset-0 -z-10 bg-gradient-to-r from-rose-300/0 via-rose-300/5 to-rose-300/0 rounded-xl blur-xl opacity-0 dark:opacity-30 pointer-events-none"></div>
-              </motion.div>
-            )}
-          </AnimatePresence>
+            {/* Premium glow effect in dark mode */}
+            <div className="absolute inset-0 -z-10 bg-gradient-to-r from-rose-300/0 via-rose-300/5 to-rose-300/0 rounded-lg blur-xl opacity-0 dark:opacity-20 pointer-events-none"></div>
+          </div>
         </div>
 
         {/* Menu and New Chat buttons for mobile/collapsed sidebar */}
         <div
           className={cn(
-            'absolute top-3 left-3 z-30 transition-all duration-200 ease-[0.23,1,0.32,1]',
+            'absolute top-2.5 left-2.5 z-30',
             effectiveSidebarOpen ? 'md:opacity-0' : 'opacity-100',
           )}
         >
-                      <div className="group relative p-2.5 rounded-xl bg-white/70 dark:bg-[oklch(0.18_0.015_25)]/30 backdrop-blur-xl border border-rose-500/10 dark:border-white/10 hover:border-rose-500/20 dark:hover:border-rose-300/20 transition-all duration-200 ease-[0.25,1,0.5,1] shadow-lg shadow-rose-500/5 dark:shadow-lg dark:shadow-black/20 hover:shadow-xl hover:shadow-rose-500/10 dark:hover:shadow-rose-500/10 flex items-center gap-2">
+          <div className="group relative p-2 rounded-lg bg-white/70 dark:bg-[oklch(0.18_0.015_25)]/30 backdrop-blur-xl border border-rose-500/10 dark:border-white/10 hover:border-rose-500/20 dark:hover:border-rose-300/20 shadow-lg shadow-rose-500/5 dark:shadow-lg dark:shadow-black/20 hover:shadow-xl hover:shadow-rose-500/10 dark:hover:shadow-rose-500/10 flex items-center gap-1.5">
             {/* Gradient overlays for premium look */}
-            <div className="absolute inset-0 bg-gradient-to-br from-rose-500/5 via-transparent to-rose-500/10 dark:from-rose-500/10 dark:via-transparent dark:to-rose-500/20 pointer-events-none rounded-xl"></div>
-            <div className="absolute inset-0 bg-gradient-to-t from-transparent via-transparent to-white/20 dark:to-white/5 pointer-events-none rounded-xl"></div>
+            <div className="absolute inset-0 bg-gradient-to-br from-rose-500/5 via-transparent to-rose-500/10 dark:from-rose-500/10 dark:via-transparent dark:to-rose-500/20 pointer-events-none rounded-lg"></div>
+            <div className="absolute inset-0 bg-gradient-to-t from-transparent via-transparent to-white/20 dark:to-white/5 pointer-events-none rounded-lg"></div>
 
-            <Button
-              variant="ghost"
-              size="icon"
+            <button
               onClick={toggleSidebar}
-              className="relative z-10 text-rose-600 dark:text-rose-300 hover:text-rose-700 dark:hover:text-rose-200 h-6 w-6 p-0 hover:bg-transparent"
+              className="relative z-10 text-rose-600 dark:text-rose-300 hover:text-rose-700 dark:hover:text-rose-200 h-5.5 w-5.5 p-0 hover:bg-transparent"
+              title="Toggle sidebar"
             >
-              <Menu className="w-5 h-5" />
-            </Button>
+              <Menu className="w-4.5 h-4.5" />
+            </button>
 
             {/* Vertical divider */}
-            <div className="relative z-10 w-px h-5 bg-rose-500/20 dark:bg-rose-300/20"></div>
+            <div className="relative z-10 w-px h-4.5 bg-rose-500/20 dark:bg-rose-300/20"></div>
 
-            <Button
-              variant="ghost"
-              size="icon"
+            <button
               onClick={createNewChat}
               className={cn(
-                'relative z-10 text-rose-600 dark:text-rose-300 hover:text-rose-700 dark:hover:text-rose-200 h-6 w-6 p-0 hover:bg-transparent',
+                'relative z-10 text-rose-600 dark:text-rose-300 hover:text-rose-700 dark:hover:text-rose-200 h-5.5 w-5.5 p-0 hover:bg-transparent',
                 isOnHomePage && 'opacity-30 cursor-not-allowed',
               )}
               title="New conversation"
               disabled={isOnHomePage}
             >
-              <Plus className="w-5 h-5" />
-            </Button>
+              <Plus className="w-4.5 h-4.5" />
+            </button>
 
             {/* Premium glow effect in dark mode */}
-            <div className="absolute inset-0 -z-10 bg-gradient-to-r from-rose-300/0 via-rose-300/5 to-rose-300/0 rounded-xl blur-xl opacity-0 dark:opacity-30 pointer-events-none"></div>
+            <div className="absolute inset-0 -z-10 bg-gradient-to-r from-rose-300/0 via-rose-300/5 to-rose-300/0 rounded-lg blur-xl opacity-0 dark:opacity-20 pointer-events-none"></div>
           </div>
         </div>
 

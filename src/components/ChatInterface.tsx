@@ -184,7 +184,7 @@ export default function ChatInterface() {
                   key={message.id}
                   className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
                 >
-                  <div className="group flex flex-col gap-2 max-w-[85%] min-w-0">
+                  <div className={`group flex flex-col gap-2 min-w-0 ${message.role === 'user' ? 'max-w-[85%]' : 'w-full'}`}>
                     <div
                       className={`px-4 py-3 break-words overflow-wrap-anywhere ${
                         message.role === 'user'
