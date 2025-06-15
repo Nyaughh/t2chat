@@ -3,6 +3,7 @@ import { api } from "../_generated/api";
 import { betterAuthComponent } from "../auth";
 import { v } from "convex/values";
 import { Id } from "../_generated/dataModel";
+import { models } from "../../src/lib/models";
 // MUTATIONS - for database modifications
 
 export const createChat = mutation({
@@ -18,9 +19,10 @@ export const createChat = mutation({
       const now = Date.now();
       const chatId = await ctx.db.insert("chats", {
         userId: userId as Id<"users">,
-        title: title || "New Chat",
+        title: "New chat",
         createdAt: now,
         updatedAt: now,
+        isGeneratingTitle: false,
       });
   
       return chatId;
@@ -57,6 +59,21 @@ export const addMessage = mutation({
         throw new Error("Chat not found or access denied");
       }
   
+      // --- Pro Model Access Check ---
+      if (modelId) {
+        const modelInfo = models.find(m => m.id === modelId);
+        if (modelInfo && modelInfo.isPro) {
+          const userKeys = await ctx.db.query("apiKeys")
+            .withIndex("by_user_and_service", q => q.eq("userId", chat.userId).eq("service", modelInfo.provider))
+            .collect();
+
+          if (userKeys.length === 0) {
+            throw new Error(`Using ${modelInfo.name} requires you to add a valid ${modelInfo.provider} API key in settings.`);
+          }
+        }
+      }
+      // --- End Check ---
+
       const messageData: any = {
         chatId,
         role,
@@ -74,6 +91,17 @@ export const addMessage = mutation({
   
   
       const messageId = await ctx.db.insert("messages", messageData);
+  
+      // --- Title Generation ---
+      const messages = await ctx.db.query("messages").withIndex("by_chat", q => q.eq("chatId", chatId)).collect();
+      if (messages.length === 1 && chat.title === "New chat" && !chat.isGeneratingTitle) {
+        await ctx.db.patch(chatId, { isGeneratingTitle: true });
+        await ctx.scheduler.runAfter(0, api.chat.actions.generateTitle, {
+          chatId,
+          messageContent: content,
+          modelId: modelId || "gemini-pro", // Fallback to a default model
+        });
+      }
   
       // Update chat's updatedAt timestamp
       await ctx.db.patch(chatId, {
@@ -232,23 +260,8 @@ export const addMessage = mutation({
       title: v.string(),
     },
     handler: async (ctx, { chatId, title }) => {
-      const userId = await betterAuthComponent.getAuthUserId(ctx);
-      if (!userId) {
-        throw new Error("Authentication required");
-      }
-  
-      const chat = await ctx.db.get(chatId);
-      if (!chat || chat.userId !== userId) {
-        throw new Error("Chat not found or access denied");
-      }
-  
-      await ctx.db.patch(chatId, {
-        title,
-        updatedAt: Date.now(),
-      });
-  
-      return chatId;
-    },
+      await ctx.db.patch(chatId, { title, isGeneratingTitle: false });
+    }
   });
   
   export const deleteChat = mutation({
@@ -282,3 +295,153 @@ export const addMessage = mutation({
       return { success: true };
     },
   });
+
+  export const migrateAnonymousChats = mutation({
+    args: {
+      chats: v.array(v.object({
+        id: v.string(),
+        title: v.string(),
+        createdAt: v.number(),
+        updatedAt: v.number(),
+        lastMessageAt: v.number(),
+      })),
+      messages: v.array(v.object({
+        id: v.string(),
+        conversationId: v.string(),
+        content: v.string(),
+        role: v.union(v.literal("user"), v.literal("assistant")),
+        createdAt: v.number(),
+        model: v.optional(v.string()),
+      })),
+    },
+    handler: async (ctx, { chats, messages }) => {
+      const userId = await betterAuthComponent.getAuthUserId(ctx);
+      if (!userId) {
+        throw new Error("Authentication required to migrate chats.");
+      }
+  
+      const migratedChatIds: { [key: string]: Id<"chats"> } = {};
+  
+      // Create new chats for the authenticated user
+      for (const chat of chats) {
+        const newChatId = await ctx.db.insert("chats", {
+          userId: userId as Id<"users">,
+          title: chat.title,
+          createdAt: chat.createdAt,
+          updatedAt: chat.updatedAt,
+        });
+        migratedChatIds[chat.id] = newChatId;
+      }
+  
+      // Create new messages and link them to the new chats
+      for (const message of messages) {
+        const newChatId = migratedChatIds[message.conversationId];
+        if (newChatId) {
+          // Only migrate user and assistant messages, as they are the only roles supported in the schema
+          if (message.role === 'user' || message.role === 'assistant') {
+            await ctx.db.insert("messages", {
+              chatId: newChatId,
+              role: message.role,
+              content: message.content,
+              modelId: message.model,
+              createdAt: message.createdAt,
+              isComplete: true,
+            });
+          }
+        }
+      }
+  
+      return { success: true, migratedCount: chats.length };
+    },
+  });
+
+  export const renameChat = mutation({
+    args: {
+      chatId: v.id("chats"),
+      title: v.string(),
+    },
+    handler: async (ctx, { chatId, title }) => {
+      const userId = await betterAuthComponent.getAuthUserId(ctx);
+      if (!userId) {
+        throw new Error("Authentication required");
+      }
+
+      const chat = await ctx.db.get(chatId);
+      if (!chat || chat.userId !== userId) {
+        throw new Error("Chat not found or access denied");
+      }
+
+      await ctx.db.patch(chatId, { title });
+    }
+  });
+
+  export const shareChat = mutation({
+    args: {
+      chatId: v.id("chats"),
+    },
+    handler: async (ctx, { chatId }) => {
+      const userId = await betterAuthComponent.getAuthUserId(ctx);
+      if (!userId) {
+        throw new Error("Authentication required");
+      }
+
+      const chat = await ctx.db.get(chatId);
+      if (!chat || chat.userId !== userId) {
+        throw new Error("Chat not found or access denied");
+      }
+
+      const shareId = Math.random().toString(36).substring(2, 15);
+      await ctx.db.patch(chatId, { isShared: true, shareId });
+      return shareId;
+    }
+  })
+
+  export const branchChat = mutation({
+    args: {
+      chatId: v.id("chats"),
+      messageId: v.id("messages"),
+    },
+    handler: async (ctx, { chatId, messageId }) => {
+      const userId = await betterAuthComponent.getAuthUserId(ctx);
+      if (!userId) {
+        throw new Error("Authentication required");
+      }
+
+      const originalChat = await ctx.db.get(chatId);
+      if (!originalChat || originalChat.userId !== userId) {
+        throw new Error("Chat not found or access denied");
+      }
+
+      const messagesToCopy = await ctx.db
+        .query("messages")
+        .withIndex("by_chat_created", (q) => q.eq("chatId", chatId))
+        .order("asc")
+        .collect();
+      
+      const messageToBranchFromIndex = messagesToCopy.findIndex(m => m._id === messageId);
+      if (messageToBranchFromIndex === -1) {
+        throw new Error("Message not found in chat");
+      }
+
+      const messagesForNewChat = messagesToCopy.slice(0, messageToBranchFromIndex + 1);
+
+      const now = Date.now();
+      const newChatId = await ctx.db.insert("chats", {
+        userId: userId as Id<"users">,
+        title: `Branch of ${originalChat.title}`,
+        createdAt: now,
+        updatedAt: now,
+        isBranch: true,
+      });
+
+      for (const message of messagesForNewChat) {
+        const { _id, _creationTime, ...messageData } = message;
+        await ctx.db.insert("messages", {
+          ...messageData,
+          chatId: newChatId,
+        });
+      }
+
+      return newChatId;
+    }
+  })

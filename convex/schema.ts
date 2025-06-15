@@ -9,12 +9,36 @@ export default defineSchema({
     tokenIdentifier: v.optional(v.string()),
   }).index("by_token", ["tokenIdentifier"]),
   
+  userSettings: defineTable({
+    userId: v.id("users"),
+    use_keys_for_gemini: v.optional(v.boolean()),
+    use_keys_for_groq: v.optional(v.boolean()),
+    use_keys_for_openrouter: v.optional(v.boolean()),
+    use_keys_for_uploadthing: v.optional(v.boolean()),
+    use_keys_for_tavily: v.optional(v.boolean()),
+    uploadthing_key: v.optional(v.string()),
+    tavily_key: v.optional(v.string()),
+  }).index("by_user", ["userId"]),
+  
+  apiKeys: defineTable({
+    userId: v.id("users"),
+    service: v.union(v.literal("gemini"), v.literal("groq"), v.literal("openrouter")),
+    name: v.string(),
+    key: v.string(),
+    is_default: v.optional(v.boolean()),
+  }).index("by_user_and_service", ["userId", "service"]),
+  
   chats: defineTable({
     userId: v.id("users"),
     title: v.string(),
     createdAt: v.number(),
     updatedAt: v.number(),
-  }).index("by_user", ["userId"]),
+    shareId: v.optional(v.string()),
+    isShared: v.optional(v.boolean()),
+    isGeneratingTitle: v.optional(v.boolean()),
+    isBranch: v.optional(v.boolean()),
+  }).index("by_user", ["userId"])
+    .index("by_share_id", ["shareId"]),
   
   messages: defineTable({
     chatId: v.id("chats"),

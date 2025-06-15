@@ -121,3 +121,25 @@ export const getChatMessages = query({
       return allAttachments;
     },
   });
+
+  export const getSharedChat = query({
+    args: { shareId: v.string() },
+    handler: async (ctx, { shareId }) => {
+      const chat = await ctx.db
+        .query("chats")
+        .withIndex("by_share_id", (q) => q.eq("shareId", shareId))
+        .unique();
+  
+      if (!chat || !chat.isShared) {
+        return null;
+      }
+  
+      const messages = await ctx.db
+        .query("messages")
+        .withIndex("by_chat_created", (q) => q.eq("chatId", chat._id))
+        .order("asc")
+        .collect();
+  
+      return { chat, messages };
+    }
+  })

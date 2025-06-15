@@ -1,26 +1,33 @@
 'use client'
 
+import { memo } from 'react'
 import { cn } from '@/lib/utils'
 import { ChatItem } from './ChatItem'
 
 interface ChatGroupProps {
   title: string
-  chats: Array<{ id: string; title: string }>
+  chats: Array<{ id: string; title: string; isBranch?: boolean; }>
   currentChatId: string | null
   totalChats: number
+  editingChatId: string | null
   isFirst?: boolean
   onChatSelect: (chatId: string) => void
   onChatDelete: (chatId: string) => void
+  onChatRename: (chatId: string, currentTitle: string) => void
+  onChatShare: (chatId: string) => void
 }
 
-export function ChatGroup({
+export const ChatGroup = memo(function ChatGroup({
   title,
   chats,
   currentChatId,
   totalChats,
+  editingChatId,
   isFirst = false,
   onChatSelect,
   onChatDelete,
+  onChatRename,
+  onChatShare,
 }: ChatGroupProps) {
   return (
     <div className={cn("mb-4", isFirst && "mt-0")}>
@@ -41,9 +48,11 @@ export function ChatGroup({
             totalChats={totalChats}
             onSelect={onChatSelect}
             onDelete={onChatDelete}
+            onRename={onChatRename}
+            onShare={onChatShare}
           />
         ))}
       </div>
     </div>
   )
-} 
+}) 

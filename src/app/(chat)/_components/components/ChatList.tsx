@@ -1,24 +1,31 @@
 'use client'
 
+import { memo } from 'react'
 import { ChatGroup } from './ChatGroup'
 
 interface ChatListProps {
   groupedChats: Array<{
     title: string
-    chats: Array<{ id: string; title: string }>
+    chats: Array<{ id: string; title: string; isBranch?: boolean; }>
   }>
   currentChatId: string | null
   totalChats: number
+  editingChatId: string | null
   onChatSelect: (chatId: string) => void
   onChatDelete: (chatId: string) => void
+  onChatRename: (chatId: string, currentTitle: string) => void
+  onChatShare: (chatId: string) => void
 }
 
-export function ChatList({
+export const ChatList = memo(function ChatList({
   groupedChats,
   currentChatId,
   totalChats,
+  editingChatId,
   onChatSelect,
   onChatDelete,
+  onChatRename,
+  onChatShare,
 }: ChatListProps) {
   return (
     <div className="flex-1 min-h-0 px-4">
@@ -31,9 +38,12 @@ export function ChatList({
               chats={group.chats}
               currentChatId={currentChatId}
               totalChats={totalChats}
+              editingChatId={editingChatId}
               isFirst={groupIndex === 0}
               onChatSelect={onChatSelect}
               onChatDelete={onChatDelete}
+              onChatRename={onChatRename}
+              onChatShare={onChatShare}
             />
           ))}
 
@@ -48,4 +58,4 @@ export function ChatList({
       </div>
     </div>
   )
-} 
+}) 

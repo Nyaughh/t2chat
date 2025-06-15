@@ -4,6 +4,7 @@ import { LogOut, Crown, Settings2 } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { authClient } from '@/lib/auth-client'
 import Image from 'next/image'
+import { useRouter } from 'next/navigation'
 
 interface AccountSettingsProps {
   user: {
@@ -14,8 +15,15 @@ interface AccountSettingsProps {
 }
 
 export function AccountSettings({ user }: AccountSettingsProps) {
+  const router = useRouter()
   const handleSignOut = async () => {
-    await authClient.signOut()
+    await authClient.signOut({
+      fetchOptions: {
+        onSuccess: () => {
+          router.push('/')
+        }
+      }
+    })
   }
 
   return (
