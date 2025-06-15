@@ -33,7 +33,12 @@ export default defineSchema({
     title: v.string(),
     createdAt: v.number(),
     updatedAt: v.number(),
-  }).index("by_user", ["userId"]),
+    shareId: v.optional(v.string()),
+    isShared: v.optional(v.boolean()),
+    isGeneratingTitle: v.optional(v.boolean()),
+    isBranch: v.optional(v.boolean()),
+  }).index("by_user", ["userId"])
+    .index("by_share_id", ["shareId"]),
   
   messages: defineTable({
     chatId: v.id("chats"),

@@ -39,6 +39,8 @@ export const useConversations = (
     cancelMessage,
   } = useConvexChat(currentChatId ? (currentChatId as Id<"chats">) : undefined)
 
+  const [cachedConvexChats, setCachedConvexChats] = useState(convexChats)
+
   const dexieConversations = useLiveQuery(() => db.conversations.orderBy('lastMessageAt').reverse().toArray(), [])
   const liveLocalMessages = useLiveQuery(
     () => {
@@ -75,6 +77,12 @@ export const useConversations = (
       syncToDexie()
     }
   }, [isAuthenticated, convexMessages, currentChatId])
+
+  useEffect(() => {
+    if (!isConvexStreaming) {
+      setCachedConvexChats(convexChats)
+    }
+  }, [convexChats, isConvexStreaming])
 
   const activeMessages = useMemo(() => {
     if (isAuthLoading) {
@@ -142,16 +150,18 @@ export const useConversations = (
   const activeChats = useMemo(() => {
     // If authenticated, ONLY show chats from Convex.
     if (isAuthenticated) {
-      return (convexChats || []).map(chat => ({
+      const sourceChats = isConvexStreaming ? cachedConvexChats : convexChats
+      return (sourceChats || []).map(chat => ({
         id: chat._id,
         title: chat.title || "New Chat",
         createdAt: new Date(chat.createdAt),
         lastMessageAt: new Date(chat.updatedAt),
+        isBranch: chat.isBranch,
       })).sort((a, b) => b.lastMessageAt.getTime() - a.lastMessageAt.getTime())
     }
     // For anonymous users, just use Dexie
     return dexieConversations || []
-  }, [isAuthenticated, convexChats, dexieConversations])
+  }, [isAuthenticated, isConvexStreaming, cachedConvexChats, convexChats, dexieConversations])
 
   const unmigratedLocalChats = useMemo(() => {
     if (!isAuthenticated || !dexieConversations || !convexChats) return [];
@@ -179,6 +189,17 @@ export const useConversations = (
       syncToDexie()
     }
   }, [isAuthenticated, convexChats])
+
+  // This effect will redirect the user if the chat is not found
+  useEffect(() => {
+    if (!isAuthLoading && isAuthenticated && currentChatId && convexChats) {
+      const chatExists = convexChats.some(chat => chat._id === currentChatId);
+      if (!chatExists) {
+        router.push('/');
+        toast.error("Chat not found.");
+      }
+    }
+  }, [isAuthLoading, isAuthenticated, currentChatId, convexChats, router]);
 
   const currentConversation = useMemo(
     () => dexieConversations?.find((conv) => conv.id === currentChatId),

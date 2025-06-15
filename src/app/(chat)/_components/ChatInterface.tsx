@@ -13,6 +13,10 @@ import { toast } from 'sonner'
 import { useState } from 'react'
 import { cn } from '@/lib/utils'
 import { ConvexMessage } from '@/lib/types'
+import { useMutation } from 'convex/react'
+import { api } from '../../../../convex/_generated/api'
+import { useRouter } from 'next/navigation'
+import { Id } from '../../../../convex/_generated/dataModel'
 
 interface ChatInterfaceProps {
   chatId?: string
@@ -72,6 +76,20 @@ export default function ChatInterface({ chatId, initialMessages }: ChatInterface
   const maxFiles = 2
   const [uploadProgress, setUploadProgress] = useState<{ [key: string]: number }>({})
   const [isUploading, setIsUploading] = useState(false)
+  const branchChat = useMutation(api.chat.mutations.branchChat)
+  const router = useRouter()
+
+  const handleBranch = async (messageId: string) => {
+    if (!chatId) return
+    try {
+      const newChatId = await branchChat({ chatId: chatId as Id<"chats">, messageId: messageId as Id<"messages"> })
+      router.push(`/chat/${newChatId}`)
+      toast.success('Chat branched successfully!')
+    } catch (error) {
+      toast.error('Failed to branch chat.')
+      console.error(error)
+    }
+  }
 
   const handleUploadComplete = (res: any) => {
     // Clear all progress and uploading state
@@ -141,6 +159,7 @@ export default function ChatInterface({ chatId, initialMessages }: ChatInterface
               onRetryClick={handleRetryClick}
               onRetryWithModel={handleRetryWithModel}
               onCloseRetryDropdown={() => setRetryDropdownId(null)}
+              onBranch={handleBranch}
               getModelDisplayName={getModelDisplayName}
               getProviderColor={getProviderColor}
               isSignedIn={isAuthenticated}
