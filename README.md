@@ -1,7 +1,1 @@
-Yo: gurt
-gurt: sybau 🥀🥀
-Alen: Kill yourself 
-yourself: FUCK OFF
-OFF: what did i do??
-i: tf is u sayin
-u: ???
+![logo](https://portfolio-2-xi-wine.vercel.app/_next/image?url=%2Flogo.png&w=1920&q=75)
