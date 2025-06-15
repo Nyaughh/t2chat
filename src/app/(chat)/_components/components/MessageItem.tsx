@@ -6,6 +6,7 @@ import { EditMessageForm } from './EditMessageForm'
 import { MessageActions } from './MessageActions'
 import { Attachment } from '@/lib/types'
 import { ModelInfo } from '@/lib/models'
+import { cn } from '@/lib/utils'
 
 interface MessageItemProps {
   message: {
@@ -68,7 +69,13 @@ export function MessageItem({
     <div
       className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
     >
-      <div className={`group flex flex-col gap-2 min-w-0 ${message.role === 'user' ? 'max-w-[85%]' : 'w-full'}`}>
+      <div
+        tabIndex={0}
+        className={cn(
+          'group flex flex-col gap-2 min-w-0 focus:outline-none',
+          message.role === 'user' ? 'max-w-[85%]' : 'w-full'
+        )}
+      >
         <div
           className={`px-4 py-3 break-words overflow-wrap-anywhere ${
             message.role === 'user'
@@ -140,27 +147,29 @@ export function MessageItem({
         </div>
 
         {message.role === 'assistant' && !isCurrentlyStreaming(message.id) && (
-          <MessageActions
-            messageId={message.id}
-            content={message.content}
-            modelId={message.modelId}
-            copiedId={copiedId}
-            retryDropdownId={retryDropdownId}
-            selectedModel={selectedModel}
-            isStreaming={isStreaming}
-            onCopy={onCopy}
-            onRetryClick={onRetryClick}
-            onRetryWithModel={onRetryWithModel}
-            onCloseRetryDropdown={onCloseRetryDropdown}
-            onBranch={onBranch}
-            getModelDisplayName={getModelDisplayName}
-            getProviderColor={getProviderColor}
-            isSignedIn={isSignedIn}
-          />
+          <div className="opacity-0 transition-opacity duration-150 ease-[0.25,1,0.5,1] group-hover:opacity-100 group-focus-within:opacity-100">
+            <MessageActions
+              messageId={message.id}
+              content={message.content}
+              modelId={message.modelId}
+              copiedId={copiedId}
+              retryDropdownId={retryDropdownId}
+              selectedModel={selectedModel}
+              isStreaming={isStreaming}
+              onCopy={onCopy}
+              onRetryClick={onRetryClick}
+              onRetryWithModel={onRetryWithModel}
+              onCloseRetryDropdown={onCloseRetryDropdown}
+              onBranch={onBranch}
+              getModelDisplayName={getModelDisplayName}
+              getProviderColor={getProviderColor}
+              isSignedIn={isSignedIn}
+            />
+          </div>
         )}
 
         {message.role === 'user' && editingMessageId !== message.id && (
-          <div className="flex items-center gap-1 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity duration-150 ease-[0.25,1,0.5,1]">
+          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity duration-150 ease-[0.25,1,0.5,1]">
             <button
               onClick={() => onStartEditing(message.id, message.content)}
               className="p-1.5 text-rose-500/70 hover:text-rose-600 dark:text-rose-300/70 dark:hover:text-rose-300 hover:bg-rose-500/5 dark:hover:bg-rose-300/5 rounded transition-all duration-150 ease-[0.25,1,0.5,1] hover:scale-110"
