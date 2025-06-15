@@ -14,6 +14,7 @@ import {
   type ModelSettingsState,
 } from './settings'
 import { AttachmentsSettings } from './settings/attachments'
+import { Conversation } from '@/lib/dexie'
 
 interface SettingsPageProps {
   isOpen: boolean
@@ -23,13 +24,14 @@ interface SettingsPageProps {
     email: string
     image: string
   }
+  unmigratedLocalChats: Conversation[]
 }
 
 type SettingsSection = 'account' | 'models' | 'customize' | 'data' | 'attachments'
 
 // This should be exported from AccountSettings.tsx and re-exported from index.tsx
 
-export default function SettingsPage({ isOpen, onClose, user }: SettingsPageProps) {
+export default function SettingsPage({ isOpen, onClose, user, unmigratedLocalChats }: SettingsPageProps) {
   const [activeSection, setActiveSection] = useState<SettingsSection>('account')
 
   const customization: CustomizationState = {
@@ -80,7 +82,7 @@ export default function SettingsPage({ isOpen, onClose, user }: SettingsPageProp
       case 'customize':
         return <CustomizeSettings customization={customization} />
       case 'data':
-        return <DataSettings />
+        return <DataSettings unmigratedLocalChats={unmigratedLocalChats} />
       case 'attachments':
         return <AttachmentsSettings />
       default:

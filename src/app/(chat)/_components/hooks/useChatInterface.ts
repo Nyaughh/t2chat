@@ -22,7 +22,7 @@ export function useChatInterface(chatId?: string, initialMessages?: ConvexMessag
     setSelectedModel,
     isAuthenticated,
     mounted,
-  } = useConversations(undefined, chatId, initialMessages)
+  } = useConversations(chatId, initialMessages)
 
   const messageActions = useMessageActions({ onRetryMessage: handleRetryMessage })
   const scrollToBottom = useScrollToBottom(activeMessages)

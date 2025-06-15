@@ -14,14 +14,14 @@ import { parseDataStream } from '@/lib/stream-parser'
 import { CoreMessage } from 'ai'
 
 export const useConversations = (
-  initialChats?: ConvexChat[] | null,
   chatId?: string,
   initialMessages?: ConvexMessage[] | null
 ) => {
 
   const router = useRouter()
   const pathname = usePathname()
-  const [currentChatId, setCurrentChatId] = useState<string | null>(chatId || null)
+  const chatIdFromUrl = Array.isArray(chatId) ? chatId[1] : chatId;
+  const [currentChatId, setCurrentChatId] = useState<string | null>(chatIdFromUrl || null)
   const [selectedModel, setSelectedModel] = useState<ModelInfo>(models[0])
   const [mounted, setMounted] = useState(false)
 
@@ -37,22 +37,48 @@ export const useConversations = (
     deleteChat: deleteConvexChat,
     deleteMessagesFromIndex,
     cancelMessage,
-  } = useConvexChat(currentChatId as Id<"chats"> | undefined)
+  } = useConvexChat(currentChatId ? (currentChatId as Id<"chats">) : undefined)
 
   const dexieConversations = useLiveQuery(() => db.conversations.orderBy('lastMessageAt').reverse().toArray(), [])
   const liveLocalMessages = useLiveQuery(
     () => {
-      if (!currentChatId || isAuthenticated) return [];
+      if (!currentChatId) return [];
+      // Now loads from Dexie for both auth'd and unauth'd users
       return db.messages.where('conversationId').equals(currentChatId).sortBy('createdAt');
     },
-    [currentChatId, isAuthenticated],
+    [currentChatId], // No longer depends on isAuthenticated
     []
   )
   const [isLocalStreaming, setIsLocalStreaming] = useState(false)
 
+  // Sync Convex messages to Dexie for local-first access
+  useEffect(() => {
+    if (isAuthenticated && convexMessages && currentChatId) {
+      const syncToDexie = async () => {
+        const messagesToUpsert = convexMessages.map(m => ({
+          id: m._id,
+          conversationId: m.chatId,
+          role: m.role,
+          content: m.content,
+          createdAt: new Date(m.createdAt),
+          model: m.modelId,
+          thinking: m.thinking,
+          thinkingDuration: m.thinkingDuration,
+          attachments: m.attachments,
+          parts: [], // Assuming parts are not used for Convex messages
+        } as DBMessage))
+
+        if (messagesToUpsert.length > 0) {
+          await db.messages.bulkPut(messagesToUpsert);
+        }
+      }
+      syncToDexie()
+    }
+  }, [isAuthenticated, convexMessages, currentChatId])
+
   const activeMessages = useMemo(() => {
     if (isAuthLoading) {
-      // Return initialMessages during auth loading if available
+      // Still show initial messages if available on first load
       if (initialMessages && currentChatId) {
         return initialMessages.map(msg => ({
           id: msg._id,
@@ -67,10 +93,28 @@ export const useConversations = (
       }
       return [];
     }
+
     if (isAuthenticated) {
-      // Use real-time convex messages once loaded, fallback to initial messages
-      const messagesToUse = convexMessages || initialMessages || []
-      return messagesToUse.map(msg => ({
+      // For authed users, we use Dexie messages as the base
+      // and merge with Convex messages as they arrive.
+      const localClientMessages = (liveLocalMessages || []).map(msg => ({
+        id: msg.id,
+        role: msg.role,
+        content: msg.content,
+        modelId: msg.model,
+        thinking: msg.thinking,
+        thinkingDuration: msg.thinkingDuration,
+        attachments: msg.attachments,
+        createdAt: new Date(msg.createdAt),
+      } as ClientMessage & { modelId: string; attachments?: any[] }))
+
+      // If convex messages haven't loaded yet, just show local
+      if (!convexMessages) {
+        return localClientMessages;
+      }
+      
+      // Once convex messages are loaded, they are the source of truth
+      return (convexMessages || []).map(msg => ({
         id: msg._id,
         role: msg.role,
         content: msg.content,
@@ -81,7 +125,9 @@ export const useConversations = (
         createdAt: new Date(msg.createdAt),
       } as ClientMessage & { modelId: string; attachments?: any[] }))
     }
-    return liveLocalMessages.map(msg => ({
+    
+    // For anonymous users, just use Dexie
+    return (liveLocalMessages || []).map(msg => ({
       id: msg.id,
       role: msg.role,
       content: msg.content,
@@ -94,30 +140,45 @@ export const useConversations = (
   }, [isAuthLoading, isAuthenticated, convexMessages, liveLocalMessages, initialMessages, currentChatId])
 
   const activeChats = useMemo(() => {
-    if (isAuthLoading) {
-      // Return initialChats during auth loading if available
-      if (initialChats) {
-        return initialChats.map(chat => ({
-          id: chat._id,
-          title: chat.title || "New Chat",
-          createdAt: new Date(chat.createdAt),
-          lastMessageAt: new Date(chat.updatedAt),
-        }))
-      }
-      return []
-    }
+    // If authenticated, ONLY show chats from Convex.
     if (isAuthenticated) {
-      // Use real-time convex chats once loaded, fallback to initial chats
-      const chatsToUse = convexChats || initialChats || []
-      return chatsToUse.map(chat => ({
+      return (convexChats || []).map(chat => ({
         id: chat._id,
         title: chat.title || "New Chat",
         createdAt: new Date(chat.createdAt),
         lastMessageAt: new Date(chat.updatedAt),
-      }))
+      })).sort((a, b) => b.lastMessageAt.getTime() - a.lastMessageAt.getTime())
     }
+    // For anonymous users, just use Dexie
     return dexieConversations || []
-  }, [isAuthLoading, isAuthenticated, convexChats, dexieConversations, initialChats])
+  }, [isAuthenticated, convexChats, dexieConversations])
+
+  const unmigratedLocalChats = useMemo(() => {
+    if (!isAuthenticated || !dexieConversations || !convexChats) return [];
+    
+    const convexChatIds = new Set(convexChats.map(c => c._id));
+    return dexieConversations.filter(c => !convexChatIds.has(c.id as Id<"chats">));
+  }, [isAuthenticated, dexieConversations, convexChats]);
+
+  // Sync Convex chats to Dexie for local-first access
+  useEffect(() => {
+    if (isAuthenticated && convexChats) {
+      const syncToDexie = async () => {
+        const conversationsToUpsert = convexChats.map(c => ({
+          id: c._id,
+          title: c.title || 'New Chat',
+          createdAt: new Date(c.createdAt),
+          updatedAt: new Date(c.updatedAt),
+          lastMessageAt: new Date(c.updatedAt),
+        } as DBConversation))
+        
+        if (conversationsToUpsert.length > 0) {
+          await db.conversations.bulkPut(conversationsToUpsert)
+        }
+      }
+      syncToDexie()
+    }
+  }, [isAuthenticated, convexChats])
 
   const currentConversation = useMemo(
     () => dexieConversations?.find((conv) => conv.id === currentChatId),
@@ -517,5 +578,6 @@ export const useConversations = (
     selectedModel,
     setSelectedModel: handleSetSelectedModel,
     mounted,
+    unmigratedLocalChats,
   }
 }

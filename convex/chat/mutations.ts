@@ -282,3 +282,62 @@ export const addMessage = mutation({
       return { success: true };
     },
   });
+
+  export const migrateAnonymousChats = mutation({
+    args: {
+      chats: v.array(v.object({
+        id: v.string(),
+        title: v.string(),
+        createdAt: v.number(),
+        updatedAt: v.number(),
+        lastMessageAt: v.number(),
+      })),
+      messages: v.array(v.object({
+        id: v.string(),
+        conversationId: v.string(),
+        content: v.string(),
+        role: v.union(v.literal("user"), v.literal("assistant")),
+        createdAt: v.number(),
+        model: v.optional(v.string()),
+      })),
+    },
+    handler: async (ctx, { chats, messages }) => {
+      const userId = await betterAuthComponent.getAuthUserId(ctx);
+      if (!userId) {
+        throw new Error("Authentication required to migrate chats.");
+      }
+  
+      const migratedChatIds: { [key: string]: Id<"chats"> } = {};
+  
+      // Create new chats for the authenticated user
+      for (const chat of chats) {
+        const newChatId = await ctx.db.insert("chats", {
+          userId: userId as Id<"users">,
+          title: chat.title,
+          createdAt: chat.createdAt,
+          updatedAt: chat.updatedAt,
+        });
+        migratedChatIds[chat.id] = newChatId;
+      }
+  
+      // Create new messages and link them to the new chats
+      for (const message of messages) {
+        const newChatId = migratedChatIds[message.conversationId];
+        if (newChatId) {
+          // Only migrate user and assistant messages, as they are the only roles supported in the schema
+          if (message.role === 'user' || message.role === 'assistant') {
+            await ctx.db.insert("messages", {
+              chatId: newChatId,
+              role: message.role,
+              content: message.content,
+              modelId: message.model,
+              createdAt: message.createdAt,
+              isComplete: true,
+            });
+          }
+        }
+      }
+  
+      return { success: true, migratedCount: chats.length };
+    },
+  });

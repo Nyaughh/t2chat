@@ -4,7 +4,7 @@ import SettingsPage from '@/components/SettingsPage'
 import { useChatLayout } from './hooks/useChatLayout'
 import { Sidebar } from './components/Sidebar'
 import { TopControls } from './components/TopControls'
-import { UserMetadata, ConvexChat } from '@/lib/types'
+import { UserMetadata } from '@/lib/types'
 import { useAuth } from '@/hooks/useAuth'
 import { useFont } from '@/hooks/useFont'
 
@@ -12,10 +12,9 @@ interface ChatLayoutProps {
   children: React.ReactNode
   isSignedIn: boolean
   userMetadata: UserMetadata
-  initialChats?: ConvexChat[] | null
 }
 
-export default function ChatLayout({ children, userMetadata: serverUserMetadata, isSignedIn: serverIsSignedIn, initialChats }: ChatLayoutProps) {
+export default function ChatLayout({ children, userMetadata: serverUserMetadata, isSignedIn: serverIsSignedIn }: ChatLayoutProps) {
   const { 
     settingsOpen,
     setSettingsOpen,
@@ -32,7 +31,8 @@ export default function ChatLayout({ children, userMetadata: serverUserMetadata,
     handleConversationSelect,
     createNewChat,
     toggleSidebar,
-  } = useChatLayout(initialChats)
+    unmigratedLocalChats,
+  } = useChatLayout()
 
   const { isSignedIn, userMetadata, isPending } = useAuth({ serverIsSignedIn, serverUserMetadata })
   useFont()
@@ -97,7 +97,7 @@ export default function ChatLayout({ children, userMetadata: serverUserMetadata,
         name: userMetadata.name || '',
         email: userMetadata.email || '',
         image: userMetadata.image || '',
-      }} />}
+      }} unmigratedLocalChats={unmigratedLocalChats} />}
     </div>
   )
 }
