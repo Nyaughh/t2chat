@@ -89,6 +89,7 @@
   "devDependencies": {
     "@better-auth/cli": "^1.2.9",
     "@tailwindcss/postcss": "^4",
+    "@types/lodash": "^4.17.17",
     "@types/node": "^20",
     "@types/pg": "^8.15.4",
     "@types/react": "^19",

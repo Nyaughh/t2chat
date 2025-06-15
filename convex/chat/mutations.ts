@@ -3,6 +3,7 @@ import { api } from "../_generated/api";
 import { betterAuthComponent } from "../auth";
 import { v } from "convex/values";
 import { Id } from "../_generated/dataModel";
+import { models } from "../../src/lib/models";
 // MUTATIONS - for database modifications
 
 export const createChat = mutation({
@@ -57,6 +58,21 @@ export const addMessage = mutation({
         throw new Error("Chat not found or access denied");
       }
   
+      // --- Pro Model Access Check ---
+      if (modelId) {
+        const modelInfo = models.find(m => m.id === modelId);
+        if (modelInfo && modelInfo.isPro) {
+          const userKeys = await ctx.db.query("apiKeys")
+            .withIndex("by_user_and_service", q => q.eq("userId", chat.userId).eq("service", modelInfo.provider))
+            .collect();
+
+          if (userKeys.length === 0) {
+            throw new Error(`Using ${modelInfo.name} requires you to add a valid ${modelInfo.provider} API key in settings.`);
+          }
+        }
+      }
+      // --- End Check ---
+
       const messageData: any = {
         chatId,
         role,

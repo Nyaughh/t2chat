@@ -8,13 +8,15 @@ import {
   AccountSettings,
   CustomizeSettings,
   DataSettings,
-  ModelsSettings,
+  ModelsKeysSettings,
   type ApiKey,
   type CustomizationState,
   type ModelSettingsState,
 } from './settings'
 import { AttachmentsSettings } from './settings/attachments'
 import { Conversation } from '@/lib/dexie'
+import { useQuery } from 'convex/react'
+import { api } from '../../convex/_generated/api'
 
 interface SettingsPageProps {
   isOpen: boolean
@@ -31,8 +33,11 @@ type SettingsSection = 'account' | 'models' | 'customize' | 'data' | 'attachment
 
 // This should be exported from AccountSettings.tsx and re-exported from index.tsx
 
-export default function SettingsPage({ isOpen, onClose, user, unmigratedLocalChats }: SettingsPageProps) {
+const SettingsPageContents = ({ isOpen, onClose, user, unmigratedLocalChats }: SettingsPageProps) => {
   const [activeSection, setActiveSection] = useState<SettingsSection>('account')
+
+  const userSettings = useQuery(api.users.getUserSettings)
+  const apiKeys = useQuery(api.api_keys.getApiKeys)
 
   const customization: CustomizationState = {
     userName: '',
@@ -49,21 +54,8 @@ export default function SettingsPage({ isOpen, onClose, user, unmigratedLocalCha
     showTimestamps: true,
   }
 
-  const modelSettings: ModelSettingsState = {
-    'gemini-2.0-flash': { enabled: true },
-    'gemini-2.0-flash-lite': { enabled: true },
-    'gemini-2.5-flash': { enabled: true },
-    'gemini-2.5-pro': { enabled: false },
-    'openrouter/google/gemini-flash-1.5': { enabled: true },
-    'openrouter/anthropic/claude-3.5-sonnet': { enabled: true },
-    'openrouter/mistralai/mistral-large': { enabled: true },
-    'openrouter/openai/gpt-4o': { enabled: true },
-  }
-
-  const apiKeys: ApiKey[] = [
-    { id: '1', name: 'My Gemini Key', provider: 'gemini', key: 'gmn_xxxxxxxxxxxxxx' },
-    { id: '2', name: 'Personal OpenRouter', provider: 'openrouter', key: 'or_xxxxxxxxxxxxxx' },
-  ]
+  // This will be replaced by settings from the DB
+  const modelSettings: ModelSettingsState = {}
 
   const settingsSections = [
     { id: 'account', label: 'My Account', icon: User },
@@ -78,7 +70,7 @@ export default function SettingsPage({ isOpen, onClose, user, unmigratedLocalCha
       case 'account':
         return <AccountSettings user={user} />
       case 'models':
-        return <ModelsSettings apiKeys={apiKeys} modelSettings={modelSettings} />
+        return <ModelsKeysSettings apiKeys={apiKeys || []} userSettings={userSettings} />
       case 'customize':
         return <CustomizeSettings customization={customization} />
       case 'data':
@@ -226,3 +218,5 @@ export default function SettingsPage({ isOpen, onClose, user, unmigratedLocalCha
     </AnimatePresence>
   )
 }
+
+export default React.memo(SettingsPageContents)

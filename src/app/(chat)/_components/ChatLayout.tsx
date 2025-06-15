@@ -7,6 +7,7 @@ import { TopControls } from './components/TopControls'
 import { UserMetadata } from '@/lib/types'
 import { useAuth } from '@/hooks/useAuth'
 import { useFont } from '@/hooks/useFont'
+import { useCallback, useMemo } from 'react'
 
 interface ChatLayoutProps {
   children: React.ReactNode
@@ -36,6 +37,16 @@ export default function ChatLayout({ children, userMetadata: serverUserMetadata,
 
   const { isSignedIn, userMetadata, isPending } = useAuth({ serverIsSignedIn, serverUserMetadata })
   useFont()
+
+  const handleSettingsClose = useCallback(() => {
+    setSettingsOpen(false)
+  }, [setSettingsOpen])
+
+  const memoizedUser = useMemo(() => ({
+    name: userMetadata.name || '',
+    email: userMetadata.email || '',
+    image: userMetadata.image || '',
+  }), [userMetadata])
 
   const isOnHomePage = currentChatId === null
 
@@ -93,11 +104,7 @@ export default function ChatLayout({ children, userMetadata: serverUserMetadata,
       </div>
 
       {/* Settings Page */}
-      {userMetadata.email && <SettingsPage isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} user={{
-        name: userMetadata.name || '',
-        email: userMetadata.email || '',
-        image: userMetadata.image || '',
-      }} unmigratedLocalChats={unmigratedLocalChats} />}
+      {userMetadata.email && <SettingsPage isOpen={settingsOpen} onClose={handleSettingsClose} user={memoizedUser} unmigratedLocalChats={unmigratedLocalChats} />}
     </div>
   )
 }
