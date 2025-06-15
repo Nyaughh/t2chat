@@ -2,6 +2,7 @@
 
 import { Copy, Check, RotateCcw } from 'lucide-react'
 import { ModelDropdown } from '@/components/ui/model-dropdown'
+import { ModelInfo } from '@/lib/models'
 
 interface MessageActionsProps {
   messageId: string
@@ -9,7 +10,7 @@ interface MessageActionsProps {
   modelId?: string
   copiedId: string | null
   retryDropdownId: string | null
-  selectedModel: string
+  selectedModel: ModelInfo
   isStreaming: boolean
   onCopy: (text: string, messageId: string) => void
   onRetryClick: (messageId: string) => void
@@ -17,6 +18,7 @@ interface MessageActionsProps {
   onCloseRetryDropdown: () => void
   getModelDisplayName: (modelId?: string) => string | null
   getProviderColor: (modelId?: string) => string
+  isSignedIn: boolean
 }
 
 export function MessageActions({
@@ -33,9 +35,10 @@ export function MessageActions({
   onCloseRetryDropdown,
   getModelDisplayName,
   getProviderColor,
+  isSignedIn,
 }: MessageActionsProps) {
   return (
-    <div className="flex items-center gap-4 opacity-0 group-hover:opacity-100 transition-opacity duration-150 ease-[0.25,1,0.5,1] relative">
+    <div className="flex items-center gap-4 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity duration-150 ease-[0.25,1,0.5,1] relative">
       {!isStreaming && (
         <div className="flex items-center gap-1">
           <button
@@ -59,6 +62,7 @@ export function MessageActions({
                 onModelSelect={(modelId) => onRetryWithModel(messageId, modelId)}
                 onClose={onCloseRetryDropdown}
                 className="absolute left-0"
+                isSignedIn={isSignedIn}
               />
             )}
           </div>

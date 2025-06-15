@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils'
 import { ChatList } from './ChatList'
 import { UserProfile } from './UserProfile'
 import { UserMetadata } from '@/lib/types'
+import { memo, useCallback } from 'react'
 
 interface SidebarProps {
   effectiveSidebarOpen: boolean
@@ -30,7 +31,7 @@ interface SidebarProps {
   onSettingsClick: () => void
 }
 
-export function Sidebar({
+export const Sidebar = memo(function Sidebar({
   effectiveSidebarOpen,
   isOnHomePage,
   searchQuery,
@@ -49,6 +50,10 @@ export function Sidebar({
   onChatDelete,
   onSettingsClick,
 }: SidebarProps) {
+  const handleSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    onSearchChange(e.target.value)
+  }, [onSearchChange])
+
   return (
     <div
       className={cn(
@@ -101,7 +106,7 @@ export function Sidebar({
               type="text"
               placeholder="Search conversations..."
               value={searchQuery}
-              onChange={(e) => onSearchChange(e.target.value)}
+              onChange={handleSearchChange}
               className="w-full pl-10 pr-3 py-1.5 bg-transparent text-sm text-black dark:text-white placeholder-black/50 dark:placeholder-white/50 focus:outline-none"
             />
           </div>
@@ -125,4 +130,4 @@ export function Sidebar({
       />
     </div>
   )
-} 
+}) 

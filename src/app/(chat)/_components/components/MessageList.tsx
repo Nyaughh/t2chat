@@ -2,6 +2,7 @@
 
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { MessageItem } from './MessageItem'
+import { ModelInfo } from '@/lib/models'
 
 interface MessageListProps {
   messages: any[]
@@ -9,7 +10,7 @@ interface MessageListProps {
   editingContent: string
   copiedId: string | null
   retryDropdownId: string | null
-  selectedModel: string
+  selectedModel: ModelInfo
   isStreaming: boolean
   editInputRef: React.RefObject<HTMLTextAreaElement | null>
   scrollAreaRef: React.RefObject<HTMLDivElement | null>
@@ -26,6 +27,7 @@ interface MessageListProps {
   onCloseRetryDropdown: () => void
   getModelDisplayName: (modelId?: string) => string | null
   getProviderColor: (modelId?: string) => string
+  isSignedIn: boolean
 }
 
 export function MessageList({
@@ -51,6 +53,7 @@ export function MessageList({
   onCloseRetryDropdown,
   getModelDisplayName,
   getProviderColor,
+  isSignedIn,
 }: MessageListProps) {
   return (
     <ScrollArea className="h-full scrollbar-hide" ref={scrollAreaRef}>
@@ -78,6 +81,7 @@ export function MessageList({
             onCloseRetryDropdown={onCloseRetryDropdown}
             getModelDisplayName={getModelDisplayName}
             getProviderColor={getProviderColor}
+            isSignedIn={isSignedIn}
           />
         ))}
 

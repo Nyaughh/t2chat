@@ -1,16 +1,17 @@
 'use client'
 
 import React, { useState, useEffect, useRef } from 'react'
-import { Check, RotateCcw } from 'lucide-react'
-import { models } from '@/lib/models'
+import { Check, Lightbulb } from 'lucide-react'
+import { models, ModelInfo } from '@/lib/models'
 import { cn } from '@/lib/utils'
 import { AnimatePresence, motion } from 'framer-motion'
 
 interface ModelDropdownProps {
-  selectedModel?: string
+  selectedModel: ModelInfo
   onModelSelect: (modelId: string) => void
   onClose: () => void
   className?: string
+  isSignedIn: boolean
 }
 
 const getCategoryColor = (category: string) => {
@@ -38,7 +39,7 @@ const getCategoryColor = (category: string) => {
   }
 }
 
-export function ModelDropdown({ selectedModel, onModelSelect, onClose, className }: ModelDropdownProps) {
+export function ModelDropdown({ selectedModel, onModelSelect, onClose, className, isSignedIn }: ModelDropdownProps) {
   const [isOpen, setIsOpen] = useState(true)
   const [showAbove, setShowAbove] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
@@ -49,11 +50,8 @@ export function ModelDropdown({ selectedModel, onModelSelect, onClose, className
       const buttonRect = dropdownRef.current.parentElement?.getBoundingClientRect()
 
       if (buttonRect) {
-        // Check if there's enough space below the button
         const spaceBelow = window.innerHeight - buttonRect.bottom
-        const dropdownHeight = 250 // max-height of dropdown
-
-        // If not enough space below, show above
+        const dropdownHeight = 250
         setShowAbove(spaceBelow < dropdownHeight && buttonRect.top > dropdownHeight)
       }
     }
@@ -65,12 +63,6 @@ export function ModelDropdown({ selectedModel, onModelSelect, onClose, className
     onClose()
   }
 
-  const handleRetrySame = () => {
-    if (selectedModel) {
-      handleModelSelect(selectedModel)
-    }
-  }
-
   const handleBackdropClick = () => {
     setIsOpen(false)
     onClose()
@@ -78,14 +70,11 @@ export function ModelDropdown({ selectedModel, onModelSelect, onClose, className
 
   if (!isOpen) return null
 
-  const selectedModelInfo = models.find((m) => m.id === selectedModel)
+  const availableModels = isSignedIn ? models : models.filter((m) => m.isFree)
 
   return (
     <div className={cn('relative z-50', className)}>
-      {/* Backdrop */}
       <div className="fixed inset-0 bg-black/20 dark:bg-black/40" onClick={handleBackdropClick} />
-
-      {/* Dropdown */}
       <AnimatePresence>
         <motion.div
           ref={dropdownRef}
@@ -94,63 +83,57 @@ export function ModelDropdown({ selectedModel, onModelSelect, onClose, className
           exit={{ opacity: 0, y: showAbove ? 8 : -8, scale: 0.95 }}
           transition={{ duration: 0.15, ease: [0.25, 1, 0.5, 1] }}
           className={cn(
-            'absolute left-0 bg-white dark:bg-[oklch(0.18_0.015_25)] rounded-lg border border-rose-200/50 dark:border-rose-500/20 shadow-2xl overflow-hidden w-[240px]',
-            showAbove ? 'bottom-0 mb-1' : 'top-0 mt-1',
+            'absolute left-0 bg-white dark:bg-[oklch(0.18_0.015_25)] rounded-lg border border-rose-200/50 dark:border-rose-500/20 shadow-2xl overflow-hidden w-[280px]',
+            showAbove ? 'bottom-full mb-1' : 'top-full mt-1',
           )}
         >
-          {/* Models List */}
           <div
-            className="max-h-[250px] overflow-y-auto"
+            className="max-h-[300px] overflow-y-auto p-2"
             style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgb(244 63 94 / 0.3) transparent' }}
           >
-            <div className="p-2">
-              {/* Retry Same Button */}
-              {selectedModel && (
-                <button
-                  onClick={handleRetrySame}
-                  className="w-full p-2 rounded-md transition-all duration-150 ease-[0.25,1,0.5,1] text-left border mb-2 bg-rose-50 dark:bg-rose-900/20 border-rose-200 dark:border-rose-500/30 hover:bg-rose-100/50 dark:hover:bg-rose-900/30 hover:scale-[1.02]"
-                >
-                  <div className="flex items-center gap-2">
-                    <RotateCcw className="w-3.5 h-3.5 text-rose-500 dark:text-rose-300 flex-shrink-0" />
-                    <span className="text-sm font-medium text-rose-700 dark:text-rose-200">Retry Same</span>
-                  </div>
-                </button>
-              )}
-
-              {/* Divider */}
-              {selectedModel && <div className="border-b border-rose-200/30 dark:border-rose-500/20 mb-2" />}
-
-              {/* Model Options */}
-              {models.map((model) => (
-                <button
-                  key={model.id}
-                  onClick={() => handleModelSelect(model.id)}
-                  className={cn(
-                    'w-full p-2 rounded-md transition-all duration-150 ease-[0.25,1,0.5,1] text-left border mb-1',
-                    'hover:bg-rose-100/50 dark:hover:bg-rose-900/20 hover:scale-[1.02]',
-                    selectedModel === model.id
-                      ? 'bg-rose-100/50 dark:bg-rose-900/30 border-rose-500/50'
-                      : 'border-transparent',
-                  )}
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 min-w-0 flex-1">
-                      <div
-                        className={cn(
-                          'w-2.5 h-2.5 rounded-full bg-gradient-to-r flex-shrink-0',
-                          getCategoryColor(model.category),
-                        )}
-                      />
-                      <span className="text-sm text-rose-900 dark:text-rose-100 truncate">{model.name}</span>
-                    </div>
-
-                    {selectedModel === model.id && (
-                      <Check className="w-3.5 h-3.5 text-rose-500 dark:text-rose-300 flex-shrink-0" />
+            {availableModels.map((model) => (
+              <button
+                key={model.id}
+                onClick={() => handleModelSelect(model.id)}
+                className={cn(
+                  'group w-full p-1.5 cursor-pointer transition-all duration-150 ease-[0.25,1,0.5,1] relative overflow-hidden text-left rounded-md flex items-center justify-between',
+                  selectedModel.id === model.id
+                    ? 'text-rose-600 dark:text-rose-300'
+                    : 'hover:text-rose-600 dark:hover:text-rose-300 text-black/70 dark:text-white/70',
+                )}
+              >
+                {selectedModel.id === model.id && (
+                  <motion.div
+                    layoutId="model-highlight"
+                    className="absolute inset-0 bg-gradient-to-r from-transparent via-rose-500/10 dark:via-rose-300/10 to-transparent"
+                  />
+                )}
+                <div className="flex items-center gap-2 min-w-0 flex-1 relative z-10">
+                  <div
+                    className={cn(
+                      'w-2 h-2 rounded-full bg-gradient-to-r flex-shrink-0',
+                      getCategoryColor(model.category),
                     )}
-                  </div>
-                </button>
-              ))}
-            </div>
+                  />
+                  <span className="text-sm truncate">{model.name}</span>
+                </div>
+                <div className="relative z-10 flex items-center gap-2">
+                  {model.supportsThinking && (
+                    <Lightbulb
+                      className={cn(
+                        'w-3.5 h-3.5',
+                        selectedModel.id === model.id
+                          ? 'text-rose-500'
+                          : 'text-rose-400/60 dark:text-rose-500/60',
+                      )}
+                    />
+                  )}
+                  {selectedModel.id === model.id && (
+                    <Check className="w-3.5 h-3.5 text-rose-500 dark:text-rose-300 flex-shrink-0" />
+                  )}
+                </div>
+              </button>
+            ))}
           </div>
         </motion.div>
       </AnimatePresence>

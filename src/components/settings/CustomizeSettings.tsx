@@ -1,6 +1,7 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { cn } from '@/lib/utils'
 import { X, User, Sparkles, Palette, Zap, SendHorizonal, ArrowUp, MessageCircle, ChevronRight } from 'lucide-react'
+import { useFont } from '@/hooks/useFont'
 
 // Define Customization type
 export type CustomizationState = {
@@ -9,8 +10,8 @@ export type CustomizationState = {
   userTraits: string[]
   userAdditionalInfo: string
   promptTemplate: string
-  mainFont: 'inter' | 'system' | 'serif' | 'mono'
-  codeFont: 'fira-code' | 'mono' | 'consolas' | 'jetbrains'
+  mainFont: 'inter' | 'system' | 'serif' | 'mono' | 'roboto-slab'
+  codeFont: 'fira-code' | 'mono' | 'consolas' | 'jetbrains' | 'source-code-pro'
   sendBehavior: 'enter' | 'shiftEnter' | 'button'
   autoSave: boolean
   showTimestamps: boolean
@@ -128,9 +129,46 @@ const CustomizationRadio = ({
   </label>
 )
 
+const CustomizationFontRadio = ({
+  name,
+  value,
+  checked,
+  onChange,
+  label,
+  fontClass,
+}: {
+  name: string
+  value: string
+  checked: boolean
+  onChange: (e: any) => void
+  label: string
+  fontClass: string
+}) => (
+  <label
+    className={cn(
+      'flex items-center justify-center p-2 rounded-md cursor-pointer border transition-colors text-center',
+      checked
+        ? 'bg-rose-500/10 border-rose-500/30 text-rose-600 dark:text-rose-300'
+        : 'bg-black/5 dark:bg-white/5 border-transparent hover:bg-black/10 dark:hover:bg-white/10',
+    )}
+  >
+    <input type="radio" name={name} value={value} checked={checked} onChange={onChange} className="sr-only" />
+    <span className={cn('text-sm font-semibold', fontClass)}>{label}</span>
+  </label>
+)
+
 export function CustomizeSettings({ customization }: { customization: CustomizationState }) {
-  const [localCustomization, setLocalCustomization] = useState<CustomizationState>(customization)
+  const { mainFont, setMainFont, codeFont, setCodeFont } = useFont()
+  const [localCustomization, setLocalCustomization] = useState<CustomizationState>({
+    ...customization,
+    mainFont,
+    codeFont,
+  })
   const [traitInput, setTraitInput] = useState('')
+
+  useEffect(() => {
+    setLocalCustomization(prev => ({...prev, mainFont, codeFont}))
+  }, [mainFont, codeFont])
 
   const handleAddTrait = () => {
     if (traitInput && !localCustomization.userTraits.includes(traitInput)) {
@@ -151,6 +189,21 @@ export function CustomizeSettings({ customization }: { customization: Customizat
       ...prev,
       userTraits: prev.userTraits.filter((_, i) => i !== index),
     }))
+  }
+
+  const handleMainFontChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newFont = e.target.value as 'inter' | 'system' | 'serif' | 'mono' | 'roboto-slab';
+    setMainFont(newFont);
+  }
+
+  const handleCodeFontChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newFont = e.target.value as 'fira-code' | 'mono' | 'consolas' | 'jetbrains' | 'source-code-pro';
+    setCodeFont(newFont);
+  }
+
+  const getMainFontPreviewClass = (font: 'inter' | 'system' | 'serif' | 'mono' | 'roboto-slab') => {
+    if (font === 'inter' || font === 'system') return 'font-sans';
+    return `font-${font}`;
   }
 
   return (
@@ -248,32 +301,115 @@ export function CustomizeSettings({ customization }: { customization: Customizat
       <div>
         <h3 className="text-lg font-semibold text-black/80 dark:text-white/80 flex items-center gap-2 mb-2">
           <Palette className="w-5 h-5" />
-          Appearance
+          Visual Appearance
         </h3>
         <div className="space-y-4 p-4 rounded-lg bg-black/5 dark:bg-white/5">
-          <CustomizationSelect
-            id="mainFont"
-            label="Main Font"
-            value={localCustomization.mainFont}
-            onChange={(e) => setLocalCustomization({ ...localCustomization, mainFont: e.target.value })}
-          >
-            <option value="inter">Inter (Default)</option>
-            <option value="system">System UI</option>
-            <option value="serif">Serif</option>
-            <option value="mono">Monospace</option>
-          </CustomizationSelect>
-
-          <CustomizationSelect
-            id="codeFont"
-            label="Code Font"
-            value={localCustomization.codeFont}
-            onChange={(e) => setLocalCustomization({ ...localCustomization, codeFont: e.target.value })}
-          >
-            <option value="fira-code">Fira Code (Default)</option>
-            <option value="mono">System Mono</option>
-            <option value="consolas">Consolas</option>
-            <option value="jetbrains">JetBrains Mono</option>
-          </CustomizationSelect>
+          <div>
+            <label className="block text-sm font-medium text-black/70 dark:text-white/70 mb-2">
+              Main Font
+            </label>
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+              <CustomizationFontRadio
+                name="mainFont"
+                value="inter"
+                checked={localCustomization.mainFont === 'inter'}
+                onChange={handleMainFontChange}
+                label="Inter"
+                fontClass="font-sans"
+              />
+              <CustomizationFontRadio
+                name="mainFont"
+                value="system"
+                checked={localCustomization.mainFont === 'system'}
+                onChange={handleMainFontChange}
+                label="System"
+                fontClass="font-sans"
+              />
+              <CustomizationFontRadio
+                name="mainFont"
+                value="serif"
+                checked={localCustomization.mainFont === 'serif'}
+                onChange={handleMainFontChange}
+                label="Serif"
+                fontClass="font-serif"
+              />
+              <CustomizationFontRadio
+                name="mainFont"
+                value="mono"
+                checked={localCustomization.mainFont === 'mono'}
+                onChange={handleMainFontChange}
+                label="Mono"
+                fontClass="font-mono"
+              />
+              <CustomizationFontRadio
+                name="mainFont"
+                value="roboto-slab"
+                checked={localCustomization.mainFont === 'roboto-slab'}
+                onChange={handleMainFontChange}
+                label="Roboto Slab"
+                fontClass="font-roboto-slab"
+              />
+            </div>
+            <div className="mt-2 p-3 rounded-lg bg-black/5 dark:bg-white/10 border border-black/5 dark:border-white/5">
+              <p className={cn("text-base", getMainFontPreviewClass(localCustomization.mainFont))}>
+                The quick brown fox jumps over the lazy dog.
+              </p>
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-black/70 dark:text-white/70 mb-2">
+              Code Font
+            </label>
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+              <CustomizationFontRadio
+                name="codeFont"
+                value="fira-code"
+                checked={localCustomization.codeFont === 'fira-code'}
+                onChange={handleCodeFontChange}
+                label="Fira Code"
+                fontClass="font-mono"
+              />
+              <CustomizationFontRadio
+                name="codeFont"
+                value="mono"
+                checked={localCustomization.codeFont === 'mono'}
+                onChange={handleCodeFontChange}
+                label="System Mono"
+                fontClass="font-mono"
+              />
+              <CustomizationFontRadio
+                name="codeFont"
+                value="consolas"
+                checked={localCustomization.codeFont === 'consolas'}
+                onChange={handleCodeFontChange}
+                label="Consolas"
+                fontClass="font-mono"
+              />
+              <CustomizationFontRadio
+                name="codeFont"
+                value="jetbrains"
+                checked={localCustomization.codeFont === 'jetbrains'}
+                onChange={handleCodeFontChange}
+                label="JetBrains"
+                fontClass="font-mono"
+              />
+              <CustomizationFontRadio
+                name="codeFont"
+                value="source-code-pro"
+                checked={localCustomization.codeFont === 'source-code-pro'}
+                onChange={handleCodeFontChange}
+                label="Source Code Pro"
+                fontClass="font-source-code-pro"
+              />
+            </div>
+            <div className="mt-2 p-3 rounded-lg bg-black/5 dark:bg-white/10 border border-black/5 dark:border-white/5">
+              <pre className="whitespace-pre-wrap"><code className={cn("text-sm", `font-${localCustomization.codeFont}`)}>
+                {`function greet(name) {
+  return \`Hello, \${name}!\`;
+}`}
+              </code></pre>
+            </div>
+          </div>
         </div>
       </div>
 

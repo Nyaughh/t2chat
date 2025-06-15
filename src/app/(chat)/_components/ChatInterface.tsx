@@ -126,7 +126,7 @@ export default function ChatInterface({ chatId, initialMessages }: ChatInterface
               editingContent={editingContent}
               copiedId={copiedId}
               retryDropdownId={retryDropdownId}
-              selectedModel={selectedModel.id}
+              selectedModel={selectedModel}
               isStreaming={isStreaming}
               editInputRef={editInputRef}
               scrollAreaRef={scrollAreaRef}
@@ -143,6 +143,7 @@ export default function ChatInterface({ chatId, initialMessages }: ChatInterface
               onCloseRetryDropdown={() => setRetryDropdownId(null)}
               getModelDisplayName={getModelDisplayName}
               getProviderColor={getProviderColor}
+              isSignedIn={isAuthenticated}
             />
           </ChatErrorBoundary>
         )}

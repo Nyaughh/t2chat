@@ -5,6 +5,8 @@ import { useChatLayout } from './hooks/useChatLayout'
 import { Sidebar } from './components/Sidebar'
 import { TopControls } from './components/TopControls'
 import { UserMetadata, ConvexChat } from '@/lib/types'
+import { useAuth } from '@/hooks/useAuth'
+import { useFont } from '@/hooks/useFont'
 
 interface ChatLayoutProps {
   children: React.ReactNode
@@ -13,8 +15,8 @@ interface ChatLayoutProps {
   initialChats?: ConvexChat[] | null
 }
 
-export default function ChatLayout({ children, userMetadata, isSignedIn, initialChats }: ChatLayoutProps) {
-  const {
+export default function ChatLayout({ children, userMetadata: serverUserMetadata, isSignedIn: serverIsSignedIn, initialChats }: ChatLayoutProps) {
+  const { 
     settingsOpen,
     setSettingsOpen,
     effectiveSidebarOpen,
@@ -29,9 +31,17 @@ export default function ChatLayout({ children, userMetadata, isSignedIn, initial
     groupedChats,
     handleConversationSelect,
     createNewChat,
-    isOnHomePage,
     toggleSidebar,
   } = useChatLayout(initialChats)
+
+  const { isSignedIn, userMetadata, isPending } = useAuth({ serverIsSignedIn, serverUserMetadata })
+  useFont()
+
+  const isOnHomePage = currentChatId === null
+
+  if (isPending) {
+    // ... existing code ...
+  }
 
   return (
     <div className="flex h-[100dvh] bg-background overflow-hidden">

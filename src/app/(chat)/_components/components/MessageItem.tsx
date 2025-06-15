@@ -4,13 +4,8 @@ import { Edit3, FileText, Image as ImageIcon, ExternalLink } from 'lucide-react'
 import MessageRenderer from '@/components/MessageRenderer'
 import { EditMessageForm } from './EditMessageForm'
 import { MessageActions } from './MessageActions'
-
-interface Attachment {
-  name: string
-  type: string
-  size: number
-  url: string
-}
+import { Attachment } from '@/lib/types'
+import { ModelInfo } from '@/lib/models'
 
 interface MessageItemProps {
   message: {
@@ -26,7 +21,7 @@ interface MessageItemProps {
   editingContent: string
   copiedId: string | null
   retryDropdownId: string | null
-  selectedModel: string
+  selectedModel: ModelInfo
   isStreaming: boolean
   editInputRef: React.RefObject<HTMLTextAreaElement | null>
   isCurrentlyStreaming: (messageId: string) => boolean
@@ -41,6 +36,7 @@ interface MessageItemProps {
   onCloseRetryDropdown: () => void
   getModelDisplayName: (modelId?: string) => string | null
   getProviderColor: (modelId?: string) => string
+  isSignedIn: boolean
 }
 
 export function MessageItem({
@@ -64,6 +60,7 @@ export function MessageItem({
   onCloseRetryDropdown,
   getModelDisplayName,
   getProviderColor,
+  isSignedIn,
 }: MessageItemProps) {
   return (
     <div
@@ -155,11 +152,12 @@ export function MessageItem({
             onCloseRetryDropdown={onCloseRetryDropdown}
             getModelDisplayName={getModelDisplayName}
             getProviderColor={getProviderColor}
+            isSignedIn={isSignedIn}
           />
         )}
 
         {message.role === 'user' && editingMessageId !== message.id && (
-          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-150 ease-[0.25,1,0.5,1]">
+          <div className="flex items-center gap-1 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity duration-150 ease-[0.25,1,0.5,1]">
             <button
               onClick={() => onStartEditing(message.id, message.content)}
               className="p-1.5 text-rose-500/70 hover:text-rose-600 dark:text-rose-300/70 dark:hover:text-rose-300 hover:bg-rose-500/5 dark:hover:bg-rose-300/5 rounded transition-all duration-150 ease-[0.25,1,0.5,1] hover:scale-110"
