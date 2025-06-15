@@ -1,6 +1,6 @@
 'use client'
 import { useIsMobile } from './use-mobile'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 
 export function useSidebar() {
   const isMobile = useIsMobile()
@@ -20,15 +20,16 @@ export function useSidebar() {
     }
   }, [isMobile])
 
-  const toggleSidebar = () => {
-    const newState = !sidebarOpen
-    setSidebarOpen(newState)
-
-    // Save preference to localStorage on desktop only
-    if (typeof window !== 'undefined' && !isMobile) {
-      localStorage.setItem('t2chat-sidebar-open', newState.toString())
-    }
-  }
+  const toggleSidebar = useCallback(() => {
+    setSidebarOpen(open => {
+      const newState = !open
+      // Save preference to localStorage on desktop only
+      if (typeof window !== 'undefined' && !isMobile) {
+        localStorage.setItem('t2chat-sidebar-open', newState.toString())
+      }
+      return newState
+    })
+  }, [isMobile])
 
   return { sidebarOpen, toggleSidebar, isDesktop: !isMobile }
 }

@@ -1,6 +1,6 @@
 'use client'
 
-import { Copy, Check, RotateCcw } from 'lucide-react'
+import { Copy, Check, RotateCcw, GitFork } from 'lucide-react'
 import { ModelDropdown } from '@/components/ui/model-dropdown'
 import { ModelInfo } from '@/lib/models'
 
@@ -16,6 +16,7 @@ interface MessageActionsProps {
   onRetryClick: (messageId: string) => void
   onRetryWithModel: (messageId: string, modelId: string) => void
   onCloseRetryDropdown: () => void
+  onBranch: (messageId: string) => void
   getModelDisplayName: (modelId?: string) => string | null
   getProviderColor: (modelId?: string) => string
   isSignedIn: boolean
@@ -33,6 +34,7 @@ export function MessageActions({
   onRetryClick,
   onRetryWithModel,
   onCloseRetryDropdown,
+  onBranch,
   getModelDisplayName,
   getProviderColor,
   isSignedIn,
@@ -47,6 +49,13 @@ export function MessageActions({
             title="Copy message"
           >
             {copiedId === messageId ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+          </button>
+          <button
+            onClick={() => onBranch(messageId)}
+            className="p-1.5 text-rose-500/70 hover:text-rose-600 dark:text-rose-300/70 dark:hover:text-rose-300 hover:bg-rose-500/5 dark:hover:bg-rose-300/5 rounded transition-all duration-150 ease-[0.25,1,0.5,1] hover:scale-110"
+            title="Branch from this message"
+          >
+            <GitFork className="w-4 h-4" />
           </button>
           <div className="relative">
             <button

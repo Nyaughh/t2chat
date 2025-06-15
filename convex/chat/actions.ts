@@ -12,6 +12,7 @@ import {
   smoothStream,
   tool,
   CoreMessage,
+  generateText,
 } from 'ai';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { createOpenRouter } from '@openrouter/ai-sdk-provider';
@@ -415,7 +416,6 @@ export const sendMessage = action({
     }
 
 
-
     // Get chat history for context
     const messages = await ctx.runQuery(api.chat.queries.getChatMessages, { chatId });
 
@@ -478,4 +478,34 @@ export const sendMessage = action({
       throw error;
     }
   },
+});
+
+export const generateTitle = action({
+  args: {
+    chatId: v.id("chats"),
+    messageContent: v.string(),
+    modelId: v.string(),
+  },
+  handler: async (ctx, { chatId, messageContent, modelId }) => {
+
+
+    const google = createGoogleGenerativeAI({ apiKey: process.env.GEMINI_API_KEY });
+
+
+    const aiModel = google('gemini-2.0-flash-lite');
+
+    const { text } = await generateText({
+      model: aiModel,
+      prompt: `Based on the following user message, generate a short, concise title for the chat (4-5 words max):\n\nUser: "${messageContent}"\n\nTitle:`
+    });
+    
+    let finalTitle = "";
+    finalTitle = text;
+
+    console.log("Final title:", finalTitle);
+    await ctx.runMutation(api.chat.mutations.updateChatTitle, {
+      chatId,
+      title: finalTitle.replace(/"/g, ''),
+    });
+  }
 }); 

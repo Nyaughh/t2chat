@@ -64,6 +64,7 @@
     "next-themes": "^0.4.6",
     "pg": "^8.16.0",
     "react": "^19.0.0",
+    "react-contexify": "^6.0.0",
     "react-day-picker": "^9.7.0",
     "react-dom": "^19.0.0",
     "react-error-boundary": "^6.0.0",
@@ -89,6 +90,7 @@
   "devDependencies": {
     "@better-auth/cli": "^1.2.9",
     "@tailwindcss/postcss": "^4",
+    "@types/lodash": "^4.17.17",
     "@types/node": "^20",
     "@types/pg": "^8.15.4",
     "@types/react": "^19",

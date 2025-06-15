@@ -20,6 +20,7 @@ interface SidebarProps {
   totalChats: number
   isSignedIn: boolean
   userMetadata: UserMetadata
+  editingChatId: string | null
   onTouchStart: (e: React.TouchEvent) => void
   onTouchMove: (e: React.TouchEvent) => void
   onTouchEnd: (e: React.TouchEvent) => void
@@ -28,6 +29,8 @@ interface SidebarProps {
   onNewChat: () => void
   onChatSelect: (chatId: string) => void
   onChatDelete: (chatId: string) => void
+  onChatRename: (chatId: string, currentTitle: string) => void
+  onChatShare: (chatId: string) => void
   onSettingsClick: () => void
 }
 
@@ -40,6 +43,7 @@ export const Sidebar = memo(function Sidebar({
   totalChats,
   isSignedIn,
   userMetadata,
+  editingChatId,
   onTouchStart,
   onTouchMove,
   onTouchEnd,
@@ -48,6 +52,8 @@ export const Sidebar = memo(function Sidebar({
   onNewChat,
   onChatSelect,
   onChatDelete,
+  onChatRename,
+  onChatShare,
   onSettingsClick,
 }: SidebarProps) {
   const handleSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -119,8 +125,11 @@ export const Sidebar = memo(function Sidebar({
         groupedChats={groupedChats}
         currentChatId={currentChatId}
         totalChats={totalChats}
+        editingChatId={editingChatId}
         onChatSelect={onChatSelect}
         onChatDelete={onChatDelete}
+        onChatRename={onChatRename}
+        onChatShare={onChatShare}
       />
 
       <UserProfile

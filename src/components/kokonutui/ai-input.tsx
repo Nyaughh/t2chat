@@ -8,6 +8,8 @@ import { useAutoResizeTextarea } from '@/hooks/resize-textarea'
 import { ArrowUpCircle, Paperclip, Globe, ChevronDown, Sparkles, Lightbulb, Plus, Square, X, FileText, Image, Upload } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { ModelInfo, models } from '@/lib/models'
+import { useQuery } from 'convex/react'
+import { api } from '../../../convex/_generated/api'
 
 interface Attachment {
   name: string
@@ -89,7 +91,9 @@ export default function AIInput({
   })
   const uploadButtonRef = useRef<HTMLDivElement>(null)
 
-  const availableModels = isSignedIn ? models : models.filter((m) => m.isFree)
+  const apiKeys = useQuery(api.api_keys.getApiKeys) || []
+
+  const availableModels = models
   const supportsAttachments = selectedModel.attachmentsSuppport.image || selectedModel.attachmentsSuppport.pdf
   const maxFiles = 2
 
@@ -204,7 +208,7 @@ export default function AIInput({
     // switch to a model that doesn't require thinking
     if (!enabled && selectedModel.supportsThinking) {
       // Find the first model that doesn't require thinking
-      const nonThinkingModel = models.find((m) => !m.supportsThinking)
+      const nonThinkingModel = models.find((m) => !m.supportsThinking && (isSignedIn || m.isFree))
       if (nonThinkingModel) {
         setSelectedModel(nonThinkingModel)
       }
@@ -536,9 +540,15 @@ export default function AIInput({
                                     selectedModel.id === model.id
                                       ? 'text-rose-600 dark:text-rose-300'
                                       : 'hover:text-rose-600 dark:hover:text-rose-300 text-black/70 dark:text-white/70',
-                                    !thinkingEnabled && model.supportsThinking && 'opacity-40 cursor-not-allowed',
+                                    (!thinkingEnabled && model.supportsThinking) && 'opacity-40 cursor-not-allowed',
+                                    !isSignedIn && !model.isFree && 'opacity-40 cursor-not-allowed',
+                                    model.isPro && !apiKeys.some(k => k.service === model.provider) && 'opacity-40 cursor-not-allowed',
                                   )}
-                                  disabled={!thinkingEnabled && model.supportsThinking}
+                                  disabled={
+                                    (!thinkingEnabled && model.supportsThinking) || 
+                                    (!isSignedIn && !model.isFree) ||
+                                    (model.isPro && !apiKeys.some(k => k.service === model.provider))
+                                  }
                                 >
                                   {/* Premium background for active state */}
                                   {selectedModel.id === model.id && (

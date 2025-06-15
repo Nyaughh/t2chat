@@ -34,6 +34,7 @@ interface MessageItemProps {
   onRetryClick: (messageId: string) => void
   onRetryWithModel: (messageId: string, modelId: string) => void
   onCloseRetryDropdown: () => void
+  onBranch: (messageId: string) => void
   getModelDisplayName: (modelId?: string) => string | null
   getProviderColor: (modelId?: string) => string
   isSignedIn: boolean
@@ -58,6 +59,7 @@ export function MessageItem({
   onRetryClick,
   onRetryWithModel,
   onCloseRetryDropdown,
+  onBranch,
   getModelDisplayName,
   getProviderColor,
   isSignedIn,
@@ -150,6 +152,7 @@ export function MessageItem({
             onRetryClick={onRetryClick}
             onRetryWithModel={onRetryWithModel}
             onCloseRetryDropdown={onCloseRetryDropdown}
+            onBranch={onBranch}
             getModelDisplayName={getModelDisplayName}
             getProviderColor={getProviderColor}
             isSignedIn={isSignedIn}
