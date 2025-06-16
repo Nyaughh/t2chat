@@ -7,6 +7,7 @@ import { ChatList } from './ChatList'
 import { UserProfile } from './UserProfile'
 import { UserMetadata } from '@/lib/types'
 import { memo, useCallback } from 'react'
+import Link from 'next/link'
 
 interface SidebarProps {
   effectiveSidebarOpen: boolean
@@ -84,9 +85,11 @@ export const Sidebar = memo(function Sidebar({
               <Menu className="w-4.5 h-4.5" />
             </button>
           </div>
-          <h1 className="text-xl font-bold bg-gradient-to-r from-rose-600 via-rose-500 to-rose-600 dark:from-rose-300 dark:via-rose-200 dark:to-rose-300 bg-clip-text text-transparent tracking-tight leading-none">
-            T2Chat
-          </h1>
+          <Link href="/">
+            <h1 className="text-xl font-bold bg-gradient-to-r from-rose-600 via-rose-500 to-rose-600 dark:from-rose-300 dark:via-rose-200 dark:to-rose-300 bg-clip-text text-transparent tracking-tight leading-none">
+              T2Chat
+            </h1>
+          </Link>
         </div>
 
         <div className="space-y-2">

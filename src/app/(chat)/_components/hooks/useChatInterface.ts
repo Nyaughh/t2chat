@@ -10,6 +10,7 @@ export function useChatInterface(chatId?: string, initialMessages?: ConvexMessag
   const [inputValue, setInputValue] = useState('')
   const [isTyping, setIsTyping] = useState(false)
   const [attachments, setAttachments] = useState<Attachment[]>([])
+  const [isNewChat, setIsNewChat] = useState(false)
 
   const {
     messages: activeMessages,
@@ -35,6 +36,9 @@ export function useChatInterface(chatId?: string, initialMessages?: ConvexMessag
         size: a.size,
         url: a.url,
       }))
+      if (!currentChatId) {
+        setIsNewChat(true)
+      }
       handleNewMessage(message, { 
         attachments: mappedAttachments, 
         modelId: model,
@@ -49,7 +53,7 @@ export function useChatInterface(chatId?: string, initialMessages?: ConvexMessag
     setInputValue(prompt)
   }
 
-  const showWelcomeScreen = !currentChatId && activeMessages.length === 0 && inputValue.length === 0
+  const showWelcomeScreen = !isNewChat && !currentChatId && activeMessages.length === 0 && inputValue.length === 0
 
   const isCurrentlyStreaming = (messageId: string) => {
     return isStreaming && activeMessages[activeMessages.length - 1]?.id === messageId

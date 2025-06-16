@@ -1,1 +1,1 @@
-![logo](https://portfolio-2-xi-wine.vercel.app/_next/image?url=%2Flogo.png&w=1920&q=75)
+![logo](https://gl.chiikawa-pocket.com/en/_astro/Chiikawa.oi0RVduO.png)

@@ -4,7 +4,7 @@ import React, { memo, useMemo, useState } from 'react'
 import { useTheme } from 'next-themes'
 import { MemoizedMarkdown } from './MemoizedMarkdown'
 import { MarkdownContent } from './ui/markdown-content'
-import { ChevronDown, Brain } from 'lucide-react'
+import { ChevronDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { models } from '@/lib/models'
 
@@ -60,7 +60,6 @@ const MessageRenderer: React.FC<MessageRendererProps> = memo(
               onClick={() => setIsThinkingCollapsed(!isThinkingCollapsed)}
               className="flex items-center gap-2 text-left group hover:bg-black/5 dark:hover:bg-white/5 rounded-md px-2 py-1 transition-colors"
             >
-              <Brain className="w-3.5 h-3.5 text-rose-500/70 dark:text-rose-300/70 flex-shrink-0" />
               <span
                 className={cn(
                   'text-xs font-medium flex-1',

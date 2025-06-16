@@ -12,6 +12,7 @@ import {
   type ApiKey,
   type CustomizationState,
   type ModelSettingsState,
+  SettingsSidebar,
 } from './settings'
 import { AttachmentsSettings } from './settings/attachments'
 import { Conversation } from '@/lib/dexie'
@@ -29,9 +30,15 @@ interface SettingsPageProps {
   unmigratedLocalChats: Conversation[]
 }
 
-type SettingsSection = 'account' | 'models' | 'customize' | 'data' | 'attachments'
+export type SettingsSection = 'account' | 'models' | 'customize' | 'data' | 'attachments'
 
-// This should be exported from AccountSettings.tsx and re-exported from index.tsx
+export const settingsSections = [
+  { id: 'account', label: 'My Account', icon: User },
+  { id: 'models', label: 'Models & Keys', icon: Brain },
+  { id: 'customize', label: 'Customization', icon: Sparkles },
+  { id: 'data', label: 'Manage Data', icon: Database },
+  { id: 'attachments', label: 'Attachments', icon: Paperclip },
+]
 
 const SettingsPageContents = ({ isOpen, onClose, user, unmigratedLocalChats }: SettingsPageProps) => {
   const [activeSection, setActiveSection] = useState<SettingsSection>('account')
@@ -56,14 +63,6 @@ const SettingsPageContents = ({ isOpen, onClose, user, unmigratedLocalChats }: S
 
   // This will be replaced by settings from the DB
   const modelSettings: ModelSettingsState = {}
-
-  const settingsSections = [
-    { id: 'account', label: 'My Account', icon: User },
-    { id: 'models', label: 'Models & Keys', icon: Brain },
-    { id: 'customize', label: 'Customization', icon: Sparkles },
-    { id: 'data', label: 'Manage Data', icon: Database },
-    { id: 'attachments', label: 'Attachments', icon: Paperclip },
-  ]
 
   const renderContent = () => {
     switch (activeSection) {
@@ -99,39 +98,11 @@ const SettingsPageContents = ({ isOpen, onClose, user, unmigratedLocalChats }: S
       </header>
 
       <div className={cn('flex flex-1 min-h-0', isMobile && 'flex-col')}>
-        {/* Sidebar for Desktop, Tabs for Mobile */}
-        <aside
-          className={cn(
-            'flex-shrink-0',
-            isMobile
-              ? 'p-2 border-b border-black/10 dark:border-white/10'
-              : 'w-56 p-4 border-r border-black/10 dark:border-white/10',
-          )}
-        >
-          <nav
-            className={cn(
-              'flex',
-              isMobile ? 'flex-row space-x-1 overflow-x-auto scrollbar-hide' : 'flex-col space-y-1',
-            )}
-          >
-            {settingsSections.map((section) => (
-              <button
-                key={section.id}
-                onClick={() => setActiveSection(section.id as SettingsSection)}
-                className={cn(
-                  'flex-shrink-0 flex items-center gap-2.5 px-3 py-2 text-sm rounded-lg transition-colors',
-                  activeSection === section.id
-                    ? 'bg-rose-500/10 text-rose-600 dark:bg-rose-300/10 dark:text-rose-300 font-semibold'
-                    : 'text-black/70 dark:text-white/70 hover:bg-black/5 dark:hover:bg-white/5',
-                  isMobile ? 'justify-center' : 'w-full text-left',
-                )}
-              >
-                <section.icon className="w-4 h-4" />
-                <span>{section.label}</span>
-              </button>
-            ))}
-          </nav>
-        </aside>
+        <SettingsSidebar
+          activeSection={activeSection}
+          setActiveSection={setActiveSection}
+          isMobile={isMobile}
+        />
 
         {/* Main Content */}
         <main className="flex-1 p-6 overflow-y-auto">

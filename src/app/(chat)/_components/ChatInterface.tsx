@@ -174,7 +174,7 @@ export default function ChatInterface({ chatId, initialMessages }: ChatInterface
       />
 
       <div className="fixed md:absolute bottom-0 left-0 right-0 z-30">
-        <div className="max-w-4xl mx-auto w-full px-4 md:px-4">
+        <div className="max-w-4xl mx-auto w-full px-4 pb-4 md:px-4">
           <AIInput
             value={inputValue}
             onValueChange={setInputValue}

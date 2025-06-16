@@ -88,7 +88,7 @@ export function MessageList({
           />
         ))}
 
-        {isStreaming && messages[messages.length - 1]?.role === 'assistant' && (
+        {isStreaming && messages[messages.length - 1]?.role === 'assistant' && !messages[messages.length - 1]?.content && (
           <div className="flex justify-start">
             <div className="text-black dark:text-white px-4 py-3">
               <div className="flex gap-1.5 items-center">

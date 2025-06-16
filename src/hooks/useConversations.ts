@@ -163,12 +163,29 @@ export const useConversations = (
     return dexieConversations || []
   }, [isAuthenticated, isConvexStreaming, cachedConvexChats, convexChats, dexieConversations])
 
+  const unmigratedLocalChatsRef = useRef<DBConversation[]>([])
   const unmigratedLocalChats = useMemo(() => {
-    if (!isAuthenticated || !dexieConversations || !convexChats) return [];
-    
-    const convexChatIds = new Set(convexChats.map(c => c._id));
-    return dexieConversations.filter(c => !convexChatIds.has(c.id as Id<"chats">));
-  }, [isAuthenticated, dexieConversations, convexChats]);
+    if (!isAuthenticated || !dexieConversations || !convexChats) {
+      return []
+    }
+
+    const convexChatIds = new Set(convexChats.map(c => c._id))
+    const newUnmigrated = dexieConversations.filter(
+      c => !convexChatIds.has(c.id as Id<'chats'>),
+    )
+
+    const oldUnmigrated = unmigratedLocalChatsRef.current
+
+    if (
+      newUnmigrated.length === oldUnmigrated.length &&
+      newUnmigrated.every((chat, i) => chat.id === oldUnmigrated[i].id)
+    ) {
+      return oldUnmigrated
+    }
+
+    unmigratedLocalChatsRef.current = newUnmigrated
+    return newUnmigrated
+  }, [isAuthenticated, dexieConversations, convexChats])
 
   // Sync Convex chats to Dexie for local-first access
   useEffect(() => {

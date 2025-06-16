@@ -27,7 +27,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        <script crossOrigin="anonymous" async src="//unpkg.com/react-scan/dist/auto.global.js" />
+        {/* <script crossOrigin="anonymous" async src="//unpkg.com/react-scan/dist/auto.global.js" /> */}
       </head>
       <body className={`${inter.variable} ${interTight.variable} antialiased`} suppressHydrationWarning>
         <ConvexClientProvider>

@@ -5,7 +5,7 @@ import type React from 'react'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { cn } from '@/lib/utils'
 import { useAutoResizeTextarea } from '@/hooks/resize-textarea'
-import { ArrowUpCircle, Paperclip, Globe, ChevronDown, Sparkles, Lightbulb, Plus, Square, X, FileText, Image, Upload } from 'lucide-react'
+import { ArrowUpCircle, Paperclip, Globe, ChevronDown, Sparkles, Lightbulb, Plus, Square, X, FileText, Image, Upload, ArrowRight } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { ModelInfo, models } from '@/lib/models'
 import { useQuery } from 'convex/react'
@@ -252,7 +252,7 @@ export default function AIInput({
     <div className="relative">
       <div 
         className={cn(
-          "relative flex flex-col bg-white/70 dark:bg-[oklch(0.18_0.015_25)]/30 backdrop-blur-xl border-t border-x border-rose-500/10 dark:border-white/10 overflow-visible rounded-t-2xl shadow-lg shadow-rose-500/5 dark:shadow-lg dark:shadow-black/20 transition-all duration-200",
+          "relative flex flex-col bg-white/70 dark:bg-[oklch(0.18_0.015_25)]/30 backdrop-blur-xl border border-rose-500/10 dark:border-white/10 overflow-visible rounded-2xl shadow-lg shadow-rose-500/5 dark:shadow-lg dark:shadow-black/20 transition-all duration-200",
           isDragOver && "border-rose-500/30 dark:border-rose-300/30 bg-rose-500/5 dark:bg-rose-300/5"
         )}
         onDragOver={handleDragOver}
@@ -261,7 +261,7 @@ export default function AIInput({
       >
         {/* Drag overlay */}
         {isDragOver && (
-          <div className="absolute inset-0 z-50 flex items-center justify-center bg-rose-500/10 dark:bg-rose-300/10 backdrop-blur-sm rounded-t-2xl border-2 border-dashed border-rose-500/50 dark:border-rose-300/50">
+          <div className="absolute inset-0 z-50 flex items-center justify-center bg-rose-500/10 dark:bg-rose-300/10 backdrop-blur-sm rounded-2xl border-2 border-dashed border-rose-500/50 dark:border-rose-300/50">
             <div className="text-center">
               <Upload className="w-8 h-8 mx-auto mb-2 text-rose-500 dark:text-rose-300" />
               <p className="text-sm font-medium text-rose-600 dark:text-rose-300">
@@ -272,8 +272,8 @@ export default function AIInput({
         )}
 
         {/* Subtle gradient overlay for premium look */}
-        <div className="absolute inset-0 bg-gradient-to-br from-rose-500/5 via-transparent to-rose-500/10 dark:from-rose-500/10 dark:via-transparent dark:to-rose-500/20 pointer-events-none rounded-t-2xl"></div>
-        <div className="absolute inset-0 bg-gradient-to-t from-transparent via-transparent to-white/20 dark:to-white/5 pointer-events-none rounded-t-2xl"></div>
+        <div className="absolute inset-0 bg-gradient-to-br from-rose-500/5 via-transparent to-rose-500/10 dark:from-rose-500/10 dark:via-transparent dark:to-rose-500/20 pointer-events-none rounded-2xl"></div>
+        <div className="absolute inset-0 bg-gradient-to-t from-transparent via-transparent to-white/20 dark:to-white/5 pointer-events-none rounded-2xl"></div>
 
         {/* Attachments Display */}
         {(attachments.length > 0 || isUploading) && (
@@ -644,7 +644,7 @@ export default function AIInput({
                 title="Stop generation (Esc)"
                 className="p-2 md:p-2.5 transition-all duration-300 rounded-full text-rose-500 dark:text-rose-300 hover:shadow-md hover:shadow-rose-500/20 dark:hover:shadow-rose-500/20 scale-100"
               >
-                <Square className="w-5 md:w-6 h-5 md:h-6 transition-transform duration-300 animate-pulse" />
+                <Square className="w-4 md:w-5 h-4 md:h-5 transition-transform duration-300 animate-pulse" />
               </button>
             ) : (
               <button
@@ -652,16 +652,16 @@ export default function AIInput({
                 onClick={handleSend}
                 disabled={!value.trim() || isStreaming}
                 className={cn(
-                  'p-2 md:p-2.5 transition-all duration-300 rounded-full',
+                  'group p-2 md:p-2.5 transition-all duration-300 rounded-full',
                   (value.trim()) && !isTyping
-                    ? 'text-rose-500 dark:text-rose-300 hover:shadow-md hover:shadow-rose-500/20 dark:hover:shadow-rose-500/20 scale-100'
+                    ? 'text-rose-500 dark:text-rose-300 shadow-md shadow-rose-500/20 dark:shadow-rose-500/20 scale-100 hover:bg-rose-500/5 dark:hover:bg-rose-300/5'
                     : 'text-black/30 dark:text-rose-300/30 scale-95',
                 )}
               >
-                <ArrowUpCircle
+                <ArrowRight
                   className={cn(
-                    'w-5 md:w-6 h-5 md:h-6 transition-transform duration-300',
-                    (value.trim()) && !isStreaming && 'hover:translate-y-[-2px]',
+                    'w-5 md:w-6 h-5 md:h-6 transition-transform duration-300 -rotate-90',
+                    (value.trim()) && !isStreaming && 'translate-y-[-2px] group-hover:translate-y-[-4px]',
                   )}
                 />
               </button>
@@ -671,7 +671,7 @@ export default function AIInput({
       </div>
 
       {/* Premium subtle glow effect in dark mode */}
-      <div className="absolute inset-0 -z-10 bg-gradient-to-r from-rose-300/0 via-rose-300/5 to-rose-300/0 rounded-t-2xl blur-xl opacity-0 dark:opacity-30 pointer-events-none"></div>
+      <div className="absolute inset-0 -z-10 bg-gradient-to-r from-rose-300/0 via-rose-300/5 to-rose-300/0 rounded-2xl blur-xl opacity-0 dark:opacity-30 pointer-events-none"></div>
     </div>
   )
 }
