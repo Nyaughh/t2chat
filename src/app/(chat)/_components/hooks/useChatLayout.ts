@@ -7,11 +7,9 @@ import { useConversations } from '@/hooks/useConversations'
 import { useTouch } from '@/hooks/useTouch'
 import { useChatSearch } from './useChatSearch'
 import { useChatGroups } from './useChatGroups'
-import { ConvexChat } from '@/lib/types'
 
 export function useChatLayout() {
   const [mounted, setMounted] = useState(false)
-  const [settingsOpen, setSettingsOpen] = useState(false)
   const { sidebarOpen, toggleSidebar } = useSidebar()
   const {
     chats: activeChats,
@@ -53,8 +51,6 @@ export function useChatLayout() {
 
   return {
     mounted,
-    settingsOpen,
-    setSettingsOpen,
     sidebarOpen,
     toggleSidebar,
     effectiveSidebarOpen,

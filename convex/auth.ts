@@ -7,7 +7,7 @@ import {
 import { convex } from "@convex-dev/better-auth/plugins";
 import { betterAuth } from "better-auth";
 import { api, components, internal } from "./_generated/api";
-import { query, type GenericCtx } from "./_generated/server";
+import { internalMutation, query, type GenericCtx } from "./_generated/server";
 import type { Id, DataModel } from "./_generated/dataModel";
 
 // Typesafe way to pass Convex functions defined in this file
@@ -55,11 +55,17 @@ export const {
   deleteUser,
   createSession,
   isAuthenticated,
+  storeUser,
 } =
   betterAuthComponent.createAuthFunctions<DataModel>({
     // Must create a user and return the user id
     onCreateUser: async (ctx, user) => {
-      return ctx.db.insert("users", {});
+      const userId = await ctx.db.insert("users", {});
+      await ctx.scheduler.runAfter(0, internal.auth.storeUser, {
+        betterAuthId: user.id,
+        userId: userId,
+      })
+      return userId
     },
 
     // Delete the user when they are deleted from Better Auth
@@ -85,5 +91,35 @@ export const getCurrentUser = query({
       ...user,
       ...userMetadata,
     };
+  },
+});
+
+export const getOrCreateUser = internalMutation({
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_token", (q) =>
+        q.eq("tokenIdentifier", identity.tokenIdentifier)
+      )
+      .unique();
+
+    if (user) {
+      return user._id;
+    }
+
+    const userId = await ctx.db.insert("users", {
+      name: identity.name!,
+      email: identity.email!,
+      image: identity.pictureUrl!,
+      tokenIdentifier: identity.tokenIdentifier,
+      isPro: false,
+    });
+
+    return userId;
   },
 });

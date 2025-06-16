@@ -20,6 +20,11 @@ export type CustomizationState = {
   showTimestamps: boolean
 }
 
+interface CustomizeSettingsProps {
+  customization: CustomizationState;
+  onSettingsChange: (settings: Partial<CustomizationState>) => void;
+}
+
 const CustomizationInput = ({
   id,
   label,
@@ -160,7 +165,7 @@ const CustomizationFontRadio = ({
   </label>
 )
 
-export function CustomizeSettings({ customization }: { customization: CustomizationState }) {
+export function CustomizeSettings({ customization, onSettingsChange }: CustomizeSettingsProps) {
   const { mainFont, setMainFont, codeFont, setCodeFont } = useFont()
   const [localCustomization, setLocalCustomization] = useState<CustomizationState>({
     ...customization,
@@ -168,24 +173,23 @@ export function CustomizeSettings({ customization }: { customization: Customizat
     codeFont,
   })
   const [traitInput, setTraitInput] = useState('')
-  const updateSettings = useMutation(api.users.updateUserSettings)
-
-  const handleSettingsChange = useCallback(
+  
+  const debouncedSettingsChange = useCallback(
     debounce((settings: Partial<CustomizationState>) => {
-      updateSettings(settings)
+      onSettingsChange(settings)
     }, 500),
-    [updateSettings],
-  )
+    [onSettingsChange]
+  );
 
   useEffect(() => {
     setLocalCustomization(prev => ({...prev, mainFont, codeFont}))
-    handleSettingsChange({ mainFont, codeFont })
-  }, [mainFont, codeFont, handleSettingsChange])
+    debouncedSettingsChange({ mainFont, codeFont })
+  }, [mainFont, codeFont, debouncedSettingsChange])
 
   const handleChange = (field: keyof CustomizationState, value: any) => {
     setLocalCustomization(prev => {
       const newState = { ...prev, [field]: value }
-      handleSettingsChange({ [field]: value })
+      debouncedSettingsChange({ [field]: value })
       return newState
     })
   }
