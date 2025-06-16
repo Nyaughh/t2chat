@@ -143,3 +143,64 @@ export const getChatMessages = query({
       return { chat, messages };
     }
   })
+
+export const listChats = query({
+    args: {
+        isBranch: v.optional(v.boolean()),
+    },
+    handler: async (ctx, { isBranch }) => {
+      const userId = await betterAuthComponent.getAuthUserId(ctx);
+      if (!userId) {
+        return [];
+      }
+      const chats = await ctx.db
+        .query("chats")
+        .withIndex("by_user", (q) => q.eq("userId", userId as Id<"users">))
+        .filter(q => q.eq(q.field("isBranch"), isBranch))
+        .order("desc")
+        .collect();
+      
+      return Promise.all(
+        chats.map(async (chat) => {
+          const lastMessage = await ctx.db
+            .query("messages")
+            .withIndex("by_chat", q => q.eq("chatId", chat._id))
+            .order("desc")
+            .first();
+          return {
+            ...chat,
+            lastMessageContent: lastMessage?.content,
+            lastMessageTimestamp: lastMessage?._creationTime,
+          };
+        })
+      );
+    },
+});
+
+export const exportAllConversations = query({
+    args: {},
+    handler: async (ctx) => {
+        const userId = await betterAuthComponent.getAuthUserId(ctx);
+        if (!userId) {
+            throw new Error("Authentication required");
+        }
+
+        const chats = await ctx.db
+            .query("chats")
+            .withIndex("by_user", (q) => q.eq("userId", userId as Id<"users">))
+            .collect();
+
+        const allMessages = await Promise.all(
+            chats.map(chat => 
+                ctx.db.query("messages")
+                    .withIndex("by_chat", q => q.eq("chatId", chat._id))
+                    .collect()
+            )
+        );
+
+        return {
+            chats,
+            messages: allMessages.flat(),
+        };
+    },
+});

@@ -2,27 +2,19 @@ import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
 import { getOneFrom } from "convex-helpers/server/relationships";
 import { Id } from "./_generated/dataModel";
+import { betterAuthComponent } from "./auth";
 
 export const getApiKeys = query({
   args: {},
   handler: async (ctx) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      return [];
-    }
-
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_token", (q) => q.eq("tokenIdentifier", identity.tokenIdentifier))
-      .unique();
-
-    if (!user) {
+    const userId = await betterAuthComponent.getAuthUserId(ctx);
+    if (!userId) {
       return [];
     }
 
     return await ctx.db
       .query("apiKeys")
-      .withIndex("by_user_and_service", (q) => q.eq("userId", user._id))
+      .withIndex("by_user_and_service", (q) => q.eq("userId", userId as Id<"users">))
       .collect();
   },
 });
@@ -35,19 +27,17 @@ export const saveApiKey = mutation({
         key: v.string(),
     },
     handler: async (ctx, { _id, name, service, key }) => {
-        const identity = await ctx.auth.getUserIdentity();
-        if (!identity) throw new Error("Not authenticated");
-        const user = await ctx.db.query("users").withIndex("by_token", q => q.eq("tokenIdentifier", identity.tokenIdentifier)).unique();
-        if (!user) throw new Error("User not found");
+        const userId = await betterAuthComponent.getAuthUserId(ctx);
+        if (!userId) throw new Error("Not authenticated");
 
         if (_id) {
             // It's an update
             const existingKey = await ctx.db.get(_id);
-            if (existingKey?.userId !== user._id) throw new Error("Not authorized to edit this key");
+            if (existingKey?.userId !== userId) throw new Error("Not authorized to edit this key");
             await ctx.db.patch(_id, { name, key });
         } else {
             // It's a new key
-            await ctx.db.insert("apiKeys", { userId: user._id, name, service, key, is_default: false });
+            await ctx.db.insert("apiKeys", { userId: userId as Id<"users">, name, service, key, is_default: false });
         }
     }
 });
@@ -55,13 +45,11 @@ export const saveApiKey = mutation({
 export const deleteApiKey = mutation({
     args: { _id: v.id("apiKeys") },
     handler: async (ctx, { _id }) => {
-        const identity = await ctx.auth.getUserIdentity();
-        if (!identity) throw new Error("Not authenticated");
-        const user = await ctx.db.query("users").withIndex("by_token", q => q.eq("tokenIdentifier", identity.tokenIdentifier)).unique();
-        if (!user) throw new Error("User not found");
+        const userId = await betterAuthComponent.getAuthUserId(ctx);
+        if (!userId) throw new Error("Not authenticated");
 
         const existingKey = await ctx.db.get(_id);
-        if (existingKey?.userId !== user._id) throw new Error("Not authorized to delete this key");
+        if (existingKey?.userId !== userId) throw new Error("Not authorized to delete this key");
         
         await ctx.db.delete(_id);
     }
@@ -70,17 +58,15 @@ export const deleteApiKey = mutation({
 export const setDefaultApiKey = mutation({
     args: { _id: v.id("apiKeys") },
     handler: async (ctx, { _id }) => {
-        const identity = await ctx.auth.getUserIdentity();
-        if (!identity) throw new Error("Not authenticated");
-        const user = await ctx.db.query("users").withIndex("by_token", q => q.eq("tokenIdentifier", identity.tokenIdentifier)).unique();
-        if (!user) throw new Error("User not found");
+        const userId = await betterAuthComponent.getAuthUserId(ctx);
+        if (!userId) throw new Error("Not authenticated");
 
         const targetKey = await ctx.db.get(_id);
-        if (!targetKey || targetKey.userId !== user._id) throw new Error("Key not found or not authorized");
+        if (!targetKey || targetKey.userId !== userId) throw new Error("Key not found or not authorized");
 
         // Unset any other default key for the same service
         const otherDefaults = await ctx.db.query("apiKeys")
-            .withIndex("by_user_and_service", q => q.eq("userId", user._id).eq("service", targetKey.service))
+            .withIndex("by_user_and_service", q => q.eq("userId", userId as Id<"users">).eq("service", targetKey.service))
             .filter(q => q.eq(q.field("is_default"), true))
             .collect();
         

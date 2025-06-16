@@ -1,7 +1,10 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { cn } from '@/lib/utils'
 import { X, User, Sparkles, Palette, Zap, SendHorizonal, ArrowUp, MessageCircle, ChevronRight } from 'lucide-react'
 import { useFont } from '@/hooks/useFont'
+import { useMutation } from 'convex/react'
+import { api } from '../../../convex/_generated/api'
+import { debounce } from 'lodash'
 
 // Define Customization type
 export type CustomizationState = {
@@ -165,14 +168,32 @@ export function CustomizeSettings({ customization }: { customization: Customizat
     codeFont,
   })
   const [traitInput, setTraitInput] = useState('')
+  const updateSettings = useMutation(api.users.updateUserSettings)
+
+  const handleSettingsChange = useCallback(
+    debounce((settings: Partial<CustomizationState>) => {
+      updateSettings(settings)
+    }, 500),
+    [updateSettings],
+  )
 
   useEffect(() => {
     setLocalCustomization(prev => ({...prev, mainFont, codeFont}))
-  }, [mainFont, codeFont])
+    handleSettingsChange({ mainFont, codeFont })
+  }, [mainFont, codeFont, handleSettingsChange])
+
+  const handleChange = (field: keyof CustomizationState, value: any) => {
+    setLocalCustomization(prev => {
+      const newState = { ...prev, [field]: value }
+      handleSettingsChange({ [field]: value })
+      return newState
+    })
+  }
 
   const handleAddTrait = () => {
     if (traitInput && !localCustomization.userTraits.includes(traitInput)) {
-      setLocalCustomization((prev) => ({ ...prev, userTraits: [...prev.userTraits, traitInput] }))
+      const newTraits = [...localCustomization.userTraits, traitInput]
+      handleChange('userTraits', newTraits)
       setTraitInput('')
     }
   }
@@ -185,10 +206,8 @@ export function CustomizeSettings({ customization }: { customization: Customizat
   }
 
   const handleRemoveTrait = (index: number) => {
-    setLocalCustomization((prev) => ({
-      ...prev,
-      userTraits: prev.userTraits.filter((_, i) => i !== index),
-    }))
+    const newTraits = localCustomization.userTraits.filter((_, i) => i !== index)
+    handleChange('userTraits', newTraits)
   }
 
   const handleMainFontChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -219,14 +238,14 @@ export function CustomizeSettings({ customization }: { customization: Customizat
             id="userName"
             label="Your Name"
             value={localCustomization.userName}
-            onChange={(e) => setLocalCustomization({ ...localCustomization, userName: e.target.value })}
+            onChange={(e) => handleChange('userName', e.target.value)}
             placeholder="e.g., Jane Doe"
           />
           <CustomizationInput
             id="userRole"
             label="Your Role/Profession"
             value={localCustomization.userRole}
-            onChange={(e) => setLocalCustomization({ ...localCustomization, userRole: e.target.value })}
+            onChange={(e) => handleChange('userRole', e.target.value)}
             placeholder="e.g., Software Engineer, Student, etc."
           />
           <div>
@@ -271,7 +290,7 @@ export function CustomizeSettings({ customization }: { customization: Customizat
             id="userAdditionalInfo"
             label="Additional Information"
             value={localCustomization.userAdditionalInfo}
-            onChange={(e) => setLocalCustomization({ ...localCustomization, userAdditionalInfo: e.target.value })}
+            onChange={(e) => handleChange('userAdditionalInfo', e.target.value)}
             placeholder="Anything else you want the AI to know about you?"
             isTextArea
           />
@@ -289,8 +308,8 @@ export function CustomizeSettings({ customization }: { customization: Customizat
             id="promptTemplate"
             label="System Prompt"
             value={localCustomization.promptTemplate}
-            onChange={(e) => setLocalCustomization({ ...localCustomization, promptTemplate: e.target.value })}
-            placeholder="e.g., You are a helpful and friendly assistant. Always respond in Markdown."
+            onChange={(e) => handleChange('promptTemplate', e.target.value)}
+            placeholder="e.g., You are a helpful assistant that is an expert in..."
             isTextArea
             rows={5}
           />
@@ -308,7 +327,7 @@ export function CustomizeSettings({ customization }: { customization: Customizat
             <label className="block text-sm font-medium text-black/70 dark:text-white/70 mb-2">
               Main Font
             </label>
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+            <div className="grid grid-cols-2 gap-2">
               <CustomizationFontRadio
                 name="mainFont"
                 value="inter"
@@ -360,21 +379,21 @@ export function CustomizeSettings({ customization }: { customization: Customizat
             <label className="block text-sm font-medium text-black/70 dark:text-white/70 mb-2">
               Code Font
             </label>
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+            <div className="grid grid-cols-2 gap-2">
               <CustomizationFontRadio
                 name="codeFont"
                 value="fira-code"
                 checked={localCustomization.codeFont === 'fira-code'}
                 onChange={handleCodeFontChange}
                 label="Fira Code"
-                fontClass="font-mono"
+                fontClass="font-fira-code"
               />
               <CustomizationFontRadio
                 name="codeFont"
                 value="mono"
                 checked={localCustomization.codeFont === 'mono'}
                 onChange={handleCodeFontChange}
-                label="System Mono"
+                label="Monospace"
                 fontClass="font-mono"
               />
               <CustomizationFontRadio
@@ -383,7 +402,7 @@ export function CustomizeSettings({ customization }: { customization: Customizat
                 checked={localCustomization.codeFont === 'consolas'}
                 onChange={handleCodeFontChange}
                 label="Consolas"
-                fontClass="font-mono"
+                fontClass="font-consolas"
               />
               <CustomizationFontRadio
                 name="codeFont"
@@ -391,14 +410,14 @@ export function CustomizeSettings({ customization }: { customization: Customizat
                 checked={localCustomization.codeFont === 'jetbrains'}
                 onChange={handleCodeFontChange}
                 label="JetBrains"
-                fontClass="font-mono"
+                fontClass="font-jetbrains"
               />
               <CustomizationFontRadio
                 name="codeFont"
                 value="source-code-pro"
                 checked={localCustomization.codeFont === 'source-code-pro'}
                 onChange={handleCodeFontChange}
-                label="Source Code Pro"
+                label="Source Code"
                 fontClass="font-source-code-pro"
               />
             </div>
@@ -424,12 +443,12 @@ export function CustomizeSettings({ customization }: { customization: Customizat
             <label className="block text-sm font-medium text-black/70 dark:text-white/70 mb-2">
               Send Message on Enter
             </label>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="flex flex-wrap gap-2">
               <CustomizationRadio
                 name="sendBehavior"
                 value="enter"
                 checked={localCustomization.sendBehavior === 'enter'}
-                onChange={(e) => setLocalCustomization({ ...localCustomization, sendBehavior: e.target.value })}
+                onChange={(e) => handleChange('sendBehavior', e.target.value)}
                 label="Enter"
                 icon={SendHorizonal}
               />
@@ -437,15 +456,15 @@ export function CustomizeSettings({ customization }: { customization: Customizat
                 name="sendBehavior"
                 value="shiftEnter"
                 checked={localCustomization.sendBehavior === 'shiftEnter'}
-                onChange={(e) => setLocalCustomization({ ...localCustomization, sendBehavior: e.target.value })}
-                label="Shift+Enter"
+                onChange={(e) => handleChange('sendBehavior', e.target.value)}
+                label="Shift + Enter"
                 icon={ArrowUp}
               />
               <CustomizationRadio
                 name="sendBehavior"
                 value="button"
                 checked={localCustomization.sendBehavior === 'button'}
-                onChange={(e) => setLocalCustomization({ ...localCustomization, sendBehavior: e.target.value })}
+                onChange={(e) => handleChange('sendBehavior', e.target.value)}
                 label="Button Only"
                 icon={MessageCircle}
               />
@@ -459,16 +478,13 @@ export function CustomizeSettings({ customization }: { customization: Customizat
               </label>
               <p className="text-xs text-black/50 dark:text-white/50">Automatically save chat history.</p>
             </div>
-            <label className="relative inline-flex items-center cursor-pointer">
-              <input
-                type="checkbox"
-                id="autoSave"
-                className="sr-only peer"
-                checked={localCustomization.autoSave}
-                onChange={(e) => setLocalCustomization({ ...localCustomization, autoSave: e.target.checked })}
-              />
-              <div className="w-9 h-5 bg-black/20 peer-focus:outline-none rounded-full peer dark:bg-white/20 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-rose-500/70 dark:peer-checked:bg-rose-400/70"></div>
-            </label>
+            <input
+              type="checkbox"
+              id="autoSave"
+              checked={localCustomization.autoSave}
+              onChange={(e) => handleChange('autoSave', e.target.checked)}
+              className="w-4 h-4 rounded text-rose-600 focus:ring-rose-500"
+            />
           </div>
 
           <div className="flex items-center justify-between">
@@ -478,16 +494,13 @@ export function CustomizeSettings({ customization }: { customization: Customizat
               </label>
               <p className="text-xs text-black/50 dark:text-white/50">Display the time for each message.</p>
             </div>
-            <label className="relative inline-flex items-center cursor-pointer">
-              <input
-                type="checkbox"
-                id="showTimestamps"
-                className="sr-only peer"
-                checked={localCustomization.showTimestamps}
-                onChange={(e) => setLocalCustomization({ ...localCustomization, showTimestamps: e.target.checked })}
-              />
-              <div className="w-9 h-5 bg-black/20 peer-focus:outline-none rounded-full peer dark:bg-white/20 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-rose-500/70 dark:peer-checked:bg-rose-400/70"></div>
-            </label>
+            <input
+              type="checkbox"
+              id="showTimestamps"
+              checked={localCustomization.showTimestamps}
+              onChange={(e) => handleChange('showTimestamps', e.target.checked)}
+              className="w-4 h-4 rounded text-rose-600 focus:ring-rose-500"
+            />
           </div>
         </div>
       </div>

@@ -147,17 +147,10 @@ const generateAIResponse = async (
 
             const data = await response.json();
             
-            // Format the search results
-            const results = data.results?.map((result: any) => ({
-              title: result.title,
-              url: result.url,
-              content: result.content,
-            })) || [];
-
             return {
               query,
               answer: data.answer || '',
-              results,
+              results: data.results || [],
               timestamp: new Date().toISOString(),
             };
           } catch (error) {
@@ -191,6 +184,7 @@ const generateAIResponse = async (
   let accumulatedThinking = "";
   let thinkingStartTime: number | null = null;
   let thinkingEndTime: number | null = null;
+  let accumulatedToolCalls: any[] = [];
 
   for await (const chunk of fullStream) {
     try {
@@ -216,6 +210,7 @@ const generateAIResponse = async (
         }
         
         if (provider === 'gemini') {
+          console.log("gemini reasoning", chunk);
           // Handle Google's reasoning differently
           if (typeof chunk.textDelta === 'string' && chunk.textDelta.startsWith('**')) {
             // This is reasoning content - accumulate it
@@ -247,6 +242,27 @@ const generateAIResponse = async (
             isComplete: false,
           });
         }
+      } else if (chunk.type === 'tool-call') {
+        console.log("tool-call", chunk);
+        accumulatedToolCalls.push({
+          toolCallId: chunk.toolCallId,
+          toolName: chunk.toolName,
+          args: chunk.args,
+        });
+        await ctx.runMutation(api.chat.mutations.updateMessage, {
+          messageId: assistantMessageId,
+          toolCalls: accumulatedToolCalls,
+        });
+      } else if (chunk.type === 'tool-result') {
+        console.log("tool-result", chunk);
+        const toolCall = accumulatedToolCalls.find(tc => tc.toolCallId === chunk.toolCallId);
+        if (toolCall) {
+          toolCall.result = chunk.result;
+        }
+        await ctx.runMutation(api.chat.mutations.updateMessage, {
+          messageId: assistantMessageId,
+          toolCalls: accumulatedToolCalls,
+        });
       } else if (chunk.type === 'finish') {
         // Track thinking end time
         if (thinkingStartTime && !thinkingEndTime) {
@@ -265,6 +281,7 @@ const generateAIResponse = async (
           thinking: accumulatedThinking || undefined,
           thinkingDuration: duration,
           isComplete: true,
+          toolCalls: accumulatedToolCalls,
         });
         break;
       } else if (chunk.type === 'error') {
@@ -291,6 +308,7 @@ const generateAIResponse = async (
       content: accumulatedContent || "Generation was interrupted.",
       thinking: accumulatedThinking || undefined,
       isComplete: true,
+      toolCalls: accumulatedToolCalls,
     });
   } catch (finalUpdateError) {
     console.warn('Failed to mark message as complete:', finalUpdateError);

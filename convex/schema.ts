@@ -18,6 +18,16 @@ export default defineSchema({
     use_keys_for_tavily: v.optional(v.boolean()),
     uploadthing_key: v.optional(v.string()),
     tavily_key: v.optional(v.string()),
+    userName: v.optional(v.string()),
+    userRole: v.optional(v.string()),
+    userTraits: v.optional(v.array(v.string())),
+    userAdditionalInfo: v.optional(v.string()),
+    promptTemplate: v.optional(v.string()),
+    mainFont: v.optional(v.union(v.literal('inter'), v.literal('system'), v.literal('serif'), v.literal('mono'), v.literal('roboto-slab'))),
+    codeFont: v.optional(v.union(v.literal('fira-code'), v.literal('mono'), v.literal('consolas'), v.literal('jetbrains'), v.literal('source-code-pro'))),
+    sendBehavior: v.optional(v.union(v.literal('enter'), v.literal('shiftEnter'), v.literal('button'))),
+    autoSave: v.optional(v.boolean()),
+    showTimestamps: v.optional(v.boolean()),
   }).index("by_user", ["userId"]),
   
   apiKeys: defineTable({
@@ -54,6 +64,12 @@ export default defineSchema({
       type: v.string(),
       size: v.number(),
       url: v.string(),
+    }))),
+    toolCalls: v.optional(v.array(v.object({
+      toolCallId: v.string(),
+      toolName: v.string(),
+      args: v.any(),
+      result: v.optional(v.any()),
     }))),
     createdAt: v.number(),
   }).index("by_chat", ["chatId"])

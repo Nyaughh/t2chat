@@ -65,6 +65,8 @@ const CodeBlock = memo(({ inline, className, children, theme = 'dark', ...props 
               lineHeight: '1.5',
               width: '100%',
               maxWidth: '100%',
+              whiteSpace: 'pre-wrap',
+              wordBreak: 'break-word',
             }}
             showLineNumbers={code.split('\n').length > 5}
             wrapLines={true}

@@ -130,8 +130,9 @@ export const useConversations = (
         thinking: msg.thinking,
         thinkingDuration: msg.thinkingDuration,
         attachments: msg.attachments,
+        toolCalls: msg.toolCalls,
         createdAt: new Date(msg.createdAt),
-      } as ClientMessage & { modelId: string; attachments?: any[] }))
+      } as ClientMessage & { modelId: string; attachments?: any[]; toolCalls?: any[] }))
     }
     
     // For anonymous users, just use Dexie

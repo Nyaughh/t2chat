@@ -185,17 +185,10 @@ export const sendMessage = action({
   
                   const data = await response.json();
                   
-                  // Format the search results
-                  const results = data.results?.map((result: any) => ({
-                    title: result.title,
-                    url: result.url,
-                    content: result.content,
-                  })) || [];
-  
                   return {
                     query,
                     answer: data.answer || '',
-                    results,
+                    results: data.results || [],
                     timestamp: new Date().toISOString(),
                   };
                 } catch (error) {
@@ -229,6 +222,7 @@ export const sendMessage = action({
         let accumulatedThinking = "";
         let thinkingStartTime: number | null = null;
         let thinkingEndTime: number | null = null;
+        let accumulatedToolCalls: any[] = [];
   
         for await (const chunk of fullStream) {
           // Check if the message has been cancelled
@@ -284,6 +278,25 @@ export const sendMessage = action({
                 isComplete: false,
               });
             }
+          } else if (chunk.type === 'tool-call') {
+            accumulatedToolCalls.push({
+              toolCallId: chunk.toolCallId,
+              toolName: chunk.toolName,
+              args: chunk.args,
+            });
+            await ctx.runMutation(api.chat.mutations.updateMessage, {
+              messageId: assistantMessageId,
+              toolCalls: accumulatedToolCalls,
+            });
+          } else if (chunk.type === 'tool-result') {
+            const toolCall = accumulatedToolCalls.find(tc => tc.toolCallId === chunk.toolCallId);
+            if (toolCall) {
+              toolCall.result = chunk.result;
+            }
+            await ctx.runMutation(api.chat.mutations.updateMessage, {
+              messageId: assistantMessageId,
+              toolCalls: accumulatedToolCalls,
+            });
           } else if (chunk.type === 'finish') {
             // Track thinking end time
             if (thinkingStartTime && !thinkingEndTime) {
@@ -302,6 +315,7 @@ export const sendMessage = action({
               thinking: accumulatedThinking || undefined,
               thinkingDuration: duration,
               isComplete: true,
+              toolCalls: accumulatedToolCalls,
             });
             break;
           } else if (chunk.type === 'error') {

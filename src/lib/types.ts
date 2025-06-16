@@ -20,6 +20,7 @@ export interface ClientMessage {
   content: string
   thinking?: string
   thinkingDuration?: number
+  toolCalls?: any[]
   createdAt: Date
 }
 

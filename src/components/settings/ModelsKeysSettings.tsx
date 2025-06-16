@@ -281,11 +281,12 @@ const LLMProviderKeysSection = ({
 
 export function ModelsKeysSettings({ apiKeys, userSettings }: ModelsKeysSettingsProps) {
   const [localSettings, setLocalSettings] = useState<Partial<UserSettings>>({})
+  const [modelSettings, setModelSettings] = useState<ModelSettingsState>({})
 
-  const updateSettingsMutation = useMutation(api.users.updateUserSettings)
-  const saveApiKeyMutation = useMutation(api.api_keys.saveApiKey)
-  const deleteApiKeyMutation = useMutation(api.api_keys.deleteApiKey)
-  const setDefaultApiKeyMutation = useMutation(api.api_keys.setDefaultApiKey)
+  const updateSettings = useMutation(api.users.updateUserSettings)
+  const saveApiKey = useMutation(api.api_keys.saveApiKey)
+  const deleteApiKey = useMutation(api.api_keys.deleteApiKey)
+  const setDefaultApiKey = useMutation(api.api_keys.setDefaultApiKey)
 
   React.useEffect(() => {
     if (userSettings) {
@@ -295,9 +296,9 @@ export function ModelsKeysSettings({ apiKeys, userSettings }: ModelsKeysSettings
 
   const debouncedUpdateSettings = useCallback(
     debounce((settings: Partial<UserSettings>) => {
-      updateSettingsMutation(settings)
+      updateSettings(settings)
     }, 500),
-    [updateSettingsMutation]
+    [updateSettings]
   );
 
   const handleSaveSettings = (settings: Partial<UserSettings>) => {
@@ -309,15 +310,23 @@ export function ModelsKeysSettings({ apiKeys, userSettings }: ModelsKeysSettings
   const handleSaveApiKey = async (keyData: Partial<ApiKey>) => {
     const { _id, name, service, key } = keyData
     if (name && service && key) {
-        await saveApiKeyMutation({ _id, name, service, key })
+        await saveApiKey({ _id, name, service, key })
     }
   }
 
   const handleDeleteApiKey = async (id: string) => {
-    await deleteApiKeyMutation({ _id: id as any })
+    await deleteApiKey({ _id: id as any })
   }
+
   const handleSetDefault = async (id: string) => {
-    await setDefaultApiKeyMutation({ _id: id as any })
+    await setDefaultApiKey({ _id: id as any })
+  }
+
+  const handleModelEnabledChange = (modelId: string, enabled: boolean) => {
+    setModelSettings((prev) => ({
+      ...prev,
+      [modelId]: { enabled }
+    }))
   }
 
   return (

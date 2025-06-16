@@ -62,6 +62,8 @@ const CodeComponent = memo(({ inline, className, children, theme, ...props }: Co
               lineHeight: '1.5',
               width: '100%',
               maxWidth: '100%',
+              whiteSpace: 'pre-wrap',
+              wordBreak: 'break-word',
             }}
             showLineNumbers={code.split('\n').length > 5}
             wrapLines={true}

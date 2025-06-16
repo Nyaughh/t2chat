@@ -7,6 +7,7 @@ import { MessageActions } from './MessageActions'
 import { Attachment } from '@/lib/types'
 import { ModelInfo } from '@/lib/models'
 import { cn } from '@/lib/utils'
+import ToolCallDisplay from './ToolCallDisplay'
 
 interface MessageItemProps {
   message: {
@@ -17,6 +18,7 @@ interface MessageItemProps {
     thinkingDuration?: number
     modelId?: string
     attachments?: Attachment[]
+    toolCalls?: any[]
   }
   editingMessageId: string | null
   editingContent: string
@@ -94,6 +96,10 @@ export function MessageItem({
             />
           ) : (
             <>
+              {message.toolCalls && message.toolCalls.length > 0 && (
+                <ToolCallDisplay toolCalls={message.toolCalls} />
+              )}
+            
               <MessageRenderer
                 content={message.content}
                 thinking={message.thinking}
@@ -102,7 +108,7 @@ export function MessageItem({
                 className="text-base leading-relaxed break-words overflow-wrap-anywhere"
                 modelId={message.modelId}
               />
-              
+
               {/* Display attachments */}
               {message.attachments && message.attachments.length > 0 && (
                 <div className="mt-3 space-y-2">

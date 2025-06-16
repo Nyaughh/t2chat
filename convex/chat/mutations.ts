@@ -120,8 +120,14 @@ export const addMessage = mutation({
       thinkingDuration: v.optional(v.number()),
       isComplete: v.optional(v.boolean()),
       isCancelled: v.optional(v.boolean()),
+      toolCalls: v.optional(v.array(v.object({
+        toolCallId: v.string(),
+        toolName: v.string(),
+        args: v.any(),
+        result: v.optional(v.any()),
+      })))
     },
-    handler: async (ctx, { messageId, content, thinking, thinkingDuration, isComplete, isCancelled }) => {
+    handler: async (ctx, { messageId, content, thinking, thinkingDuration, isComplete, isCancelled, toolCalls }) => {
       const userId = await betterAuthComponent.getAuthUserId(ctx);
       if (!userId) {
         throw new Error("Authentication required");
@@ -144,6 +150,7 @@ export const addMessage = mutation({
       if (thinkingDuration !== undefined) updateData.thinkingDuration = thinkingDuration;
       if (isComplete !== undefined) updateData.isComplete = isComplete;
       if (isCancelled !== undefined) updateData.isCancelled = isCancelled;
+      if (toolCalls !== undefined) updateData.toolCalls = toolCalls;
 
       await ctx.db.patch(messageId, updateData);
 
@@ -296,7 +303,37 @@ export const addMessage = mutation({
     },
   });
 
-  export const migrateAnonymousChats = mutation({
+  export const deleteAllConversations = mutation({
+    args: {},
+    handler: async (ctx) => {
+        const userId = await betterAuthComponent.getAuthUserId(ctx);
+        if (!userId) {
+            throw new Error("Authentication required");
+        }
+
+        const chats = await ctx.db
+            .query("chats")
+            .withIndex("by_user", (q) => q.eq("userId", userId as Id<"users">))
+            .collect();
+
+        for (const chat of chats) {
+            const messages = await ctx.db
+                .query("messages")
+                .withIndex("by_chat", (q) => q.eq("chatId", chat._id))
+                .collect();
+            
+            for (const message of messages) {
+                await ctx.db.delete(message._id);
+            }
+
+            await ctx.db.delete(chat._id);
+        }
+
+        return { success: true };
+    },
+});
+
+export const migrateAnonymousChats = mutation({
     args: {
       chats: v.array(v.object({
         id: v.string(),
