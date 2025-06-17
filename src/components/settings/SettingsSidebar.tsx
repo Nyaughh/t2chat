@@ -1,14 +1,20 @@
 import { cn } from '@/lib/utils'
-import { type SettingsSection, settingsSections } from '../SettingsPage'
 import { SettingsSidebarItem } from './SettingsSidebarItem'
+import { type SettingsSection, settingsSections } from './config'
 
 interface SettingsSidebarProps {
+  settingsSections: typeof settingsSections
   activeSection: SettingsSection
   setActiveSection: (section: SettingsSection) => void
   isMobile: boolean
 }
 
-export function SettingsSidebar({ activeSection, setActiveSection, isMobile }: SettingsSidebarProps) {
+export function SettingsSidebar({
+  settingsSections,
+  activeSection,
+  setActiveSection,
+  isMobile,
+}: SettingsSidebarProps) {
   return (
     <aside
       className={cn(

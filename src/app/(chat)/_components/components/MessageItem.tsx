@@ -100,10 +100,6 @@ export function MessageItem({
             />
           ) : (
             <>
-              {message.toolCalls && message.toolCalls.length > 0 && (
-                <ToolCallDisplay toolCalls={message.toolCalls} />
-              )}
-            
               <MessageRenderer
                 content={message.content}
                 thinking={message.thinking}
@@ -111,6 +107,7 @@ export function MessageItem({
                 isTyping={message.role === 'assistant' && isCurrentlyStreaming(message.id)}
                 className="text-base leading-relaxed break-words overflow-wrap-anywhere"
                 modelId={message.modelId}
+                toolCalls={message.toolCalls}
               />
 
               {/* Display attachments */}

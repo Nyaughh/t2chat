@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
 import { useConversations } from '@/hooks/useConversations'
@@ -17,12 +17,11 @@ import {
   SettingsSidebar,
 } from '@/components/settings'
 import { AttachmentsSettings } from '@/components/settings/attachments'
-import React, { useState } from 'react'
 import { cn } from '@/lib/utils'
 import { Settings, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-
-export type SettingsSection = 'account' | 'models' | 'customize' | 'data' | 'attachments'
+import SpeechSettings from '@/components/settings/SpeechSettings'
+import { settingsSections, type SettingsSection } from '@/components/settings/config'
 
 export default function SettingsPage() {
   const { userMetadata } = useAuth()
@@ -66,29 +65,30 @@ export default function SettingsPage() {
       case 'account':
         return <AccountSettings user={memoizedUser} />
       case 'models':
-        return <ModelsKeysSettings apiKeys={apiKeys || []} userSettings={userSettings} onSettingsChange={updateSettings} />
+        return <ModelsKeysSettings apiKeys={apiKeys || []} userSettings={userSettings} />
       case 'customize':
         return (
           <CustomizeSettings
             customization={{
-              userName: '',
-              userRole: '',
-              userTraits: [],
-              userAdditionalInfo: '',
-              promptTemplate: '',
-              mainFont: 'inter',
-              codeFont: 'fira-code',
-              sendBehavior: 'enter',
-              autoSave: true,
-              showTimestamps: true,
+              userName: userSettings?.userName ?? '',
+              userRole: userSettings?.userRole ?? '',
+              userTraits: userSettings?.userTraits ?? [],
+              userAdditionalInfo: userSettings?.userAdditionalInfo ?? '',
+              promptTemplate: userSettings?.promptTemplate ?? '',
+              mainFont: userSettings?.mainFont ?? 'inter',
+              codeFont: userSettings?.codeFont ?? 'fira-code',
+              sendBehavior: userSettings?.sendBehavior ?? 'enter',
+              autoSave: userSettings?.autoSave ?? true,
+              showTimestamps: userSettings?.showTimestamps ?? true,
             }}
-            onSettingsChange={updateSettings}
           />
         )
       case 'data':
         return <DataSettings unmigratedLocalChats={unmigratedLocalChats as Conversation[]} />
       case 'attachments':
         return <AttachmentsSettings />
+      case 'speech':
+        return <SpeechSettings />
       default:
         return null
     }
@@ -107,6 +107,7 @@ export default function SettingsPage() {
       </header>
       <div className={cn('flex flex-1 min-h-0', isMobile && 'flex-col')}>
         <SettingsSidebar
+          settingsSections={settingsSections}
           activeSection={activeSection}
           setActiveSection={setActiveSection}
           isMobile={isMobile}

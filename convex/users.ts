@@ -1,6 +1,5 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
-import { internal } from "./_generated/api";
 
 export const getUserSettings = query({
   args: {},
@@ -47,17 +46,24 @@ export const updateUserSettings = mutation({
     showTimestamps: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
-    const userId = await ctx.scheduler.runNow(internal.auth.getOrCreateUser, {});
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_token", (q) => q.eq("tokenIdentifier", identity.tokenIdentifier))
+      .unique();
+    if (!user) throw new Error("User not found");
     
     const settings = await ctx.db
         .query("userSettings")
-        .withIndex("by_user", q => q.eq("userId", userId))
+        .withIndex("by_user", q => q.eq("userId", user._id))
         .unique();
 
     if (settings) {
         await ctx.db.patch(settings._id, args);
     } else {
-        await ctx.db.insert("userSettings", { userId, ...args });
+        await ctx.db.insert("userSettings", { userId: user._id, ...args });
     }
   }
 }) 

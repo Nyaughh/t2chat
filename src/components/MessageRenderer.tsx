@@ -7,6 +7,7 @@ import { MarkdownContent } from './ui/markdown-content'
 import { ChevronDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { models } from '@/lib/models'
+import ToolCallDisplay from '@/app/(chat)/_components/components/ToolCallDisplay'
 
 interface MessageRendererProps {
   content: string
@@ -15,10 +16,11 @@ interface MessageRendererProps {
   isTyping?: boolean
   className?: string
   modelId?: string
+  toolCalls?: any[]
 }
 
 const MessageRenderer: React.FC<MessageRendererProps> = memo(
-  ({ content, thinking, thinkingDuration, isTyping = false, className = '', modelId }) => {
+  ({ content, thinking, thinkingDuration, isTyping = false, className = '', modelId, toolCalls }) => {
     const [isThinkingCollapsed, setIsThinkingCollapsed] = useState(true)
 
     // Check if the model supports thinking
@@ -50,6 +52,12 @@ const MessageRenderer: React.FC<MessageRendererProps> = memo(
       }
       return `thinking-${Math.abs(hash).toString(36)}`
     }, [thinking])
+
+    const contentParts = useMemo(() => {
+      if (!content) return [];
+      const regex = /(\[TOOL_CALL:[a-zA-Z0-9_-]+\])/g;
+      return content.split(regex).filter(part => part);
+    }, [content]);
 
     return (
       <div className={className}>
@@ -107,7 +115,15 @@ const MessageRenderer: React.FC<MessageRendererProps> = memo(
         )}
 
         {/* Main content */}
-        {content && <MarkdownContent content={content} id={messageId} />}
+        {contentParts.map((part, index) => {
+          const match = /\[TOOL_CALL:(.+)\]/.exec(part);
+          if (match && toolCalls) {
+            const toolCallId = match[1];
+            const toolCall = toolCalls.find(tc => tc.toolCallId === toolCallId);
+            return toolCall ? <ToolCallDisplay key={`${messageId}-tool-${index}`} toolCalls={[toolCall]} /> : null;
+          }
+          return <MarkdownContent content={part} id={`${messageId}-part-${index}`} key={`${messageId}-part-${index}`} />;
+        })}
       </div>
     )
   },
@@ -118,7 +134,8 @@ const MessageRenderer: React.FC<MessageRendererProps> = memo(
       prevProps.thinkingDuration === nextProps.thinkingDuration &&
       prevProps.isTyping === nextProps.isTyping &&
       prevProps.className === nextProps.className &&
-      prevProps.modelId === nextProps.modelId
+      prevProps.modelId === nextProps.modelId &&
+      prevProps.toolCalls === nextProps.toolCalls
     )
   },
 )
