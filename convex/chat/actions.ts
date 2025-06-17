@@ -243,7 +243,8 @@ const generateAIResponse = async (
           });
         }
       } else if (chunk.type === 'tool-call') {
-        console.log("tool-call", chunk);
+        const placeholder = `\n[TOOL_CALL:${chunk.toolCallId}]\n`;
+        accumulatedContent += placeholder;
         accumulatedToolCalls.push({
           toolCallId: chunk.toolCallId,
           toolName: chunk.toolName,
@@ -251,6 +252,7 @@ const generateAIResponse = async (
         });
         await ctx.runMutation(api.chat.mutations.updateMessage, {
           messageId: assistantMessageId,
+          content: accumulatedContent,
           toolCalls: accumulatedToolCalls,
         });
       } else if (chunk.type === 'tool-result') {

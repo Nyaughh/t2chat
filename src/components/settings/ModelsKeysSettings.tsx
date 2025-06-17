@@ -29,7 +29,6 @@ export type ModelSettingsState = {
 interface ModelsKeysSettingsProps {
   apiKeys: ApiKey[];
   userSettings: UserSettings | null | undefined;
-  onSettingsChange: (settings: Partial<UserSettings>) => void;
 }
 
 const SectionWrapper = ({
@@ -280,7 +279,7 @@ const LLMProviderKeysSection = ({
   )
 }
 
-export function ModelsKeysSettings({ apiKeys, userSettings, onSettingsChange }: ModelsKeysSettingsProps) {
+export function ModelsKeysSettings({ apiKeys, userSettings }: ModelsKeysSettingsProps) {
   const [localSettings, setLocalSettings] = useState<Partial<UserSettings>>({})
   const [modelSettings, setModelSettings] = useState<ModelSettingsState>({})
 
@@ -295,17 +294,17 @@ export function ModelsKeysSettings({ apiKeys, userSettings, onSettingsChange }: 
     }
   }, [userSettings])
 
-  const debouncedSettingsChange = useCallback(
+  const debouncedUpdateSettings = useCallback(
     debounce((settings: Partial<UserSettings>) => {
-      onSettingsChange(settings)
+      updateSettings(settings)
     }, 500),
-    [onSettingsChange]
+    [updateSettings]
   );
 
   const handleSaveSettings = (settings: Partial<UserSettings>) => {
     const newSettings = { ...localSettings, ...settings }
     setLocalSettings(newSettings)
-    debouncedSettingsChange(settings);
+    debouncedUpdateSettings(settings);
   }
 
   const handleSaveApiKey = async (keyData: Partial<ApiKey>) => {
@@ -344,19 +343,19 @@ export function ModelsKeysSettings({ apiKeys, userSettings, onSettingsChange }: 
         description="Keys for optional services like file uploads and web search."
       >
         <ServiceKeyRow
-          icon={<UploadCloud className="w-5 h-5 text-fuchsia-500" />}
-          label="UploadThing"
-          value={userSettings?.uploadthing_key || ''}
+          icon={<UploadCloud className="w-5 h-5 text-rose-500" />}
+          label="Uploadthing Key"
+          value={localSettings?.uploadthing_key || ''}
+          enabled={!!localSettings?.use_keys_for_uploadthing}
           onValueChange={(v) => handleSaveSettings({ uploadthing_key: v })}
-          enabled={userSettings?.use_keys_for_uploadthing ?? false}
           onEnabledChange={(e) => handleSaveSettings({ use_keys_for_uploadthing: e })}
         />
         <ServiceKeyRow
-          icon={<Search className="w-5 h-5 text-sky-500" />}
-          label="Tavily API"
-          value={userSettings?.tavily_key || ''}
+          icon={<Search className="w-5 h-5 text-rose-500" />}
+          label="Tavily Key"
+          value={localSettings?.tavily_key || ''}
+          enabled={!!localSettings?.use_keys_for_tavily}
           onValueChange={(v) => handleSaveSettings({ tavily_key: v })}
-          enabled={userSettings?.use_keys_for_tavily ?? false}
           onEnabledChange={(e) => handleSaveSettings({ use_keys_for_tavily: e })}
         />
       </SectionWrapper>

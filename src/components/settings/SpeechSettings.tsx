@@ -13,9 +13,10 @@ import { Label } from '@/components/ui/label';
 export default function SpeechSettings() {
   const { voices, selectedVoice, setVoice } = useSpeechSynthesis();
 
-  const englishVoices = voices.filter(voice => voice.lang.startsWith('en'));
+  const englishVoices = voices.filter((voice: any) => voice.lang.startsWith('en'));
+  console.log(englishVoices);
 
-  return (
+    return (
     <div className="space-y-4">
       <h3 className="text-lg font-medium">Speech Settings</h3>
       <div className="space-y-2">

@@ -279,6 +279,8 @@ export const sendMessage = action({
               });
             }
           } else if (chunk.type === 'tool-call') {
+            const placeholder = `\n[TOOL_CALL:${chunk.toolCallId}]\n`;
+            accumulatedContent += placeholder;
             accumulatedToolCalls.push({
               toolCallId: chunk.toolCallId,
               toolName: chunk.toolName,
@@ -286,6 +288,7 @@ export const sendMessage = action({
             });
             await ctx.runMutation(api.chat.mutations.updateMessage, {
               messageId: assistantMessageId,
+              content: accumulatedContent,
               toolCalls: accumulatedToolCalls,
             });
           } else if (chunk.type === 'tool-result') {

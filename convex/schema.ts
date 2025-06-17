@@ -7,7 +7,6 @@ export default defineSchema({
     email: v.optional(v.string()),
     image: v.optional(v.string()),
     tokenIdentifier: v.optional(v.string()),
-    isPro: v.optional(v.boolean()),
   }).index("by_token", ["tokenIdentifier"]),
   
   userSettings: defineTable({

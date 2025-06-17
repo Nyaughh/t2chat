@@ -9,6 +9,7 @@ import { betterAuth } from "better-auth";
 import { api, components, internal } from "./_generated/api";
 import { internalMutation, query, type GenericCtx } from "./_generated/server";
 import type { Id, DataModel } from "./_generated/dataModel";
+import { v } from "convex/values";
 
 // Typesafe way to pass Convex functions defined in this file
 const authFunctions: AuthFunctions = internal.auth;
@@ -48,6 +49,7 @@ export const createAuth = (ctx: GenericCtx) =>
     ],
   });
 
+
 // These are required named exports
 export const {
   createUser,
@@ -55,14 +57,16 @@ export const {
   deleteUser,
   createSession,
   isAuthenticated,
-  storeUser,
 } =
   betterAuthComponent.createAuthFunctions<DataModel>({
     // Must create a user and return the user id
     onCreateUser: async (ctx, user) => {
-      const userId = await ctx.db.insert("users", {});
+      const userId = await ctx.db.insert("users", {
+        name: user.name,
+        email: user.email,
+      });
       await ctx.scheduler.runAfter(0, internal.auth.storeUser, {
-        betterAuthId: user.id,
+        betterAuthId: user.email,
         userId: userId,
       })
       return userId
@@ -73,6 +77,13 @@ export const {
       await ctx.db.delete(userId as Id<"users">);
     },
   });
+
+export const storeUser = internalMutation({
+  args: { betterAuthId: v.string(), userId: v.id("users") },
+  handler: async (ctx, { betterAuthId, userId }) => {
+    await (betterAuthComponent as any).storeUser(ctx, betterAuthId, userId);
+  },
+});
 
 // Example function for getting the current user
 // Feel free to edit, omit, etc.
@@ -117,7 +128,6 @@ export const getOrCreateUser = internalMutation({
       email: identity.email!,
       image: identity.pictureUrl!,
       tokenIdentifier: identity.tokenIdentifier,
-      isPro: false,
     });
 
     return userId;
