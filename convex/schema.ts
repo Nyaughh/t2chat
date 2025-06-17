@@ -32,7 +32,7 @@ export default defineSchema({
   
   apiKeys: defineTable({
     userId: v.id("users"),
-    service: v.union(v.literal("gemini"), v.literal("groq"), v.literal("openrouter")),
+    service: v.union(v.literal("gemini"), v.literal("groq"), v.literal("openrouter"), v.literal("deepgram")),
     name: v.string(),
     key: v.string(),
     is_default: v.optional(v.boolean()),

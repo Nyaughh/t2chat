@@ -12,6 +12,8 @@ import type { ClientMessage, Attachment, ConvexChat, ConvexMessage } from '@/lib
 import type { Id } from '../../convex/_generated/dataModel'
 import { parseDataStream } from '@/lib/stream-parser'
 import { CoreMessage } from 'ai'
+import { useQuery } from 'convex/react'
+import { api } from '../../convex/_generated/api'
 
 export const useConversations = (
   chatId?: string,
@@ -38,6 +40,11 @@ export const useConversations = (
     deleteMessagesFromIndex,
     cancelMessage,
   } = useConvexChat(currentChatId ? (currentChatId as Id<"chats">) : undefined)
+
+  const userSettings = useQuery(
+    api.users.getMySettings,
+    isAuthenticated ? {} : 'skip'
+  );
 
   const [cachedConvexChats, setCachedConvexChats] = useState(convexChats)
 
@@ -618,5 +625,6 @@ export const useConversations = (
     setSelectedModel: handleSetSelectedModel,
     mounted,
     unmigratedLocalChats,
+    userSettings,
   }
 }

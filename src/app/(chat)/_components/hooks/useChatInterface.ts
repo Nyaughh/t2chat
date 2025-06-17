@@ -23,6 +23,7 @@ export function useChatInterface(chatId?: string, initialMessages?: ConvexMessag
     setSelectedModel,
     isAuthenticated,
     mounted,
+    userSettings,
   } = useConversations(chatId, initialMessages)
 
   const messageActions = useMessageActions({ onRetryMessage: handleRetryMessage })
@@ -73,6 +74,7 @@ export function useChatInterface(chatId?: string, initialMessages?: ConvexMessag
     showWelcomeScreen,
     isAuthenticated,
     mounted,
+    userSettings,
     
     // Attachments
     attachments,

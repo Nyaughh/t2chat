@@ -4,7 +4,6 @@ import { X, User, Sparkles, Palette, Zap, SendHorizonal, ArrowUp, MessageCircle,
 import { useFont } from '@/hooks/useFont'
 import { useMutation } from 'convex/react'
 import { api } from '../../../convex/_generated/api'
-import { debounce } from 'lodash'
 
 // Define Customization type
 export type CustomizationState = {
@@ -162,32 +161,45 @@ const CustomizationFontRadio = ({
 
 export function CustomizeSettings({ customization }: { customization: CustomizationState }) {
   const { mainFont, setMainFont, codeFont, setCodeFont } = useFont()
-  const [localCustomization, setLocalCustomization] = useState<CustomizationState>({
-    ...customization,
-    mainFont,
-    codeFont,
-  })
+  const [localCustomization, setLocalCustomization] = useState<CustomizationState>(customization)
   const [traitInput, setTraitInput] = useState('')
   const updateSettings = useMutation(api.users.updateUserSettings)
-
-  const handleSettingsChange = useCallback(
-    debounce((settings: Partial<CustomizationState>) => {
-      updateSettings(settings)
-    }, 500),
-    [updateSettings],
-  )
+  const [isSaving, setIsSaving] = useState(false);
+  const [isDirty, setIsDirty] = useState(false);
 
   useEffect(() => {
-    setLocalCustomization(prev => ({...prev, mainFont, codeFont}))
-    handleSettingsChange({ mainFont, codeFont })
-  }, [mainFont, codeFont, handleSettingsChange])
+    setLocalCustomization({
+      ...customization,
+      mainFont,
+      codeFont,
+    })
+    // Reset dirty state when initial props change
+    setIsDirty(false);
+  }, [customization, mainFont, codeFont])
+
+  useEffect(() => {
+    if (mainFont !== localCustomization.mainFont || codeFont !== localCustomization.codeFont) {
+        setLocalCustomization(prev => ({...prev, mainFont, codeFont}))
+        setIsDirty(true)
+    }
+  }, [mainFont, codeFont, localCustomization.mainFont, localCustomization.codeFont])
 
   const handleChange = (field: keyof CustomizationState, value: any) => {
-    setLocalCustomization(prev => {
-      const newState = { ...prev, [field]: value }
-      handleSettingsChange({ [field]: value })
-      return newState
-    })
+    setLocalCustomization(prev => ({ ...prev, [field]: value }))
+    setIsDirty(true);
+  }
+
+  const handleSave = async () => {
+    setIsSaving(true);
+    try {
+        await updateSettings(localCustomization);
+        setIsDirty(false);
+    } catch (error) {
+        console.error("Failed to save settings", error);
+        // Here you could add a toast notification for the error
+    } finally {
+        setIsSaving(false);
+    }
   }
 
   const handleAddTrait = () => {
@@ -227,6 +239,20 @@ export function CustomizeSettings({ customization }: { customization: Customizat
 
   return (
     <div className="space-y-8">
+      {isDirty && (
+        <div className="sticky top-0 z-20 py-3 px-4 bg-rose-50 dark:bg-rose-900/30 border-b border-rose-200 dark:border-rose-500/20 backdrop-blur-sm -mx-8 -mt-6 mb-4">
+          <div className="max-w-4xl mx-auto flex items-center justify-between">
+            <p className="text-sm font-medium text-rose-700 dark:text-rose-200">You have unsaved changes.</p>
+            <button
+                onClick={handleSave}
+                disabled={isSaving}
+                className="px-4 py-1.5 text-sm font-semibold text-white bg-rose-500 rounded-md hover:bg-rose-600 disabled:bg-rose-400 dark:disabled:bg-rose-700 disabled:cursor-not-allowed transition-colors"
+            >
+                {isSaving ? 'Saving...' : 'Save Changes'}
+            </button>
+          </div>
+        </div>
+      )}
       {/* User Personalization Section */}
       <div>
         <h3 className="text-lg font-semibold text-black/80 dark:text-white/80 flex items-center gap-2 mb-2">

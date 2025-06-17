@@ -23,7 +23,7 @@ export const saveApiKey = mutation({
     args: {
         _id: v.optional(v.id("apiKeys")),
         name: v.string(),
-        service: v.union(v.literal("gemini"), v.literal("groq"), v.literal("openrouter")),
+        service: v.union(v.literal("gemini"), v.literal("groq"), v.literal("openrouter"), v.literal("deepgram")),
         key: v.string(),
     },
     handler: async (ctx, { _id, name, service, key }) => {

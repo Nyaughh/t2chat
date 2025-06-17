@@ -73,6 +73,7 @@ export default function ChatInterface({ chatId, initialMessages }: ChatInterface
     messagesEndRef,
     scrollAreaRef,
     scrollToBottom,
+    userSettings,
   } = useChatInterface(chatId, initialMessages)
 
   const maxFiles = 2
@@ -195,6 +196,7 @@ export default function ChatInterface({ chatId, initialMessages }: ChatInterface
             uploadProgress={uploadProgress}
             isUploading={isUploading}
             mounted={mounted}
+            sendBehavior={userSettings?.sendBehavior || 'enter'}
             uploadButton={
               (selectedModel.attachmentsSuppport.image || selectedModel.attachmentsSuppport.pdf) ? (
                 <div className={cn(

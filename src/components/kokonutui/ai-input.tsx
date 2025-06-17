@@ -35,6 +35,7 @@ interface AIInputProps {
   uploadProgress?: { [key: string]: number }
   isUploading?: boolean
   mounted?: boolean
+  sendBehavior?: 'enter' | 'shiftEnter' | 'button'
 }
 
 const getCategoryColor = (category: string) => {
@@ -79,6 +80,7 @@ export default function AIInput({
   uploadProgress = {},
   isUploading = false,
   mounted = true,
+  sendBehavior = 'enter',
 }: AIInputProps) {
   const [showModelSelect, setShowModelSelect] = useState(false)
   const [thinkingEnabled, setThinkingEnabled] = useState(true)
@@ -256,10 +258,14 @@ export default function AIInput({
   }
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+    if (sendBehavior === 'enter' && e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      handleSend()
+    } else if (sendBehavior === 'shiftEnter' && e.key === 'Enter' && e.shiftKey) {
       e.preventDefault()
       handleSend()
     }
+    // For 'button', no keyboard shortcut for sending
   }
 
   // When thinking mode is toggled, ensure selected model is compatible

@@ -103,9 +103,31 @@ const generateAIResponse = async (
     aiModel = google('gemini-2.0-flash');
   }
 
+  // Fetch user settings
+  const userSettings = await ctx.runQuery(api.users.getMySettings);
+  let personalizedSystemPrompt = basePersonality;
+
+  if (userSettings) {
+    let personalization = "### User Personalization\n";
+    if (userSettings.userName) personalization += `The user's name is ${userSettings.userName}.\n`;
+    if (userSettings.userRole) personalization += `The user is a ${userSettings.userRole}.\n`;
+    if (userSettings.userTraits && userSettings.userTraits.length > 0) {
+      personalization += `The user has the following traits/interests: ${userSettings.userTraits.join(', ')}.\n`;
+    }
+    if (userSettings.userAdditionalInfo) {
+      personalization += `Here is some additional information about the user: ${userSettings.userAdditionalInfo}\n`;
+    }
+
+    if (userSettings.promptTemplate) {
+      personalizedSystemPrompt = `${userSettings.promptTemplate}\n\n${personalization}`;
+    } else {
+      personalizedSystemPrompt = `${basePersonality}\n\n${personalization}`;
+    }
+  }
+
   // Stream the response
   const { fullStream } = streamText({
-    system: basePersonality,
+    system: personalizedSystemPrompt,
     model: thinking
       ? wrapLanguageModel({
           model: aiModel,
@@ -507,16 +529,21 @@ export const generateTitle = action({
     modelId: v.string(),
   },
   handler: async (ctx, { chatId, messageContent, modelId }) => {
-
-
     const google = createGoogleGenerativeAI({ apiKey: process.env.GEMINI_API_KEY });
-
 
     const aiModel = google('gemini-2.0-flash-lite');
 
+    // Fetch user settings to potentially customize title generation
+    const userSettings = await ctx.runQuery(api.users.getMySettings);
+    let titlePrompt = `Based on the following user message, generate a short, concise title for the chat (4-5 words max):\n\nUser: "${messageContent}"\n\nTitle:`;
+
+    if (userSettings && userSettings.userName) {
+      titlePrompt = `The user's name is ${userSettings.userName}. Based on their message, generate a short, concise title for the chat (4-5 words max):\n\nUser: "${messageContent}"\n\nTitle:`;
+    }
+
     const { text } = await generateText({
       model: aiModel,
-      prompt: `Based on the following user message, generate a short, concise title for the chat (4-5 words max):\n\nUser: "${messageContent}"\n\nTitle:`
+      prompt: titlePrompt,
     });
     
     let finalTitle = "";

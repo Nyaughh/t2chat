@@ -30,25 +30,11 @@ export default function SettingsPage() {
   const isMobile = useIsMobile()
 
   const [activeSection, setActiveSection] = useState<SettingsSection>('account')
-  const userSettings = useQuery(api.users.getUserSettings)
+  const userSettings = useQuery(api.users.getMySettings)
   const apiKeys = useQuery(api.api_keys.getApiKeys)
-  const updateUserSettings = useMutation(api.users.updateUserSettings)
 
   const handleClose = () => {
     router.back()
-  }
-
-  const updateSettings = (updates: Partial<any>) => {
-    const filteredUpdates = Object.entries(updates).reduce((acc, [key, value]) => {
-      if (value !== null && value !== undefined) {
-        acc[key] = value
-      }
-      return acc
-    }, {} as Partial<any>)
-
-    if (Object.keys(filteredUpdates).length > 0) {
-      updateUserSettings(filteredUpdates)
-    }
   }
 
   const memoizedUser = useMemo(
