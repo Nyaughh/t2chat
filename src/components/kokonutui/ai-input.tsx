@@ -5,7 +5,7 @@ import type React from 'react'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { cn } from '@/lib/utils'
 import { useAutoResizeTextarea } from '@/hooks/resize-textarea'
-import { ArrowUpCircle, Paperclip, Globe, ChevronDown, Sparkles, Lightbulb, Plus, Square, X, FileText, Image, Upload, ArrowRight } from 'lucide-react'
+import { ArrowUpCircle, Paperclip, Globe, ChevronDown, Sparkles, Lightbulb, Plus, Square, X, FileText, Image, Upload, ArrowRight, Mic } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { ModelInfo, models } from '@/lib/models'
 import { useQuery } from 'convex/react'
@@ -91,7 +91,67 @@ export default function AIInput({
   })
   const uploadButtonRef = useRef<HTMLDivElement>(null)
 
+  const [isListening, setIsListening] = useState(false);
+  const recognitionRef = useRef<any>(null);
+  const originalTextRef = useRef('');
+
   const apiKeys = useQuery(api.api_keys.getApiKeys) || []
+
+  // Speech Recognition setup
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      console.warn("Speech recognition not supported in this browser.");
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.lang = 'en-US';
+
+    recognition.onresult = (event: any) => {
+      let final_transcript = '';
+      let interim_transcript = '';
+
+      for (let i = 0; i < event.results.length; ++i) {
+        if (event.results[i].isFinal) {
+          final_transcript += event.results[i][0].transcript;
+        } else {
+          interim_transcript += event.results[i][0].transcript;
+        }
+      }
+      
+      onValueChange(originalTextRef.current + final_transcript + interim_transcript);
+      adjustHeight();
+    };
+
+    recognition.onend = () => {
+      setIsListening(false);
+    };
+
+    recognition.onerror = (event: any) => {
+      console.error("Speech recognition error", event.error);
+      setIsListening(false);
+    };
+    
+    recognitionRef.current = recognition;
+
+    return () => {
+      recognition.stop();
+    };
+  }, [onValueChange, adjustHeight]);
+
+  const handleToggleListening = () => {
+    if (isListening) {
+      recognitionRef.current?.stop();
+    } else {
+      originalTextRef.current = value ? value + ' ' : '';
+      recognitionRef.current?.start();
+    }
+    setIsListening(!isListening);
+  };
 
   const availableModels = models
   const supportsAttachments = selectedModel.attachmentsSuppport.image || selectedModel.attachmentsSuppport.pdf
@@ -130,7 +190,9 @@ export default function AIInput({
     localStorage.setItem('groupBy', groupBy)
   }, [groupBy])
 
-
+  useEffect(() => {
+    adjustHeight();
+  }, [value, adjustHeight]);
 
   // Drag and drop handlers
   const handleDragOver = useCallback((e: React.DragEvent) => {
@@ -637,6 +699,19 @@ export default function AIInput({
               </button>
               )}
             </div>
+            <div className="flex items-center gap-1">
+            <button
+                type="button"
+                onClick={handleToggleListening}
+                className={cn(
+                  'group p-2 md:p-2.5 transition-all duration-300 rounded-full',
+                  isListening
+                    ? 'text-rose-500 dark:text-rose-300 shadow-md shadow-rose-500/20 dark:shadow-rose-500/20 scale-100 hover:bg-rose-500/5 dark:hover:bg-rose-300/5 animate-pulse'
+                    : 'text-black/30 dark:text-rose-300/30 scale-95 hover:bg-black/5 dark:hover:bg-white/5 hover:text-black dark:hover:text-white hover:scale-100',
+                )}
+              >
+                <Mic className="w-5 md:w-6 h-5 md:h-6" />
+              </button>
             {isStreaming ? (
               <button
                 type="button"
@@ -666,6 +741,7 @@ export default function AIInput({
                 />
               </button>
             )}
+            </div>
           </div>
         </div>
       </div>
@@ -675,3 +751,4 @@ export default function AIInput({
     </div>
   )
 }
+
