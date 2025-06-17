@@ -15,8 +15,18 @@ const interTight = Inter_Tight({
 })
 
 export const metadata: Metadata = {
-  title: 'T2Chat - Advanced AI Chat Interface',
+  title: 'T2Chat',
   description: 'Modern AI chat interface with multiple model support',
+  openGraph: {
+    images: [
+      {
+        url: '/T2Chat.jpg',
+        width: 1200,
+        height: 630,
+        alt: 'T2Chat',
+      },
+    ],
+  },
 }
 
 export default function RootLayout({
