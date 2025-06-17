@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { cn } from '@/lib/utils'
-import { X, User, Database, Brain, Sparkles, Settings, Paperclip } from 'lucide-react'
+import { X, User, Database, Brain, Sparkles, Settings, Paperclip, Mic } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Button } from '@/components/ui/button'
 import { useIsMobile } from '@/hooks/use-mobile'
@@ -15,6 +15,7 @@ import {
   SettingsSidebar,
 } from './settings'
 import { AttachmentsSettings } from './settings/attachments'
+import SpeechSettings from './settings/SpeechSettings'
 import { Conversation } from '@/lib/dexie'
 import { useQuery } from 'convex/react'
 import { api } from '../../convex/_generated/api'
@@ -30,12 +31,13 @@ interface SettingsPageProps {
   unmigratedLocalChats: Conversation[]
 }
 
-export type SettingsSection = 'account' | 'models' | 'customize' | 'data' | 'attachments'
+export type SettingsSection = 'account' | 'models' | 'customize' | 'data' | 'attachments' | 'speech'
 
 export const settingsSections = [
   { id: 'account', label: 'My Account', icon: User },
   { id: 'models', label: 'Models & Keys', icon: Brain },
   { id: 'customize', label: 'Customization', icon: Sparkles },
+  { id: 'speech', label: 'Speech', icon: Mic },
   { id: 'data', label: 'Manage Data', icon: Database },
   { id: 'attachments', label: 'Attachments', icon: Paperclip },
 ]
@@ -64,18 +66,24 @@ const SettingsPageContents = ({ isOpen, onClose, user, unmigratedLocalChats }: S
   // This will be replaced by settings from the DB
   const modelSettings: ModelSettingsState = {}
 
+  const handleSettingsChange = (key: string, value: any) => {
+    console.log('Settings changed (not implemented):', key, value)
+  }
+
   const renderContent = () => {
     switch (activeSection) {
       case 'account':
         return <AccountSettings user={user} />
       case 'models':
-        return <ModelsKeysSettings apiKeys={apiKeys || []} userSettings={userSettings} />
+        return <ModelsKeysSettings apiKeys={apiKeys || []} userSettings={userSettings} onSettingsChange={() => {}} />
       case 'customize':
-        return <CustomizeSettings customization={customization} />
+        return <CustomizeSettings customization={customization} onSettingsChange={() => {}} />
       case 'data':
         return <DataSettings unmigratedLocalChats={unmigratedLocalChats} />
       case 'attachments':
         return <AttachmentsSettings />
+      case 'speech':
+        return <SpeechSettings />
       default:
         return null
     }

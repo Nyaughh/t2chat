@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { models } from '@/lib/models'
+import { useSpeechSynthesis } from '@/hooks/useSpeechSynthesis'
 
 interface UseMessageActionsProps {
   onRetryMessage?: (messageId: string, modelId?: string) => void
@@ -12,7 +13,9 @@ export function useMessageActions(props?: UseMessageActionsProps) {
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null)
   const [editingContent, setEditingContent] = useState('')
   const [retryDropdownId, setRetryDropdownId] = useState<string | null>(null)
+  const [speakingMessageId, setSpeakingMessageId] = useState<string | null>(null);
   const editInputRef = useRef<HTMLTextAreaElement>(null)
+  const { speak } = useSpeechSynthesis();
 
   const handleCopy = async (text: string, messageId: string) => {
     try {
@@ -23,6 +26,16 @@ export function useMessageActions(props?: UseMessageActionsProps) {
       console.error('Failed to copy text: ', err)
     }
   }
+
+  const handleReadAloud = (text: string, messageId: string) => {
+    if (speakingMessageId === messageId) {
+      // If the same message is clicked, 'speak' will handle cancellation
+      speak(text, () => setSpeakingMessageId(null));
+    } else {
+      setSpeakingMessageId(messageId);
+      speak(text, () => setSpeakingMessageId(null));
+    }
+  };
 
   const startEditing = (messageId: string, content: string) => {
     setEditingMessageId(messageId)
@@ -100,8 +113,10 @@ export function useMessageActions(props?: UseMessageActionsProps) {
     setEditingContent,
     retryDropdownId,
     setRetryDropdownId,
+    speakingMessageId,
     editInputRef,
     handleCopy,
+    handleReadAloud,
     startEditing,
     cancelEditing,
     saveEdit,

@@ -55,8 +55,10 @@ export default function ChatInterface({ chatId, initialMessages }: ChatInterface
     setEditingContent,
     retryDropdownId,
     setRetryDropdownId,
+    speakingMessageId,
     editInputRef,
     handleCopy,
+    handleReadAloud,
     startEditing,
     cancelEditing,
     saveEdit,
@@ -144,6 +146,7 @@ export default function ChatInterface({ chatId, initialMessages }: ChatInterface
               editingContent={editingContent}
               copiedId={copiedId}
               retryDropdownId={retryDropdownId}
+              speakingMessageId={speakingMessageId}
               selectedModel={selectedModel}
               isStreaming={isStreaming}
               editInputRef={editInputRef}
@@ -156,6 +159,7 @@ export default function ChatInterface({ chatId, initialMessages }: ChatInterface
               onCancelEditing={cancelEditing}
               onSaveEdit={saveEdit}
               onCopy={handleCopy}
+              onReadAloud={handleReadAloud}
               onRetryClick={handleRetryClick}
               onRetryWithModel={handleRetryWithModel}
               onCloseRetryDropdown={() => setRetryDropdownId(null)}

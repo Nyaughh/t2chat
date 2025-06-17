@@ -24,6 +24,7 @@ interface MessageItemProps {
   editingContent: string
   copiedId: string | null
   retryDropdownId: string | null
+  speakingMessageId: string | null
   selectedModel: ModelInfo
   isStreaming: boolean
   editInputRef: React.RefObject<HTMLTextAreaElement | null>
@@ -34,6 +35,7 @@ interface MessageItemProps {
   onCancelEditing: () => void
   onSaveEdit: () => void
   onCopy: (text: string, messageId: string) => void
+  onReadAloud: (text: string, messageId: string) => void
   onRetryClick: (messageId: string) => void
   onRetryWithModel: (messageId: string, modelId: string) => void
   onCloseRetryDropdown: () => void
@@ -49,6 +51,7 @@ export function MessageItem({
   editingContent,
   copiedId,
   retryDropdownId,
+  speakingMessageId,
   selectedModel,
   isStreaming,
   editInputRef,
@@ -59,6 +62,7 @@ export function MessageItem({
   onCancelEditing,
   onSaveEdit,
   onCopy,
+  onReadAloud,
   onRetryClick,
   onRetryWithModel,
   onCloseRetryDropdown,
@@ -160,9 +164,11 @@ export function MessageItem({
               modelId={message.modelId}
               copiedId={copiedId}
               retryDropdownId={retryDropdownId}
+              speakingMessageId={speakingMessageId}
               selectedModel={selectedModel}
               isStreaming={isStreaming}
               onCopy={onCopy}
+              onReadAloud={onReadAloud}
               onRetryClick={onRetryClick}
               onRetryWithModel={onRetryWithModel}
               onCloseRetryDropdown={onCloseRetryDropdown}

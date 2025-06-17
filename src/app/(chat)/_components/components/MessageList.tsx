@@ -10,6 +10,7 @@ interface MessageListProps {
   editingContent: string
   copiedId: string | null
   retryDropdownId: string | null
+  speakingMessageId: string | null
   selectedModel: ModelInfo
   isStreaming: boolean
   editInputRef: React.RefObject<HTMLTextAreaElement | null>
@@ -22,6 +23,7 @@ interface MessageListProps {
   onCancelEditing: () => void
   onSaveEdit: () => void
   onCopy: (text: string, messageId: string) => void
+  onReadAloud: (text: string, messageId: string) => void
   onRetryClick: (messageId: string) => void
   onRetryWithModel: (messageId: string, modelId: string) => void
   onCloseRetryDropdown: () => void
@@ -37,6 +39,7 @@ export function MessageList({
   editingContent,
   copiedId,
   retryDropdownId,
+  speakingMessageId,
   selectedModel,
   isStreaming,
   editInputRef,
@@ -49,6 +52,7 @@ export function MessageList({
   onCancelEditing,
   onSaveEdit,
   onCopy,
+  onReadAloud,
   onRetryClick,
   onRetryWithModel,
   onCloseRetryDropdown,
@@ -68,6 +72,7 @@ export function MessageList({
             editingContent={editingContent}
             copiedId={copiedId}
             retryDropdownId={retryDropdownId}
+            speakingMessageId={speakingMessageId}
             selectedModel={selectedModel}
             isStreaming={isStreaming}
             editInputRef={editInputRef}
@@ -78,6 +83,7 @@ export function MessageList({
             onCancelEditing={onCancelEditing}
             onSaveEdit={onSaveEdit}
             onCopy={onCopy}
+            onReadAloud={onReadAloud}
             onRetryClick={onRetryClick}
             onRetryWithModel={onRetryWithModel}
             onCloseRetryDropdown={onCloseRetryDropdown}
