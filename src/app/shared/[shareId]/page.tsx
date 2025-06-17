@@ -27,31 +27,32 @@ export default function SharedChatPage() {
   return (
     <div className="h-screen">
         <MessageList
-            messages={messages.map((m: ConvexMessage) => ({ ...m, id: m._id as Id<'messages'>}))}
-            editingMessageId={null}
-            editingContent=""
-            copiedId={null}
-            retryDropdownId={null}
-            selectedModel={models[0]}
-            isStreaming={false}
-            editInputRef={{ current: null }}
-            scrollAreaRef={{ current: null }}
-            messagesEndRef={{ current: null }}
-            isCurrentlyStreaming={() => false}
-            onEditingContentChange={() => {}}
-            onEditKeyDown={() => {}}
-            onStartEditing={() => {}}
-            onCancelEditing={() => {}}
-            onSaveEdit={() => {}}
-            onCopy={() => {}}
-            onRetryClick={() => {}}
-            onRetryWithModel={() => {}}
-            onCloseRetryDropdown={() => {}}
-            onBranch={() => {}}
-            getModelDisplayName={() => ''}
-            getProviderColor={() => ''}
-            isSignedIn={false}
-        />
+        messages={messages.map((m: ConvexMessage) => ({ ...m, id: m._id as Id<'messages'> }))}
+        editingMessageId={null}
+        editingContent=""
+        copiedId={null}
+        retryDropdownId={null}
+        selectedModel={models[0]}
+        isStreaming={false}
+        editInputRef={{ current: null }}
+        scrollAreaRef={{ current: null }}
+        messagesEndRef={{ current: null }}
+        isCurrentlyStreaming={() => false}
+        onEditingContentChange={() => { } }
+        onEditKeyDown={() => { } }
+        onStartEditing={() => { } }
+        onCancelEditing={() => { } }
+        onSaveEdit={() => { } }
+        onCopy={() => { } }
+        onRetryClick={() => { } }
+        onRetryWithModel={() => { } }
+        onCloseRetryDropdown={() => { } }
+        onBranch={() => { } }
+        getModelDisplayName={() => ''}
+        getProviderColor={() => ''}
+        isSignedIn={false} speakingMessageId={null} onReadAloud={function (text: string, messageId: string): void {
+          throw new Error('Function not implemented.')
+        } }        />
     </div>
   )
 } 
