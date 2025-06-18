@@ -315,7 +315,7 @@ t2chat/
 
 ## Repo Activity
 
-<img width="100%" src="https://repobeats.axiom.co/api/embed/7f8a2c1e4b5d9a3f6e8b2d1a5c9e7f4b3a6d8e2c.svg" />
+<img width="100%" src="https://repobeats.axiom.co/api/embed/fc05756736554da8ff514b240592deccd7619169.svg" />
 
 <!-- CONTRIBUTING -->
 
