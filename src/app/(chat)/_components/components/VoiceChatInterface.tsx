@@ -98,8 +98,8 @@ export function VoiceChatInterface({
   const getStatusColor = () => {
     if (!isActive) return 'text-gray-500 dark:text-gray-400'
     if (isProcessing) return 'text-blue-500 dark:text-blue-400'
-    if (isSpeaking) return 'text-purple-500 dark:text-purple-400'
-    if (isListening) return 'text-green-500 dark:text-green-400'
+    if (isSpeaking) return 'text-white'
+    if (isListening) return 'text-white'
     return 'text-rose-500 dark:text-rose-400'
   }
 

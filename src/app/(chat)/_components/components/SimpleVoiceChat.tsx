@@ -153,8 +153,8 @@ export function SimpleVoiceChat({
 
   const getStatusColor = () => {
     if (!isActive) return 'text-rose-500/70 dark:text-rose-300/70'
-    if (isListening) return 'text-green-500 dark:text-green-400'
-    if (isSpeaking) return 'text-purple-500 dark:text-purple-400'
+    if (isListening) return 'text-white'
+    if (isSpeaking) return 'text-white'
     return 'text-blue-500 dark:text-blue-400'
   }
 
