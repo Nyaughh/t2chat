@@ -77,4 +77,39 @@ export const setDefaultApiKey = mutation({
         // Set the new default
         await ctx.db.patch(_id, { is_default: true });
     }
-}) 
+})
+
+export const getUserDefaultApiKey = query({
+    args: { 
+        service: v.union(v.literal("gemini"), v.literal("groq"), v.literal("openrouter"), v.literal("deepgram"))
+    },
+    handler: async (ctx, { service }) => {
+        const userId = await betterAuthComponent.getAuthUserId(ctx);
+        if (!userId) {
+            return null;
+        }
+
+        // First try to get the default key
+        const defaultKey = await ctx.db
+            .query("apiKeys")
+            .withIndex("by_user_and_service", (q) => 
+                q.eq("userId", userId as Id<"users">).eq("service", service)
+            )
+            .filter(q => q.eq(q.field("is_default"), true))
+            .first();
+
+        if (defaultKey) {
+            return defaultKey.key;
+        }
+
+        // If no default key, get any key for the service
+        const anyKey = await ctx.db
+            .query("apiKeys")
+            .withIndex("by_user_and_service", (q) => 
+                q.eq("userId", userId as Id<"users">).eq("service", service)
+            )
+            .first();
+
+        return anyKey?.key || null;
+    },
+}); 

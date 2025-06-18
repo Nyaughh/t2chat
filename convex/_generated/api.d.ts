@@ -13,6 +13,7 @@ import type * as auth from "../auth.js";
 import type * as chat_actions from "../chat/actions.js";
 import type * as chat_mutations from "../chat/mutations.js";
 import type * as chat_queries from "../chat/queries.js";
+import type * as chat_shared from "../chat/shared.js";
 import type * as chat_wa from "../chat/wa.js";
 import type * as http from "../http.js";
 import type * as users from "../users.js";
@@ -37,6 +38,7 @@ declare const fullApi: ApiFromModules<{
   "chat/actions": typeof chat_actions;
   "chat/mutations": typeof chat_mutations;
   "chat/queries": typeof chat_queries;
+  "chat/shared": typeof chat_shared;
   "chat/wa": typeof chat_wa;
   http: typeof http;
   users: typeof users;

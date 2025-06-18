@@ -13,6 +13,7 @@
     "@ai-sdk/google": "^1.2.19",
     "@ai-sdk/groq": "^1.2.9",
     "@convex-dev/better-auth": "^0.6.1",
+    "@google/genai": "^1.5.1",
     "@hookform/resolvers": "^5.1.1",
     "@kinde-oss/kinde-auth-nextjs": "^2.7.0",
     "@openrouter/ai-sdk-provider": "^0.7.1",
