@@ -32,6 +32,15 @@ export default function SettingsPage() {
   const searchParams = useSearchParams()
   const isMobile = useIsMobile()
 
+  const memoizedUser = useMemo(
+    () => ({
+      name: userMetadata.name || '',
+      email: userMetadata.email || '',
+      image: userMetadata.image || '',
+    }),
+    [userMetadata],
+  )
+
   const [activeSection, setActiveSection] = useState<SettingsSection>('account')
   const userSettings = useQuery(api.users.getMySettings)
   const apiKeys = useQuery(api.api_keys.getApiKeys)
@@ -176,15 +185,6 @@ export default function SettingsPage() {
       },
     })
   }
-
-  const memoizedUser = useMemo(
-    () => ({
-      name: userMetadata.name || '',
-      email: userMetadata.email || '',
-      image: userMetadata.image || '',
-    }),
-    [userMetadata],
-  )
 
   const renderContent = () => {
     switch (activeSection) {
