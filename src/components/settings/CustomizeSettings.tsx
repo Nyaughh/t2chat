@@ -37,7 +37,7 @@ const CustomizationInput = ({
   rows?: number
 }) => (
   <div>
-    <label htmlFor={id} className="block text-sm font-medium text-black/70 dark:text-white/70 mb-1">
+    <label htmlFor={id} className="block text-sm font-medium text-muted-foreground mb-2">
       {label}
     </label>
     {isTextArea ? (
@@ -47,7 +47,7 @@ const CustomizationInput = ({
         value={value}
         onChange={onChange}
         placeholder={placeholder}
-        className="w-full bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 rounded-md px-3 py-1.5 text-sm focus:ring-1 focus:ring-rose-500 dark:focus:ring-rose-400 focus:border-rose-500 dark:focus:border-rose-400 outline-none resize-y"
+        className="w-full bg-muted/30 border border-border rounded-lg px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500/50 outline-none resize-y transition-all duration-200 backdrop-blur-sm"
       />
     ) : (
       <input
@@ -56,7 +56,7 @@ const CustomizationInput = ({
         value={value}
         onChange={onChange}
         placeholder={placeholder}
-        className="w-full bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 rounded-md px-3 py-1.5 text-sm focus:ring-1 focus:ring-rose-500 dark:focus:ring-rose-400 focus:border-rose-500 dark:focus:border-rose-400 outline-none"
+        className="w-full bg-muted/30 border border-border rounded-lg px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500/50 outline-none transition-all duration-200 backdrop-blur-sm"
       />
     )}
   </div>
@@ -76,7 +76,7 @@ const CustomizationSelect = ({
   children: React.ReactNode
 }) => (
   <div>
-    <label htmlFor={id} className="block text-sm font-medium text-black/70 dark:text-white/70 mb-1">
+    <label htmlFor={id} className="block text-sm font-medium text-muted-foreground mb-2">
       {label}
     </label>
     <div className="relative">
@@ -84,11 +84,11 @@ const CustomizationSelect = ({
         id={id}
         value={value}
         onChange={onChange}
-        className="w-full appearance-none bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 rounded-md pl-3 pr-8 py-1.5 text-sm focus:ring-1 focus:ring-rose-500 dark:focus:ring-rose-400 focus:border-rose-500 dark:focus:border-rose-400 outline-none"
+        className="w-full appearance-none bg-muted/30 border border-border rounded-lg pl-3 pr-10 py-2.5 text-sm text-foreground focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500/50 outline-none transition-all duration-200 backdrop-blur-sm"
       >
         {children}
       </select>
-      <ChevronRight className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-black/40 dark:text-white/40 pointer-events-none" />
+      <ChevronRight className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none rotate-90" />
     </div>
   </div>
 )
@@ -110,20 +110,28 @@ const CustomizationRadio = ({
 }) => (
   <label
     className={cn(
-      'flex items-center gap-2 p-2 rounded-md cursor-pointer border transition-colors',
+      'flex items-center gap-3 p-3 rounded-lg cursor-pointer border transition-all duration-200 backdrop-blur-sm group',
       checked
-        ? 'bg-rose-500/10 border-rose-500/30'
-        : 'bg-black/5 dark:bg-white/5 border-transparent hover:bg-black/10 dark:hover:bg-white/10',
+        ? 'bg-rose-500/10 border-rose-500/30 shadow-lg shadow-rose-500/10'
+        : 'bg-muted/30 border-border hover:bg-muted/50 hover:border-border hover:shadow-md',
     )}
   >
     <input type="radio" name={name} value={value} checked={checked} onChange={onChange} className="sr-only" />
-    <Icon
-      className={cn('w-4 h-4', checked ? 'text-rose-600 dark:text-rose-400' : 'text-black/60 dark:text-white/60')}
-    />
+    <div className="relative">
+      <Icon
+        className={cn(
+          'w-4 h-4 transition-all duration-200',
+          checked ? 'text-rose-600 dark:text-rose-400 drop-shadow-sm' : 'text-muted-foreground group-hover:text-foreground'
+        )}
+      />
+      {checked && (
+        <div className="absolute inset-0 bg-rose-500/20 blur-sm rounded-full scale-150 -z-10" />
+      )}
+    </div>
     <span
       className={cn(
-        'text-sm',
-        checked ? 'text-rose-600 dark:text-rose-400 font-semibold' : 'text-black/80 dark:text-white/80',
+        'text-sm font-medium transition-all duration-200',
+        checked ? 'text-rose-600 dark:text-rose-400 font-semibold' : 'text-foreground',
       )}
     >
       {label}
@@ -148,14 +156,19 @@ const CustomizationFontRadio = ({
 }) => (
   <label
     className={cn(
-      'flex items-center justify-center p-2 rounded-md cursor-pointer border transition-colors text-center',
+      'flex items-center justify-center p-3 rounded-lg cursor-pointer border transition-all duration-200 text-center backdrop-blur-sm group relative overflow-hidden',
       checked
-        ? 'bg-rose-500/10 border-rose-500/30 text-rose-600 dark:text-rose-300'
-        : 'bg-black/5 dark:bg-white/5 border-transparent hover:bg-black/10 dark:hover:bg-white/10',
+        ? 'bg-rose-500/10 border-rose-500/30 text-rose-600 dark:text-rose-300 shadow-lg shadow-rose-500/10'
+        : 'bg-muted/30 border-border hover:bg-muted/50 hover:border-border hover:shadow-md text-foreground',
     )}
   >
     <input type="radio" name={name} value={value} checked={checked} onChange={onChange} className="sr-only" />
-    <span className={cn('text-sm font-semibold', fontClass)}>{label}</span>
+    {checked && (
+      <div className="absolute inset-0 bg-gradient-to-r from-rose-500/5 via-rose-500/10 to-rose-500/5" />
+    )}
+    <span className={cn('text-sm font-semibold relative z-10 transition-all duration-200', fontClass)}>
+      {label}
+    </span>
   </label>
 )
 
@@ -240,26 +253,29 @@ export function CustomizeSettings({ customization }: { customization: Customizat
   return (
     <div className="space-y-8">
       {isDirty && (
-        <div className="sticky top-0 z-20 py-3 px-4 bg-rose-50 dark:bg-rose-900/30 border-b border-rose-200 dark:border-rose-500/20 backdrop-blur-sm -mx-8 -mt-6 mb-4">
-          <div className="max-w-4xl mx-auto flex items-center justify-between">
+        <div className="sticky top-0 z-20 py-4 px-6 bg-rose-500/10 border border-rose-500/20 rounded-xl backdrop-blur-sm mb-6">
+          <div className="flex items-center justify-between">
             <p className="text-sm font-medium text-rose-700 dark:text-rose-200">You have unsaved changes.</p>
             <button
-                onClick={handleSave}
-                disabled={isSaving}
-                className="px-4 py-1.5 text-sm font-semibold text-white bg-rose-500 rounded-md hover:bg-rose-600 disabled:bg-rose-400 dark:disabled:bg-rose-700 disabled:cursor-not-allowed transition-colors"
+              onClick={handleSave}
+              disabled={isSaving}
+              className="px-4 py-2 text-sm font-semibold text-white bg-rose-500 rounded-lg hover:bg-rose-600 disabled:bg-rose-400 dark:disabled:bg-rose-700 disabled:cursor-not-allowed transition-all duration-200 shadow-lg hover:shadow-xl"
             >
-                {isSaving ? 'Saving...' : 'Save Changes'}
+              {isSaving ? 'Saving...' : 'Save Changes'}
             </button>
           </div>
         </div>
       )}
       {/* User Personalization Section */}
       <div>
-        <h3 className="text-lg font-semibold text-black/80 dark:text-white/80 flex items-center gap-2 mb-2">
-          <User className="w-5 h-5" />
+        <h3 className="text-lg font-semibold text-foreground flex items-center gap-3 mb-4">
+          <div className="relative">
+            <User className="w-5 h-5 text-rose-600 dark:text-rose-400" />
+            <div className="absolute inset-0 bg-rose-500/20 blur-sm rounded-full scale-150 -z-10" />
+          </div>
           User Personalization
         </h3>
-        <div className="space-y-4 p-4 rounded-lg bg-black/5 dark:bg-white/5">
+        <div className="space-y-6 p-4 rounded-xl bg-muted/20 backdrop-blur-sm border border-border/50">
           <CustomizationInput
             id="userName"
             label="Your Name"
@@ -275,37 +291,37 @@ export function CustomizeSettings({ customization }: { customization: Customizat
             placeholder="e.g., Software Engineer, Student, etc."
           />
           <div>
-            <label className="block text-sm font-medium text-black/70 dark:text-white/70 mb-1">
+            <label className="block text-sm font-medium text-muted-foreground mb-3">
               Your Interests/Traits
             </label>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-2 mb-3">
               {localCustomization.userTraits.map((trait, index) => (
                 <div
                   key={index}
-                  className="flex items-center gap-1 bg-rose-500/10 text-rose-600 dark:bg-rose-300/10 dark:text-rose-300 rounded-full pl-2 pr-1 py-0.5 text-xs"
+                  className="flex items-center gap-2 bg-rose-500/10 text-rose-600 dark:text-rose-300 rounded-full pl-3 pr-2 py-1.5 text-sm font-medium border border-rose-500/20 backdrop-blur-sm"
                 >
                   <span>{trait}</span>
                   <button
                     onClick={() => handleRemoveTrait(index)}
-                    className="text-rose-600/70 dark:text-rose-300/70 hover:text-rose-600 dark:hover:text-rose-300"
+                    className="text-rose-600/70 dark:text-rose-300/70 hover:text-rose-600 dark:hover:text-rose-300 transition-colors"
                   >
-                    <X className="w-3 h-3" />
+                    <X className="w-3.5 h-3.5" />
                   </button>
                 </div>
               ))}
             </div>
-            <div className="relative mt-2">
+            <div className="relative">
               <input
                 type="text"
                 value={traitInput}
                 onChange={(e) => setTraitInput(e.target.value)}
                 onKeyDown={handleTraitKeyDown}
                 placeholder="Add a trait and press Enter..."
-                className="w-full bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 rounded-md px-3 py-1.5 text-sm focus:ring-1 focus:ring-rose-500 dark:focus:ring-rose-400 focus:border-rose-500 dark:focus:border-rose-400 outline-none"
+                className="w-full bg-muted/30 border border-border rounded-lg px-3 py-2.5 pr-12 text-sm text-foreground placeholder:text-muted-foreground focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500/50 outline-none transition-all duration-200 backdrop-blur-sm"
               />
               <button
                 onClick={handleAddTrait}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-rose-600 dark:text-rose-400 hover:text-rose-700 dark:hover:text-rose-300 disabled:opacity-50"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-rose-600 dark:text-rose-400 hover:text-rose-700 dark:hover:text-rose-300 disabled:opacity-50 transition-colors"
                 disabled={!traitInput}
               >
                 <ArrowUp className="w-4 h-4" />
@@ -325,11 +341,14 @@ export function CustomizeSettings({ customization }: { customization: Customizat
 
       {/* Prompt Template Section */}
       <div>
-        <h3 className="text-lg font-semibold text-black/80 dark:text-white/80 flex items-center gap-2 mb-2">
-          <Sparkles className="w-5 h-5" />
+        <h3 className="text-lg font-semibold text-foreground flex items-center gap-3 mb-4">
+          <div className="relative">
+            <Sparkles className="w-5 h-5 text-rose-600 dark:text-rose-400" />
+            <div className="absolute inset-0 bg-rose-500/20 blur-sm rounded-full scale-150 -z-10" />
+          </div>
           Prompt Template
         </h3>
-        <div className="p-4 rounded-lg bg-black/5 dark:bg-white/5">
+        <div className="p-4 rounded-xl bg-muted/20 backdrop-blur-sm border border-border/50">
           <CustomizationInput
             id="promptTemplate"
             label="System Prompt"
@@ -344,13 +363,16 @@ export function CustomizeSettings({ customization }: { customization: Customizat
 
       {/* Visual Options Section */}
       <div>
-        <h3 className="text-lg font-semibold text-black/80 dark:text-white/80 flex items-center gap-2 mb-2">
-          <Palette className="w-5 h-5" />
+        <h3 className="text-lg font-semibold text-foreground flex items-center gap-3 mb-4">
+          <div className="relative">
+            <Palette className="w-5 h-5 text-rose-600 dark:text-rose-400" />
+            <div className="absolute inset-0 bg-rose-500/20 blur-sm rounded-full scale-150 -z-10" />
+          </div>
           Visual Appearance
         </h3>
-        <div className="space-y-4 p-4 rounded-lg bg-black/5 dark:bg-white/5">
+        <div className="space-y-6 p-4 rounded-xl bg-muted/20 backdrop-blur-sm border border-border/50">
           <div>
-            <label className="block text-sm font-medium text-black/70 dark:text-white/70 mb-2">
+            <label className="block text-sm font-medium text-muted-foreground mb-3">
               Main Font
             </label>
             <div className="grid grid-cols-2 gap-2">
@@ -395,14 +417,14 @@ export function CustomizeSettings({ customization }: { customization: Customizat
                 fontClass="font-roboto-slab"
               />
             </div>
-            <div className="mt-2 p-3 rounded-lg bg-black/5 dark:bg-white/10 border border-black/5 dark:border-white/5">
-              <p className={cn("text-base", getMainFontPreviewClass(localCustomization.mainFont))}>
+            <div className="mt-3 p-4 rounded-lg bg-muted/40 border border-border/60 backdrop-blur-sm">
+              <p className={cn("text-base text-foreground", getMainFontPreviewClass(localCustomization.mainFont))}>
                 The quick brown fox jumps over the lazy dog.
               </p>
             </div>
           </div>
           <div>
-            <label className="block text-sm font-medium text-black/70 dark:text-white/70 mb-2">
+            <label className="block text-sm font-medium text-muted-foreground mb-3">
               Code Font
             </label>
             <div className="grid grid-cols-2 gap-2">
@@ -447,8 +469,8 @@ export function CustomizeSettings({ customization }: { customization: Customizat
                 fontClass="font-source-code-pro"
               />
             </div>
-            <div className="mt-2 p-3 rounded-lg bg-black/5 dark:bg-white/10 border border-black/5 dark:border-white/5">
-              <pre className="whitespace-pre-wrap"><code className={cn("text-sm", `font-${localCustomization.codeFont}`)}>
+            <div className="mt-3 p-4 rounded-lg bg-muted/40 border border-border/60 backdrop-blur-sm">
+              <pre className="whitespace-pre-wrap"><code className={cn("text-sm text-foreground", `font-${localCustomization.codeFont}`)}>
                 {`function greet(name) {
   return \`Hello, \${name}!\`;
 }`}
@@ -460,13 +482,16 @@ export function CustomizeSettings({ customization }: { customization: Customizat
 
       {/* Behavior Section */}
       <div>
-        <h3 className="text-lg font-semibold text-black/80 dark:text-white/80 flex items-center gap-2 mb-2">
-          <Zap className="w-5 h-5" />
+        <h3 className="text-lg font-semibold text-foreground flex items-center gap-3 mb-4">
+          <div className="relative">
+            <Zap className="w-5 h-5 text-rose-600 dark:text-rose-400" />
+            <div className="absolute inset-0 bg-rose-500/20 blur-sm rounded-full scale-150 -z-10" />
+          </div>
           Behavior
         </h3>
-        <div className="space-y-4 p-4 rounded-lg bg-black/5 dark:bg-white/5">
+        <div className="space-y-6 p-4 rounded-xl bg-muted/20 backdrop-blur-sm border border-border/50">
           <div>
-            <label className="block text-sm font-medium text-black/70 dark:text-white/70 mb-2">
+            <label className="block text-sm font-medium text-muted-foreground mb-3">
               Send Message on Enter
             </label>
             <div className="flex flex-wrap gap-2">
@@ -497,12 +522,12 @@ export function CustomizeSettings({ customization }: { customization: Customizat
             </div>
           </div>
 
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30 border border-border/60">
             <div>
-              <label htmlFor="autoSave" className="block text-sm font-medium text-black/70 dark:text-white/70">
+              <label htmlFor="autoSave" className="block text-sm font-medium text-foreground">
                 Auto-save conversations
               </label>
-              <p className="text-xs text-black/50 dark:text-white/50">Automatically save chat history.</p>
+              <p className="text-xs text-muted-foreground">Automatically save chat history.</p>
             </div>
             <input
               type="checkbox"
@@ -513,12 +538,12 @@ export function CustomizeSettings({ customization }: { customization: Customizat
             />
           </div>
 
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30 border border-border/60">
             <div>
-              <label htmlFor="showTimestamps" className="block text-sm font-medium text-black/70 dark:text-white/70">
+              <label htmlFor="showTimestamps" className="block text-sm font-medium text-foreground">
                 Show message timestamps
               </label>
-              <p className="text-xs text-black/50 dark:text-white/50">Display the time for each message.</p>
+              <p className="text-xs text-muted-foreground">Display the time for each message.</p>
             </div>
             <input
               type="checkbox"

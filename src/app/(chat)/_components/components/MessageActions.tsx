@@ -3,6 +3,7 @@
 import { Copy, Check, RotateCcw, GitFork, Volume2, VolumeX } from 'lucide-react'
 import { ModelDropdown } from '@/components/ui/model-dropdown'
 import { ModelInfo } from '@/lib/models'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 
 interface MessageActionsProps {
   messageId: string
@@ -47,35 +48,62 @@ export function MessageActions({
     <div className="flex items-center gap-4 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity duration-150 ease-[0.25,1,0.5,1] relative">
       {!isStreaming && (
         <div className="flex items-center gap-1">
-          <button
-            onClick={() => onCopy(content, messageId)}
-            className="p-1.5 text-rose-500/70 hover:text-rose-600 dark:text-rose-300/70 dark:hover:text-rose-300 hover:bg-rose-500/5 dark:hover:bg-rose-300/5 rounded transition-all duration-150 ease-[0.25,1,0.5,1] hover:scale-110"
-            title="Copy message"
-          >
-            {copiedId === messageId ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-          </button>
-          <button
-            onClick={() => onReadAloud(content, messageId)}
-            className="p-1.5 text-rose-500/70 hover:text-rose-600 dark:text-rose-300/70 dark:hover:text-rose-300 hover:bg-rose-500/5 dark:hover:bg-rose-300/5 rounded transition-all duration-150 ease-[0.25,1,0.5,1] hover:scale-110"
-            title={speakingMessageId === messageId ? "Stop reading" : "Read aloud"}
-          >
-            {speakingMessageId === messageId ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
-          </button>
-          <button
-            onClick={() => onBranch(messageId)}
-            className="p-1.5 text-rose-500/70 hover:text-rose-600 dark:text-rose-300/70 dark:hover:text-rose-300 hover:bg-rose-500/5 dark:hover:bg-rose-300/5 rounded transition-all duration-150 ease-[0.25,1,0.5,1] hover:scale-110"
-            title="Branch from this message"
-          >
-            <GitFork className="w-4 h-4" />
-          </button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                onClick={() => onCopy(content, messageId)}
+                className="p-1.5 text-rose-500/70 hover:text-rose-600 dark:text-rose-300/70 dark:hover:text-rose-300 hover:bg-rose-500/5 dark:hover:bg-rose-300/5 rounded transition-all duration-150 ease-[0.25,1,0.5,1] hover:scale-110"
+              >
+                {copiedId === messageId ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+              </button>
+            </TooltipTrigger>
+            <TooltipContent>
+              {copiedId === messageId ? 'Copied!' : 'Copy message'}
+            </TooltipContent>
+          </Tooltip>
+
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                onClick={() => onReadAloud(content, messageId)}
+                className="p-1.5 text-rose-500/70 hover:text-rose-600 dark:text-rose-300/70 dark:hover:text-rose-300 hover:bg-rose-500/5 dark:hover:bg-rose-300/5 rounded transition-all duration-150 ease-[0.25,1,0.5,1] hover:scale-110"
+              >
+                {speakingMessageId === messageId ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+              </button>
+            </TooltipTrigger>
+            <TooltipContent>
+              {speakingMessageId === messageId ? 'Stop reading' : 'Read aloud'}
+            </TooltipContent>
+          </Tooltip>
+
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                onClick={() => onBranch(messageId)}
+                className="p-1.5 text-rose-500/70 hover:text-rose-600 dark:text-rose-300/70 dark:hover:text-rose-300 hover:bg-rose-500/5 dark:hover:bg-rose-300/5 rounded transition-all duration-150 ease-[0.25,1,0.5,1] hover:scale-110"
+              >
+                <GitFork className="w-4 h-4" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent>
+              Branch from this message
+            </TooltipContent>
+          </Tooltip>
+
           <div className="relative">
-            <button
-              onClick={() => onRetryClick(messageId)}
-              className="p-1.5 text-rose-500/70 hover:text-rose-600 dark:text-rose-300/70 dark:hover:text-rose-300 hover:bg-rose-500/5 dark:hover:bg-rose-300/5 rounded transition-all duration-150 ease-[0.25,1,0.5,1] hover:scale-110"
-              title="Retry with model selection"
-            >
-              <RotateCcw className="w-4 h-4" />
-            </button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={() => onRetryClick(messageId)}
+                  className="p-1.5 text-rose-500/70 hover:text-rose-600 dark:text-rose-300/70 dark:hover:text-rose-300 hover:bg-rose-500/5 dark:hover:bg-rose-300/5 rounded transition-all duration-150 ease-[0.25,1,0.5,1] hover:scale-110"
+                >
+                  <RotateCcw className="w-4 h-4" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>
+                Retry with model selection
+              </TooltipContent>
+            </Tooltip>
             {retryDropdownId === messageId && (
               <ModelDropdown
                 selectedModel={selectedModel}
@@ -91,10 +119,17 @@ export function MessageActions({
 
       {/* Model Display: show if model exists and not currently streaming this message */}
       {modelId && (
-        <div className="flex items-center gap-1.5 text-xs text-black/50 dark:text-white/50">
-          <div className={`w-2 h-2 rounded-full ${getProviderColor(modelId)}`} />
-          <span>{getModelDisplayName(modelId)}</span>
-        </div>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div className="flex items-center gap-1.5 text-xs text-black/50 dark:text-white/50 cursor-help">
+              <div className={`w-2 h-2 rounded-full ${getProviderColor(modelId)}`} />
+              <span>{getModelDisplayName(modelId)}</span>
+            </div>
+          </TooltipTrigger>
+          <TooltipContent>
+            Generated by {getModelDisplayName(modelId)}
+          </TooltipContent>
+        </Tooltip>
       )}
     </div>
   )

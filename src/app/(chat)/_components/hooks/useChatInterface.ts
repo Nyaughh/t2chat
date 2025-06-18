@@ -27,7 +27,7 @@ export function useChatInterface(chatId?: string, initialMessages?: ConvexMessag
   } = useConversations(chatId, initialMessages)
 
   const messageActions = useMessageActions({ onRetryMessage: handleRetryMessage })
-  const scrollToBottom = useScrollToBottom(activeMessages)
+  const scrollToBottom = useScrollToBottom(activeMessages, isStreaming)
 
   const handleSend = (message: string, model: string, options: { webSearch?: boolean }) => {
     if (message.trim() || attachments.length > 0) {

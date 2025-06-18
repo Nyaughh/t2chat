@@ -16,12 +16,12 @@ import {
   ModelsKeysSettings,
   SettingsSidebar,
 } from '@/components/settings'
-import { AttachmentsSettings } from '@/components/settings/attachments'
 import { cn } from '@/lib/utils'
-import { Settings, X } from 'lucide-react'
+import { Settings, X, LogOut } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import SpeechSettings from '@/components/settings/SpeechSettings'
 import { settingsSections, type SettingsSection } from '@/components/settings/config'
+import { authClient } from '@/lib/auth-client'
 
 export default function SettingsPage() {
   const { userMetadata } = useAuth()
@@ -35,6 +35,16 @@ export default function SettingsPage() {
 
   const handleClose = () => {
     router.back()
+  }
+
+  const handleSignOut = async () => {
+    await authClient.signOut({
+      fetchOptions: {
+        onSuccess: () => {
+          router.push('/')
+        },
+      },
+    })
   }
 
   const memoizedUser = useMemo(
@@ -71,8 +81,6 @@ export default function SettingsPage() {
         )
       case 'data':
         return <DataSettings unmigratedLocalChats={unmigratedLocalChats as Conversation[]} />
-      case 'attachments':
-        return <AttachmentsSettings />
       case 'speech':
         return <SpeechSettings />
       default:
@@ -81,15 +89,35 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="flex-1 flex flex-col min-h-0 bg-white dark:bg-zinc-900">
-      <header className="flex items-center justify-between p-4 border-b border-black/10 dark:border-white/10 flex-shrink-0">
+    <div className="flex-1 flex flex-col min-h-0 bg-background">
+      <header className="flex items-center justify-between p-4 border-b border-border flex-shrink-0 bg-card/50 backdrop-blur-sm">
         <div className="flex items-center gap-3">
-          <Settings className="w-5 h-5 text-rose-600 dark:text-rose-400" />
-          <h2 className="text-lg font-bold text-black/80 dark:text-white/80">Settings</h2>
+          <div className="relative">
+            <Settings className="w-5 h-5 text-rose-600 dark:text-rose-400" />
+            <div className="absolute inset-0 bg-rose-500/20 blur-sm rounded-full scale-150" />
+          </div>
+          <h2 className="text-lg font-bold text-foreground">Settings</h2>
         </div>
-        <Button variant="ghost" size="icon" onClick={handleClose} className="text-black/50 dark:text-white/50">
-          <X className="w-5 h-5" />
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={handleSignOut} 
+            className="text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+            title="Sign Out"
+          >
+            <LogOut className="w-5 h-5" />
+          </Button>
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={handleClose} 
+            className="text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+            title="Close Settings"
+          >
+            <X className="w-5 h-5" />
+          </Button>
+        </div>
       </header>
       <div className={cn('flex flex-1 min-h-0', isMobile && 'flex-col')}>
         <SettingsSidebar
@@ -98,7 +126,7 @@ export default function SettingsPage() {
           setActiveSection={setActiveSection}
           isMobile={isMobile}
         />
-        <main className="flex-1 p-6 overflow-y-auto">
+        <main className="flex-1 p-6 overflow-y-auto bg-background">
           <AnimatePresence mode="wait">
             <motion.div
               key={activeSection}
@@ -106,6 +134,7 @@ export default function SettingsPage() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
               transition={{ duration: 0.15 }}
+              className="max-w-4xl mx-auto"
             >
               {renderContent()}
             </motion.div>

@@ -2,16 +2,63 @@
 
 import { motion } from 'framer-motion'
 import { cn } from '@/lib/utils'
+import { useMemo } from 'react'
 
 interface WelcomeScreenProps {
   onPromptClick: (prompt: string) => void
 }
 
-const prompts = [
+const allPrompts = [
+  // General AI & Technology
   'How does AI work?',
+  'Explain machine learning in simple terms',
+  'What are the benefits and risks of AI?',
+  'How does ChatGPT generate responses?',
+  'What is the difference between AI and automation?',
+  
+  // Science & Space
   'Are black holes real?',
+  'How do stars form?',
+  'What would happen if you fell into a black hole?',
+  'Explain quantum physics simply',
+  'How big is the universe?',
+  'What causes the northern lights?',
+  
+  // Language & Logic
   'How many Rs are in the word "strawberry"?',
+  'What are some common grammar mistakes?',
+  'Explain the difference between "its" and "it\'s"',
+  'What makes a good password?',
+  'How do you solve a Rubik\'s cube?',
+  
+  // Philosophy & Life
   'What is the meaning of life?',
+  'What makes people happy?',
+  'How do you overcome procrastination?',
+  'What is consciousness?',
+  'How do you build good habits?',
+  
+  // Practical & Creative
+  'Write a short story about time travel',
+  'How do you make a perfect cup of coffee?',
+  'What are some healthy meal prep ideas?',
+  'Help me plan a weekend trip',
+  'How do you learn a new language effectively?',
+  'What are some creative writing prompts?',
+  
+  // Technology & Programming
+  'Explain APIs in simple terms',
+  'What is cloud computing?',
+  'How does the internet work?',
+  'What programming language should I learn first?',
+  'How do you stay safe online?',
+  
+  // Business & Career
+  'How do you write a good resume?',
+  'What makes a great leader?',
+  'How do you negotiate salary?',
+  'What are some good interview questions to ask?',
+  'How do you manage your time effectively?',
 ]
 
 function PromptItem({ prompt, onClick }: { prompt: string, onClick: () => void }) {
@@ -36,6 +83,12 @@ function PromptItem({ prompt, onClick }: { prompt: string, onClick: () => void }
 }
 
 export default function WelcomeScreen({ onPromptClick }: WelcomeScreenProps) {
+  // Randomize and select 4 prompts on each render
+  const randomPrompts = useMemo(() => {
+    const shuffled = [...allPrompts].sort(() => 0.5 - Math.random())
+    return shuffled.slice(0, 4)
+  }, [])
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 15, scale: 0.95 }}
@@ -52,15 +105,15 @@ export default function WelcomeScreen({ onPromptClick }: WelcomeScreenProps) {
       <div className="max-w-md w-full text-left">
         <div className="mt-8">
           <div className="px-3 mb-4">
-            <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-2">How can I help you?</h1>
+            <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-2 whitespace-nowrap">How can I help you?</h1>
             <h3 className="text-xs font-medium text-black/50 dark:text-white/50 uppercase tracking-wider">
               Here are some prompts to help you get started.
             </h3>
           </div>
           <div className="divide-y divide-rose-500/10 dark:divide-rose-300/10">
-            {prompts.map((prompt, i) => (
+            {randomPrompts.map((prompt, i) => (
               <PromptItem
-                key={i}
+                key={`${prompt}-${i}`}
                 prompt={prompt}
                 onClick={() => onPromptClick(prompt)}
               />

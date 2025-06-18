@@ -4,6 +4,7 @@ import { Settings, Menu, Plus } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import ThemeSwitcher from '@/components/ThemeSwitcher'
 import { useRouter } from 'next/navigation'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 
 interface TopControlsProps {
   isSignedIn: boolean
@@ -42,13 +43,19 @@ export function TopControls({
           <div className="absolute inset-0 bg-gradient-to-t from-transparent via-transparent to-white/20 dark:to-white/5 pointer-events-none rounded-lg"></div>
 
           <div className="flex items-center gap-1.5">
-            <button
-              onClick={handleSettingsClick}
-              className="relative z-10 text-rose-600 dark:text-rose-300 hover:text-rose-700 dark:hover:text-rose-200 h-5.5 w-5.5 p-0 hover:bg-transparent"
-              title={isSignedIn ? "Settings" : "Sign in to access settings"}
-            >
-              <Settings className="w-4.5 h-4.5" />
-            </button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={handleSettingsClick}
+                  className="relative z-10 text-rose-600 dark:text-rose-300 hover:text-rose-700 dark:hover:text-rose-200 h-5.5 w-5.5 p-0 hover:bg-transparent"
+                >
+                  <Settings className="w-4.5 h-4.5" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">
+                {isSignedIn ? 'Settings' : 'Sign in to access settings'}
+              </TooltipContent>
+            </Tooltip>
             
             {/* Vertical divider */}
             <div className="relative z-10 w-px h-4.5 bg-rose-500/20 dark:bg-rose-300/20"></div>
@@ -73,28 +80,40 @@ export function TopControls({
           <div className="absolute inset-0 bg-gradient-to-br from-rose-500/5 via-transparent to-rose-500/10 dark:from-rose-500/10 dark:via-transparent dark:to-rose-500/20 pointer-events-none rounded-lg"></div>
           <div className="absolute inset-0 bg-gradient-to-t from-transparent via-transparent to-white/20 dark:to-white/5 pointer-events-none rounded-lg"></div>
 
-          <button
-            onClick={onToggleSidebar}
-            className="relative z-10 text-rose-600 dark:text-rose-300 hover:text-rose-700 dark:hover:text-rose-200 h-5.5 w-5.5 p-0 hover:bg-transparent"
-            title="Toggle sidebar"
-          >
-            <Menu className="w-4.5 h-4.5" />
-          </button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                onClick={onToggleSidebar}
+                className="relative z-10 text-rose-600 dark:text-rose-300 hover:text-rose-700 dark:hover:text-rose-200 h-5.5 w-5.5 p-0 hover:bg-transparent"
+              >
+                <Menu className="w-4.5 h-4.5" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">
+              Toggle sidebar
+            </TooltipContent>
+          </Tooltip>
 
           {/* Vertical divider */}
           <div className="relative z-10 w-px h-4.5 bg-rose-500/20 dark:bg-rose-300/20"></div>
 
-          <button
-            onClick={onNewChat}
-            className={cn(
-              'relative z-10 text-rose-600 dark:text-rose-300 hover:text-rose-700 dark:hover:text-rose-200 h-5.5 w-5.5 p-0 hover:bg-transparent',
-              isOnHomePage && 'opacity-30 cursor-not-allowed',
-            )}
-            title="New conversation"
-            disabled={isOnHomePage}
-          >
-            <Plus className="w-4.5 h-4.5" />
-          </button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                onClick={onNewChat}
+                className={cn(
+                  'relative z-10 text-rose-600 dark:text-rose-300 hover:text-rose-700 dark:hover:text-rose-200 h-5.5 w-5.5 p-0 hover:bg-transparent',
+                  isOnHomePage && 'opacity-30 cursor-not-allowed',
+                )}
+                disabled={isOnHomePage}
+              >
+                <Plus className="w-4.5 h-4.5" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">
+              {isOnHomePage ? 'Already on home page' : 'New conversation'}
+            </TooltipContent>
+          </Tooltip>
 
           {/* Premium glow effect in dark mode */}
           <div className="absolute inset-0 -z-10 bg-gradient-to-r from-rose-300/0 via-rose-300/5 to-rose-300/0 rounded-lg blur-xl opacity-0 dark:opacity-20 pointer-events-none"></div>

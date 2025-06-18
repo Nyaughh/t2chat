@@ -10,6 +10,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { ModelInfo, models } from '@/lib/models'
 import { useQuery } from 'convex/react'
 import { api } from '../../../convex/_generated/api'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 
 interface Attachment {
   name: string
@@ -706,18 +707,25 @@ export default function AIInput({
               )}
             </div>
             <div className="flex items-center gap-1">
-            <button
-                type="button"
-                onClick={handleToggleListening}
-                className={cn(
-                  'group p-2 md:p-2.5 transition-all duration-300 rounded-full',
-                  isListening
-                    ? 'text-rose-500 dark:text-rose-300 shadow-md shadow-rose-500/20 dark:shadow-rose-500/20 scale-100 hover:bg-rose-500/5 dark:hover:bg-rose-300/5 animate-pulse'
-                    : 'text-black/30 dark:text-rose-300/30 scale-95 hover:bg-black/5 dark:hover:bg-white/5 hover:text-black dark:hover:text-white hover:scale-100',
-                )}
-              >
-                <Mic className="w-5 md:w-6 h-5 md:h-6" />
-              </button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  onClick={handleToggleListening}
+                  className={cn(
+                    'group p-2 md:p-2.5 transition-all duration-300 rounded-full',
+                    isListening
+                      ? 'text-rose-500 dark:text-rose-300 shadow-md shadow-rose-500/20 dark:shadow-rose-500/20 scale-100 hover:bg-rose-500/5 dark:hover:bg-rose-300/5 animate-pulse'
+                      : 'text-rose-500/70 dark:text-rose-300/70 hover:text-rose-500 dark:hover:text-rose-300 scale-95 hover:bg-rose-500/5 dark:hover:bg-rose-300/5 hover:scale-100',
+                  )}
+                >
+                  <Mic className="w-5 md:w-6 h-5 md:h-6" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="top">
+                {isListening ? 'Stop voice input' : 'Start voice input'}
+              </TooltipContent>
+            </Tooltip>
             {isStreaming ? (
               <button
                 type="button"

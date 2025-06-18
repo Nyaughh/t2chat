@@ -8,7 +8,6 @@ import { TopControls } from './components/TopControls'
 import { UserMetadata } from '@/lib/types'
 import { useAuth } from '@/hooks/useAuth'
 import { useFont } from '@/hooks/useFont'
-import 'react-contexify/dist/ReactContexify.css';
 import { useMutation } from 'convex/react'
 import { api } from '../../../../convex/_generated/api'
 import { toast } from 'sonner'

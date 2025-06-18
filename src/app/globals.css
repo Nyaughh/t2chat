@@ -119,6 +119,35 @@
   body {
     @apply bg-background text-foreground;
   }
+
+  /* Remove all blue colors and default focus styles */
+  * {
+    outline: none !important;
+  }
+
+  *:focus {
+    outline: none !important;
+    box-shadow: none !important;
+  }
+
+  *:focus-visible {
+    outline: none !important;
+    box-shadow: none !important;
+  }
+
+  /* Remove browser default button styling */
+  button {
+    outline: none !important;
+    border: none;
+    background: none;
+  }
+
+  button:focus,
+  button:focus-visible {
+    outline: none !important;
+    box-shadow: none !important;
+    ring: none !important;
+  }
 }
 
 @layer utilities {
@@ -171,6 +200,165 @@
   }
 }
 
+/* Remove ALL blue colors and default focus styles from context menus and all components */
+@layer components {
+  /* Context Menu Overrides - Remove all blue and ensure rose theme */
+  [data-radix-context-menu-content] {
+    outline: none !important;
+    border: none !important;
+    box-shadow: none !important;
+  }
+
+  [data-radix-context-menu-item] {
+    outline: none !important;
+    border: none !important;
+    box-shadow: none !important;
+  }
+
+  [data-radix-context-menu-item]:focus {
+    outline: none !important;
+    border: none !important;
+    box-shadow: none !important;
+    background-color: transparent !important;
+  }
+
+  [data-radix-context-menu-item]:focus-visible {
+    outline: none !important;
+    border: none !important;
+    box-shadow: none !important;
+    background-color: transparent !important;
+  }
+
+  [data-radix-context-menu-item][data-highlighted] {
+    outline: none !important;
+    border: none !important;
+    box-shadow: none !important;
+    background-color: transparent !important;
+  }
+
+  /* Dropdown Menu Overrides - Remove all blue and ensure rose theme */
+  [data-radix-dropdown-menu-content] {
+    outline: none !important;
+    border: none !important;
+    box-shadow: none !important;
+  }
+
+  [data-radix-dropdown-menu-item] {
+    outline: none !important;
+    border: none !important;
+    box-shadow: none !important;
+  }
+
+  [data-radix-dropdown-menu-item]:focus {
+    outline: none !important;
+    border: none !important;
+    box-shadow: none !important;
+    background-color: transparent !important;
+  }
+
+  [data-radix-dropdown-menu-item]:focus-visible {
+    outline: none !important;
+    border: none !important;
+    box-shadow: none !important;
+    background-color: transparent !important;
+  }
+
+  [data-radix-dropdown-menu-item][data-highlighted] {
+    outline: none !important;
+    border: none !important;
+    box-shadow: none !important;
+    background-color: transparent !important;
+  }
+
+  [data-radix-dropdown-menu-trigger] {
+    outline: none !important;
+    border: none !important;
+    box-shadow: none !important;
+  }
+
+  [data-radix-dropdown-menu-trigger]:focus {
+    outline: none !important;
+    border: none !important;
+    box-shadow: none !important;
+  }
+
+  [data-radix-dropdown-menu-trigger]:focus-visible {
+    outline: none !important;
+    border: none !important;
+    box-shadow: none !important;
+  }
+
+  /* Remove all default Radix UI focus styles */
+  [data-radix-context-menu-content],
+  [data-radix-context-menu-item],
+  [data-radix-context-menu-separator],
+  [data-radix-dropdown-menu-content],
+  [data-radix-dropdown-menu-item],
+  [data-radix-dropdown-menu-separator],
+  [data-radix-dropdown-menu-trigger],
+  [data-radix-tooltip-content],
+  [data-radix-tooltip-trigger] {
+    outline: none !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    ring: none !important;
+  }
+
+  /* Ensure no blue colors anywhere */
+  *[style*='blue'],
+  *[class*='blue'],
+  *[data-state*='open']:focus,
+  *[data-state*='checked']:focus,
+  *[aria-expanded='true']:focus {
+    color: inherit !important;
+    background-color: transparent !important;
+    border-color: transparent !important;
+    outline: none !important;
+    box-shadow: none !important;
+  }
+
+  /* Override any system focus colors */
+  :focus,
+  :focus-visible,
+  [data-focus],
+  [data-focus-visible] {
+    outline: none !important;
+    box-shadow: none !important;
+    border-color: transparent !important;
+  }
+
+  /* Additional overrides for Radix UI menu items */
+  [role='menuitem'],
+  [role='menuitemcheckbox'],
+  [role='menuitemradio'] {
+    outline: none !important;
+    box-shadow: none !important;
+  }
+
+  [role='menuitem']:focus,
+  [role='menuitem']:focus-visible,
+  [role='menuitemcheckbox']:focus,
+  [role='menuitemcheckbox']:focus-visible,
+  [role='menuitemradio']:focus,
+  [role='menuitemradio']:focus-visible {
+    outline: none !important;
+    box-shadow: none !important;
+    background-color: transparent !important;
+  }
+
+  /* Remove browser default highlights */
+  *::-moz-focus-inner {
+    border: 0 !important;
+    outline: none !important;
+  }
+
+  /* Remove webkit focus rings */
+  *:focus {
+    -webkit-focus-ring-color: transparent !important;
+    outline: none !important;
+  }
+}
+
 ::view-transition-group(root) {
   animation-duration: 0.7s;
   animation-timing-function: var(--expo-out);
@@ -200,7 +388,7 @@
 
 @keyframes reveal-light {
   from {
-    clip-path: polygon(50% -71%, 171% 50%, 171% 50%, 50% -71%);
+    clip-path: polygon(-50% 71%, 50% 171%, 50% 171%, -50% 71%);
   }
   to {
     clip-path: polygon(-50% 71%, 50% 171%, 171% 50%, 50% -71%);
@@ -208,20 +396,20 @@
 }
 
 @keyframes shine {
-  0% {
-    background-position: -200% 50%;
+  from {
+    background-position: 200% 0;
   }
-  100% {
-    background-position: 200% 50%;
+  to {
+    background-position: -200% 0;
   }
 }
 
 ::selection {
-  background: var(--primary);
-  color: var(--primary-foreground);
+  background-color: oklch(0.646 0.222 41.116 / 0.3);
+  color: oklch(0.18 0.015 25);
 }
 
 .dark::selection {
-  background: var(--primary-foreground);
-  color: var(--primary);
+  background-color: oklch(0.488 0.243 264.376 / 0.3);
+  color: oklch(0.98 0.005 25);
 }

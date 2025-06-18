@@ -18,14 +18,19 @@ export function SettingsSidebar({
   return (
     <aside
       className={cn(
-        'flex-shrink-0',
+        'flex-shrink-0 bg-card/20 backdrop-blur-sm',
         isMobile
-          ? 'p-2 border-b border-black/10 dark:border-white/10'
-          : 'w-56 p-4 border-r border-black/10 dark:border-white/10',
+          ? 'p-3 border-b border-border'
+          : 'w-64 p-4 border-r border-border',
       )}
     >
       <nav
-        className={cn('flex', isMobile ? 'flex-row space-x-1 overflow-x-auto scrollbar-hide' : 'flex-col space-y-1')}
+        className={cn(
+          'flex',
+          isMobile 
+            ? 'flex-row space-x-2 overflow-x-auto scrollbar-hide pb-1' 
+            : 'flex-col space-y-2'
+        )}
       >
         {settingsSections.map((section) => (
           <SettingsSidebarItem
