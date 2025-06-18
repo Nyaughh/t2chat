@@ -2,6 +2,7 @@
 
 import { memo } from 'react'
 import { ChatGroup } from './ChatGroup'
+import { ConvexChat } from '@/lib/types'
 
 interface ChatListProps {
   groupedChats: Array<{
@@ -33,7 +34,7 @@ export const ChatList = memo(function ChatList({
         <div className="py-2">
           {groupedChats.map((group, groupIndex) => (
             <ChatGroup
-              key={group.title}
+              key={group.title + groupIndex}
               title={group.title}
               chats={group.chats}
               currentChatId={currentChatId}

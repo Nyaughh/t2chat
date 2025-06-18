@@ -30,6 +30,11 @@ export interface ConvexChat {
   title: string
   createdAt: number
   updatedAt: number
+  userId: Id<'users'>
+  shareId?: string
+  isShared?: boolean
+  isGeneratingTitle?: boolean
+  isBranch?: boolean
 }
 
 export interface ConvexMessage {

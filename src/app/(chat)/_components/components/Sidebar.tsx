@@ -5,7 +5,7 @@ import { Plus, Menu, Search } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { ChatList } from './ChatList'
 import { UserProfile } from './UserProfile'
-import { UserMetadata } from '@/lib/types'
+import { ConvexChat, UserMetadata } from '@/lib/types'
 import { memo, useCallback } from 'react'
 import Link from 'next/link'
 

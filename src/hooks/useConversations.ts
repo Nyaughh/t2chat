@@ -15,7 +15,7 @@ import { CoreMessage } from 'ai'
 import { useQuery } from 'convex/react'
 import { api } from '../../convex/_generated/api'
 
-export const useConversations = (chatId?: string, initialMessages?: ConvexMessage[] | null) => {
+export const useConversations = (chatId?: string, initialMessages?: ConvexMessage[] | null, initialChats?: ConvexChat[] | null) => {
   const router = useRouter()
   const pathname = usePathname()
   const chatIdFromUrl = Array.isArray(chatId) ? chatId[1] : chatId
@@ -167,9 +167,14 @@ export const useConversations = (chatId?: string, initialMessages?: ConvexMessag
 
   const activeChats = useMemo(() => {
     // If authenticated, ONLY show chats from Convex.
+    console.log('isAuthenticated', isAuthenticated)
+    console.log('initialChats', initialChats)
     if (isAuthenticated) {
+      console.log('isConvexStreaming', isConvexStreaming)
       const sourceChats = isConvexStreaming ? cachedConvexChats : convexChats
-      return (sourceChats || [])
+      // Use initialChats as fallback if convex chats haven't loaded yet
+      const chatsToUse = sourceChats || initialChats || []
+      return chatsToUse
         .map((chat) => ({
           id: chat._id,
           title: chat.title || 'New Chat',
@@ -180,8 +185,15 @@ export const useConversations = (chatId?: string, initialMessages?: ConvexMessag
         .sort((a, b) => b.lastMessageAt.getTime() - a.lastMessageAt.getTime())
     }
     // For anonymous users, just use Dexie
-    return dexieConversations || []
-  }, [isAuthenticated, isConvexStreaming, cachedConvexChats, convexChats, dexieConversations])
+    return initialChats ? initialChats : dexieConversations?.map((chat) => ({
+      id: chat.id as Id<'chats'>,
+      title: chat.title || 'New Chat',
+      createdAt: new Date(chat.createdAt),
+      updatedAt: new Date(chat.updatedAt),
+      lastMessageAt: new Date(chat.updatedAt),
+      isBranch: false,
+    })) || []
+  }, [isAuthenticated, isConvexStreaming, cachedConvexChats, convexChats, dexieConversations, initialChats])
 
   const unmigratedLocalChatsRef = useRef<DBConversation[]>([])
   const unmigratedLocalChats = useMemo(() => {

@@ -7,11 +7,12 @@ import { useConversations } from '@/hooks/useConversations'
 import { useTouch } from '@/hooks/useTouch'
 import { useChatSearch } from './useChatSearch'
 import { useChatGroups } from './useChatGroups'
+import { ConvexChat } from '@/lib/types'
 
-export function useChatLayout() {
+export function useChatLayout(initialChats?: ConvexChat[] | null) {
   const [mounted, setMounted] = useState(false)
   const { sidebarOpen, toggleSidebar } = useSidebar()
-  const { chats: activeChats, currentChatId, deleteConversation, unmigratedLocalChats } = useConversations()
+  const { chats: activeChats, currentChatId, deleteConversation, unmigratedLocalChats } = useConversations(undefined, undefined, initialChats)
   const router = useRouter()
 
   const { onTouchStart, onTouchMove, onTouchEnd } = useTouch({

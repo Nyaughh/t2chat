@@ -3,6 +3,7 @@
 import { memo } from 'react'
 import { cn } from '@/lib/utils'
 import { ChatItem } from './ChatItem'
+import { ConvexChat } from '@/lib/types'
 
 interface ChatGroupProps {
   title: string

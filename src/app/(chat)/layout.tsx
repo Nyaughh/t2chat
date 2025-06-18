@@ -9,6 +9,9 @@ export default async function ChatLayoutPage({ children }: { children: React.Rea
   const token = await getToken(createAuth)
   const user = await fetchQuery(api.auth.getCurrentUser, {}, { token })
 
+  // Fetch initial chats if user is authenticated to prevent flash
+  const initialChats = user ? await fetchQuery(api.chat.queries.getUserChats, {}, { token }) : null
+
   const userMetadata = {
     name: user?.name,
     email: user?.email,
@@ -17,7 +20,7 @@ export default async function ChatLayoutPage({ children }: { children: React.Rea
 
   return (
     <div>
-      <ChatLayout userMetadata={userMetadata} isSignedIn={!!user}>
+      <ChatLayout userMetadata={userMetadata} isSignedIn={!!user} initialChats={initialChats}>
         {children}
       </ChatLayout>
     </div>

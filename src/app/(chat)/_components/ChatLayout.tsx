@@ -6,7 +6,7 @@ import { useChatLayout } from './hooks/useChatLayout'
 import { Sidebar } from './components/Sidebar'
 import { TopControls } from './components/TopControls'
 
-import { UserMetadata } from '@/lib/types'
+import { UserMetadata, ConvexChat } from '@/lib/types'
 import { useAuth } from '@/hooks/useAuth'
 import { useFont } from '@/hooks/useFont'
 import { useMutation } from 'convex/react'
@@ -32,6 +32,7 @@ interface ChatLayoutProps {
   children: React.ReactNode
   isSignedIn: boolean
   userMetadata: UserMetadata
+  initialChats?: ConvexChat[] | null
 }
 
 function RenameDialog({
@@ -83,6 +84,7 @@ export default function ChatLayout({
   children,
   userMetadata: serverUserMetadata,
   isSignedIn: serverIsSignedIn,
+  initialChats,
 }: ChatLayoutProps) {
   const router = useRouter()
   const pathname = usePathname()
@@ -100,7 +102,7 @@ export default function ChatLayout({
     handleConversationSelect,
     createNewChat,
     toggleSidebar,
-  } = useChatLayout()
+  } = useChatLayout(initialChats)
 
   const { isSignedIn, userMetadata, isPending } = useAuth({ serverIsSignedIn, serverUserMetadata })
   useFont()
