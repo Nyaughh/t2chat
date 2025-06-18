@@ -26,37 +26,63 @@ export function useSimpleVoiceChat(onSendMessage?: (message: string, conversatio
 
     recognition.onstart = () => setIsListening(true);
     
-    recognition.onresult = (event: any) => {
+    recognition.onresult = async (event: any) => {
       const transcript = event.results[0][0].transcript;
       setTranscript(prev => prev + transcript + ' ');
       
-      // Add user message to conversation history first
-      const newUserMessage = { role: 'user' as const, content: transcript };
-      setConversationHistory(prev => {
-        const updatedHistory = [...prev, newUserMessage];
+      // Stop listening and get AI response
+      setIsListening(false);
+      isWaitingForResponse.current = true;
+      
+      // Get current conversation history snapshot
+      setConversationHistory(currentHistory => {
+        const newUserMessage = { role: 'user' as const, content: transcript };
+        const historyWithUserMessage = [...currentHistory, newUserMessage];
         
-        // Stop listening and get AI response
-        setIsListening(false);
-        isWaitingForResponse.current = true;
-        
-        // Get AI response with conversation context
-        if (onSendMessage) {
-          onSendMessage(transcript, prev).then((aiResponse) => {
-            setConversationHistory(current => [...current, { role: 'assistant', content: aiResponse }]);
-            
-            // Speak the response
-            speak(aiResponse, () => {
-              isWaitingForResponse.current = false;
-              // Start listening again after AI finishes speaking
-              if (isActive) {
-                setTimeout(() => {
-                  if (recognitionRef.current && isActive) {
-                    recognitionRef.current.start();
+        // Process AI response asynchronously
+        (async () => {
+          try {
+            if (onSendMessage) {
+              // Use the original history (without user message) for context
+              const aiResponse = await onSendMessage(transcript, currentHistory);
+              
+              // Add AI response to conversation
+              setConversationHistory(latest => [...latest, { role: 'assistant', content: aiResponse }]);
+              
+              // Speak the response
+              speak(aiResponse, () => {
+                isWaitingForResponse.current = false;
+                // Start listening again after AI finishes speaking
+                if (isActive) {
+                  setTimeout(() => {
+                    if (recognitionRef.current && isActive) {
+                      recognitionRef.current.start();
+                    }
+                  }, 500);
+                }
+              });
+            } else {
+              // Fallback to mock response
+              setTimeout(() => {
+                const aiResponse = `I heard you say: "${transcript}". This is a mock response.`;
+                setConversationHistory(latest => [...latest, { role: 'assistant', content: aiResponse }]);
+                
+                // Speak the response
+                speak(aiResponse, () => {
+                  isWaitingForResponse.current = false;
+                  // Start listening again after AI finishes speaking
+                  if (isActive) {
+                    setTimeout(() => {
+                      if (recognitionRef.current && isActive) {
+                        recognitionRef.current.start();
+                      }
+                    }, 500);
                   }
-                }, 500);
-              }
-            });
-          }).catch(() => {
+                });
+              }, 1000);
+            }
+          } catch (error) {
+            console.error('Error getting AI response:', error);
             isWaitingForResponse.current = false;
             // Restart listening on error
             if (isActive) {
@@ -66,29 +92,11 @@ export function useSimpleVoiceChat(onSendMessage?: (message: string, conversatio
                 }
               }, 1000);
             }
-          });
-        } else {
-          // Fallback to mock response
-          setTimeout(() => {
-            const aiResponse = `I heard you say: "${transcript}". This is a mock response.`;
-            setConversationHistory(current => [...current, { role: 'assistant', content: aiResponse }]);
-            
-            // Speak the response
-            speak(aiResponse, () => {
-              isWaitingForResponse.current = false;
-              // Start listening again after AI finishes speaking
-              if (isActive) {
-                setTimeout(() => {
-                  if (recognitionRef.current && isActive) {
-                    recognitionRef.current.start();
-                  }
-                }, 500);
-              }
-            });
-          }, 1000);
-        }
+          }
+        })();
         
-        return updatedHistory;
+        // Return history with just the user message added
+        return historyWithUserMessage;
       });
     };
 

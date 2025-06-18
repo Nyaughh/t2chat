@@ -175,7 +175,7 @@ export default function ChatInterface({ chatId, initialMessages }: ChatInterface
   }
 
   const handleVoiceMessageSend = async (message: string, conversationHistory: Array<{role: 'user' | 'assistant', content: string}>) => {
-    return await sendVoiceMessage(message, selectedModel.id, conversationHistory)
+    return await sendVoiceMessage(message, selectedModel.id, conversationHistory, userSettings)
   }
 
   return (
@@ -293,7 +293,7 @@ export default function ChatInterface({ chatId, initialMessages }: ChatInterface
                       handleUploadError(error, 'file')
                     }}
                     appearance={{
-                      button: "p-2 md:p-2.5 text-rose-500/60 dark:text-rose-300/60 hover:text-rose-600 dark:hover:text-rose-300 transition-all duration-200 rounded-lg bg-white/50 dark:bg-[oklch(0.22_0.015_25)]/40 hover:bg-rose-500/5 dark:hover:bg-white/5 ut-button:bg-transparent ut-button:p-0 ut-button:w-full ut-button:h-full ut-allowed-content:hidden",
+                      button: "w-7 h-7 md:w-8 md:h-8 text-rose-500/60 dark:text-rose-300/60 hover:text-rose-600 dark:hover:text-rose-300 transition-all duration-200 rounded-lg bg-white/50 dark:bg-[oklch(0.22_0.015_25)]/40 hover:bg-rose-500/5 dark:hover:bg-white/5 flex items-center justify-center",
                       container: "w-auto h-auto",
                       allowedContent: "hidden"
                     }}
@@ -301,7 +301,7 @@ export default function ChatInterface({ chatId, initialMessages }: ChatInterface
                       button({ ready, isUploading }) {
                         if (isUploading) return <div className="w-3.5 md:w-4 h-3.5 md:h-4 border-2 border-rose-500/30 border-t-rose-500 rounded-full animate-spin" />
                         if (ready) return <Paperclip className="w-3.5 md:w-4 h-3.5 md:h-4" />;
-                        return "...";
+                        return <div className="w-3.5 md:w-4 h-3.5 md:h-4 border-2 border-rose-500/30 border-t-rose-500 rounded-full animate-spin" />;
                       },
                       allowedContent() {
                         return null;

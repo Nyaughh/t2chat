@@ -1,14 +1,23 @@
 import { useCallback } from 'react'
 import { parseDataStream } from '@/lib/stream-parser'
 
+interface UserSettings {
+  userName?: string
+  userRole?: string
+  userTraits?: string[]
+  userAdditionalInfo?: string
+  promptTemplate?: string
+}
+
 export function useVoiceChatAPI() {
   const sendVoiceMessage = useCallback(async (
     message: string, 
     modelId: string, 
-    conversationHistory: Array<{role: 'user' | 'assistant', content: string}> = []
+    conversationHistory: Array<{role: 'user' | 'assistant', content: string}> = [],
+    userSettings?: UserSettings | null
   ): Promise<string> => {
     try {
-      // Build the full conversation context
+      // Build the full conversation context - user context is handled in system prompt
       const messages = [
         ...conversationHistory.map(msg => ({ role: msg.role, content: msg.content })),
         { role: 'user' as const, content: message }
@@ -19,7 +28,17 @@ export function useVoiceChatAPI() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           messages,
-          data: { modelId },
+          data: { 
+            modelId,
+            // Pass user settings for system prompt personalization
+            userSettings: userSettings ? {
+              userName: userSettings.userName,
+              userRole: userSettings.userRole,
+              userTraits: userSettings.userTraits,
+              userAdditionalInfo: userSettings.userAdditionalInfo,
+              promptTemplate: userSettings.promptTemplate,
+            } : undefined
+          },
         }),
       })
 

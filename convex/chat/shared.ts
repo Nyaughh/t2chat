@@ -66,22 +66,29 @@ export const generateAIResponse = async (
   webSearch?: boolean
 ) => {
   const { model, thinking, provider } = mapModel(modelId);
+
+  console.log("model", model);
   
   if (!model) {
     throw new Error("Invalid model selected");
   }
 
-  // Initialize AI providers
+  // Get user's API keys for different providers
+  const userGeminiKey = await ctx.runQuery(api.api_keys.getUserDefaultApiKey, { service: "gemini" });
+  const userGroqKey = await ctx.runQuery(api.api_keys.getUserDefaultApiKey, { service: "groq" });
+  const userOpenRouterKey = await ctx.runQuery(api.api_keys.getUserDefaultApiKey, { service: "openrouter" });
+
+  // Initialize AI providers with user keys when available, fallback to system keys
   const google = createGoogleGenerativeAI({
-    apiKey: process.env.GEMINI_API_KEY,
+    apiKey: userGeminiKey || process.env.GEMINI_API_KEY,
   });
 
   const openrouter = createOpenRouter({
-    apiKey: process.env.OPENROUTER_API_KEY,
+    apiKey: userOpenRouterKey || process.env.OPENROUTER_API_KEY,
   });
 
   const groq = createGroq({
-    apiKey: process.env.GROQ_API_KEY,
+    apiKey: userGroqKey || process.env.GROQ_API_KEY,
   });
 
   let aiModel;
@@ -117,9 +124,8 @@ export const generateAIResponse = async (
     }
   }
 
-  // Get user's Gemini API key for image generation
-  const userGeminiKey = await ctx.runQuery(api.api_keys.getUserDefaultApiKey, { service: "gemini" });
-  const shouldUseUserKey = userSettings?.use_keys_for_gemini && userGeminiKey;
+  // Determine which key to use for image generation
+  const shouldUseUserGeminiKey = !!userGeminiKey;
 
   // Prepare tools
   const tools: any = {};
@@ -182,7 +188,7 @@ export const generateAIResponse = async (
     execute: async ({ prompt }) => {
       try {
         // Use user's key if available, otherwise use system key
-        const apiKey = shouldUseUserKey ? userGeminiKey : process.env.GEMINI_API_KEY;
+        const apiKey = shouldUseUserGeminiKey ? userGeminiKey : process.env.GEMINI_API_KEY;
         
         // Use Google Gen AI SDK for image generation
         const { GoogleGenAI } = await import('@google/genai');
@@ -227,7 +233,7 @@ export const generateAIResponse = async (
             imageUrl: imageUrl,
             storageId: storageId,
             timestamp: new Date().toISOString(),
-            usedUserKey: shouldUseUserKey
+            usedUserKey: shouldUseUserGeminiKey
           };
         } else {
           return {
@@ -386,6 +392,7 @@ export const generateAIResponse = async (
         });
         break;
       } else if (chunk.type === 'error') {
+        console.log("error", chunk);
         // Handle error
         await ctx.runMutation(api.chat.mutations.updateMessage, {
           messageId: assistantMessageId,

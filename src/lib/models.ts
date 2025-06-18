@@ -3,8 +3,8 @@ export interface ModelInfo {
   name: string
   description: string
   provider: 'gemini' | 'openrouter' | 'groq'
-  category: 'google' | 'anthropic' | 'openai' | 'deepseek' | 'meta'
-  features: ('vision' | 'web' | 'code')[]
+  category: 'google' | 'anthropic' | 'openai' | 'deepseek' | 'meta' | 'sarvam'
+  features: ('vision' | 'web' | 'code' | 'imagegen')[]
   isPro?: boolean
   isNew?: boolean
   supportsThinking?: boolean
@@ -25,7 +25,7 @@ export const models: ModelInfo[] = [
     description: 'Lightweight version for quick tasks',
     provider: 'gemini',
     category: 'google',
-    features: ['vision', 'code'],
+    features: [],
     isPro: false,
     isNew: true,
     supportsThinking: false,
@@ -42,7 +42,7 @@ export const models: ModelInfo[] = [
     description: 'Latest and fastest model',
     provider: 'gemini',
     category: 'google',
-    features: ['vision', 'web', 'code'],
+    features: ['vision', 'web', 'code', 'imagegen'],
     isPro: false,
     supportsThinking: false,
     unauthenticated: false,
@@ -58,7 +58,7 @@ export const models: ModelInfo[] = [
     description: 'Thinking capabilities',
     provider: 'gemini',
     category: 'google',
-    features: ['vision', 'code'],
+    features: ['vision', 'code', 'imagegen'],
     isPro: false,
     supportsThinking: true,
     unauthenticated: false,
@@ -73,7 +73,7 @@ export const models: ModelInfo[] = [
     description: 'Advanced reasoning capabilities',
     provider: 'gemini',
     category: 'google',
-    features: ['vision', 'web', 'code'],
+    features: ['vision', 'web', 'code', 'imagegen'],
     isPro: false,
     supportsThinking: false,
     unauthenticated: false,
@@ -88,10 +88,11 @@ export const models: ModelInfo[] = [
     description: 'Most capable model for complex tasks',
     provider: 'gemini',
     category: 'google',
-    features: ['vision', 'web', 'code'],
+    features: ['vision', 'web', 'code', 'imagegen'],
     isPro: true,
     supportsThinking: true,
     unauthenticated: false,
+    apiKeyOnly: true,
     attachmentsSuppport: {
       pdf: true,
       image: true,
@@ -104,7 +105,7 @@ export const models: ModelInfo[] = [
     description: 'Via OpenRouter',
     provider: 'openrouter',
     category: 'google',
-    features: ['vision', 'web', 'code'],
+    features: ['vision', 'web', 'code', 'imagegen'],
     isPro: false,
     supportsThinking: false,
     unauthenticated: true,
@@ -145,18 +146,18 @@ export const models: ModelInfo[] = [
     },
   },
   {
-    id: 'deepseek/deepseek-r1-0528-qwen3-8b',
-    name: 'DeepSeek R1',
+    id: 'ddeepseek/deepseek-chat-v3-0324:free',
+    name: 'DeepSeek Chat V3',
     description: 'Via OpenRouter',
     provider: 'openrouter',
     category: 'deepseek',
-    features: ['vision', 'code'],
+    features: [],
     isPro: false,
     supportsThinking: false,
     unauthenticated: false,
     attachmentsSuppport: {
-      pdf: true,
-      image: true,
+      pdf: false,
+      image: false,
     },
   },
   {
@@ -179,7 +180,7 @@ export const models: ModelInfo[] = [
     name: 'Sarvam M',
     description: 'Via OpenRouter',
     provider: 'openrouter',
-    category: 'google',
+    category: 'sarvam',
     features: ['vision', 'web', 'code'],
     isPro: false,
     supportsThinking: false,
@@ -211,8 +212,9 @@ export const models: ModelInfo[] = [
     description: 'Via Groq',
     provider: 'groq',
     category: 'deepseek',
-    features: ['code'],
+    features: ['code', 'imagegen'],
     isPro: false,
+    isFree: true,
     supportsThinking: true,
     unauthenticated: false,
     attachmentsSuppport: {
@@ -220,4 +222,10 @@ export const models: ModelInfo[] = [
       image: false,
     },
   },
-]
+].map((model) => {
+  return {
+    ...model,
+    isApiKeyOnly: model.provider === 'openrouter',
+    isFree: model.provider === 'openrouter' ? false : model.isFree,
+  } as ModelInfo
+})

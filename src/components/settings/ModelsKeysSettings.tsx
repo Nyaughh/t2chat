@@ -10,8 +10,6 @@ import {
   EyeOff,
   CheckCircle,
   Circle,
-  UploadCloud,
-  Search,
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
@@ -46,71 +44,6 @@ const SectionWrapper = ({
     <div className="space-y-4 rounded-lg bg-black/5 dark:bg-white/5 p-4">{children}</div>
   </div>
 )
-
-const ToggleSwitch = ({ enabled, onChange }: { enabled: boolean; onChange: (enabled: boolean) => void }) => (
-  <button
-    onClick={() => onChange(!enabled)}
-    className={cn(
-      'relative w-10 h-5 rounded-full transition-colors duration-200',
-      enabled ? 'bg-rose-500 dark:bg-rose-400' : 'bg-gray-300 dark:bg-gray-700',
-    )}
-  >
-    <motion.div
-      layout
-      transition={{ type: 'spring', stiffness: 700, damping: 30 }}
-      className={cn(
-        'absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full',
-        enabled ? 'translate-x-5' : 'translate-x-0',
-      )}
-    />
-  </button>
-)
-
-const ServiceKeyRow = ({
-  icon,
-  label,
-  value,
-  onValueChange,
-  enabled,
-  onEnabledChange,
-}: {
-  icon: React.ReactNode
-  label: string
-  value: string
-  onValueChange: (value: string) => void
-  enabled: boolean
-  onEnabledChange: (enabled: boolean) => void
-}) => {
-  const [showKey, setShowKey] = useState(false)
-  return (
-    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between">
-      <div className="flex items-center gap-3 mb-2 sm:mb-0">
-        {icon}
-        <span className="font-medium text-black/80 dark:text-white/80">{label}</span>
-      </div>
-      <div className="flex items-center gap-2 w-full sm:w-auto">
-        <div className="relative flex-grow">
-          <input
-            type={showKey ? 'text' : 'password'}
-            placeholder="Paste your key here"
-            value={value}
-            onChange={(e) => onValueChange(e.target.value)}
-            disabled={!enabled}
-            className="w-full bg-white dark:bg-black/20 border border-black/10 dark:border-white/10 rounded-md px-3 py-1.5 text-sm transition-opacity duration-200 disabled:opacity-50 pr-8"
-          />
-          <button
-            type="button"
-            onClick={() => setShowKey(!showKey)}
-            className="absolute right-2 top-1/2 -translate-y-1/2 text-black/40 dark:text-white/40 hover:text-black/70 dark:hover:text-white/70"
-          >
-            {showKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-          </button>
-        </div>
-        <ToggleSwitch enabled={enabled} onChange={onEnabledChange} />
-      </div>
-    </div>
-  )
-}
 
 const InlineKeyForm = ({
     editingKey,
@@ -192,7 +125,7 @@ const LLMProviderKeysSection = ({
   return (
     <SectionWrapper
       title={title}
-      description={`Manage your API keys for ${title.replace(' Keys', '')}. You can set one as default.`}
+      description={`Manage your API keys for ${title.replace(' Keys', '')}. The first key you add will be set as default, and will be used automatically when available.`}
     >
       <div className="flex justify-end">
         <Button variant="outline" size="sm" onClick={handleAddNew} disabled={!!editingKey}>
@@ -332,33 +265,11 @@ export function ModelsKeysSettings({ apiKeys, userSettings }: ModelsKeysSettings
   return (
     <div className="space-y-8">
       <div>
-        <h2 className="text-xl font-bold mb-1 text-black/90 dark:text-white/90">Models & Keys</h2>
+        <h2 className="text-xl font-bold mb-1 text-black/90 dark:text-white/90">API Keys</h2>
         <p className="text-sm text-black/60 dark:text-white/60">
-          Provide your own API keys to use premium models and services. This is optional.
+          Add your own API keys to access premium models. When available, your keys will be used automatically instead of our system keys.
         </p>
       </div>
-
-      <SectionWrapper
-        title="Service Keys"
-        description="Keys for optional services like file uploads and web search."
-      >
-        <ServiceKeyRow
-          icon={<UploadCloud className="w-5 h-5 text-rose-500" />}
-          label="Uploadthing Key"
-          value={localSettings?.uploadthing_key || ''}
-          enabled={!!localSettings?.use_keys_for_uploadthing}
-          onValueChange={(v) => handleSaveSettings({ uploadthing_key: v })}
-          onEnabledChange={(e) => handleSaveSettings({ use_keys_for_uploadthing: e })}
-        />
-        <ServiceKeyRow
-          icon={<Search className="w-5 h-5 text-rose-500" />}
-          label="Tavily Key"
-          value={localSettings?.tavily_key || ''}
-          enabled={!!localSettings?.use_keys_for_tavily}
-          onValueChange={(v) => handleSaveSettings({ tavily_key: v })}
-          onEnabledChange={(e) => handleSaveSettings({ use_keys_for_tavily: e })}
-        />
-      </SectionWrapper>
 
       <LLMProviderKeysSection
         title="Gemini Keys"
