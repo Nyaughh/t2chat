@@ -141,7 +141,6 @@ Here is what you need to be able to run T2Chat.
    # Better Auth
    BETTER_AUTH_SECRET=your-auth-secret
    BETTER_AUTH_URL=http://localhost:3000
-   DATABASE_URL=your-postgresql-database-url
 
    # UploadThing
    UPLOADTHING_SECRET=your-uploadthing-secret
