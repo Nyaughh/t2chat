@@ -24,6 +24,7 @@ export function useSpeechSynthesis() {
   const [selectedVoice, setSelectedVoice] = useState<string | null>(null)
   const [isSpeaking, setIsSpeaking] = useState(false)
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null)
+  const isStopped = useRef(false)
 
   useEffect(() => {
     const handleVoicesChanged = () => {
@@ -56,8 +57,20 @@ export function useSpeechSynthesis() {
     }
   }, [isSpeaking])
 
+  const stop = useCallback(() => {
+    isStopped.current = true
+    if (window.speechSynthesis) {
+      window.speechSynthesis.cancel()
+    }
+    setIsSpeaking(false)
+    utteranceRef.current = null
+  }, [])
+
   const speak = useCallback(
     (text: string, onEnd: () => void) => {
+      // Reset stopped flag when starting new speech
+      isStopped.current = false
+
       if (isSpeaking) {
         window.speechSynthesis.cancel()
         setIsSpeaking(false)
@@ -75,14 +88,24 @@ export function useSpeechSynthesis() {
         }
       }
 
-      utterance.onstart = () => setIsSpeaking(true)
+      utterance.onstart = () => {
+        if (!isStopped.current) {
+          setIsSpeaking(true)
+        }
+      }
+      
       utterance.onend = () => {
         setIsSpeaking(false)
-        onEnd()
+        if (!isStopped.current) {
+          onEnd()
+        }
       }
+      
       utterance.onerror = () => {
         setIsSpeaking(false)
-        onEnd()
+        if (!isStopped.current) {
+          onEnd()
+        }
       }
 
       utteranceRef.current = utterance
@@ -101,6 +124,7 @@ export function useSpeechSynthesis() {
     selectedVoice,
     setVoice,
     speak,
+    stop,
     isSpeaking,
   }
 }

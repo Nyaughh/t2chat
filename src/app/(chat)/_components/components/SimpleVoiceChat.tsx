@@ -1,8 +1,8 @@
 'use client'
 
-import React from 'react'
+import React, { useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Mic, Phone, PhoneOff, MessageSquare, User, Settings2, Sparkles } from 'lucide-react'
+import { Mic, Phone, PhoneOff, MessageSquare, User, Settings2, Sparkles, X, Volume2, MicOff } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useQuery } from 'convex/react'
 import { api } from '../../../../../convex/_generated/api'
 import { Badge } from '@/components/ui/badge'
+import MessageRenderer from '@/components/MessageRenderer'
 
 interface SimpleVoiceChatProps {
   isOpen: boolean
@@ -37,6 +38,7 @@ export function SimpleVoiceChat({
 }: SimpleVoiceChatProps) {
   // Fetch user settings for context display
   const userSettings = useQuery(api.users.getMySettings)
+  const messagesEndRef = useRef<HTMLDivElement>(null)
 
   const sendMessageWithModel = onSendMessage
     ? (message: string, conversationHistory: Array<{ role: 'user' | 'assistant'; content: string }>) =>
@@ -54,17 +56,93 @@ export function SimpleVoiceChat({
     isSupported,
   } = useSimpleVoiceChat(sendMessageWithModel)
 
+  // Auto scroll to bottom when new messages arrive
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [conversationHistory])
+
+  // Stop audio and voice chat when component closes
+  useEffect(() => {
+    if (!isOpen) {
+      // Stop speech synthesis immediately
+      if (window.speechSynthesis) {
+        window.speechSynthesis.cancel()
+      }
+      
+      // Stop any ongoing speech synthesis utterances
+      if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+        const synth = window.speechSynthesis
+        if (synth.speaking) {
+          synth.cancel()
+        }
+      }
+      
+      // End voice chat if active
+      if (isActive) {
+        endVoiceChat()
+      }
+    }
+  }, [isOpen, isActive, endVoiceChat])
+
+  // Also stop audio when component unmounts
+  useEffect(() => {
+    return () => {
+      if (window.speechSynthesis) {
+        window.speechSynthesis.cancel()
+      }
+    }
+  }, [])
+
   const handleStart = () => {
     startVoiceChat()
   }
 
   const handleEnd = async () => {
+    // Stop speech synthesis immediately
+    if (window.speechSynthesis) {
+      window.speechSynthesis.cancel()
+    }
+    
     endVoiceChat()
     if (conversationHistory.length > 0) {
       await onSaveConversation(conversationHistory)
     }
     onClose()
   }
+
+  const handleClose = () => {
+    // Stop speech synthesis when closing
+    if (window.speechSynthesis) {
+      window.speechSynthesis.cancel()
+    }
+    
+    // Stop any ongoing speech synthesis utterances
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      const synth = window.speechSynthesis
+      if (synth.speaking) {
+        synth.cancel()
+      }
+    }
+    
+    if (isActive) {
+      endVoiceChat()
+    }
+    onClose()
+  }
+
+  // Handle escape key to close and stop audio
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && isOpen) {
+        handleClose()
+      }
+    }
+
+    if (isOpen) {
+      document.addEventListener('keydown', handleKeyDown)
+      return () => document.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [isOpen, handleClose])
 
   const getStatus = () => {
     if (!isActive) return 'Ready to start voice conversation'
@@ -74,7 +152,7 @@ export function SimpleVoiceChat({
   }
 
   const getStatusColor = () => {
-    if (!isActive) return 'text-gray-500 dark:text-gray-400'
+    if (!isActive) return 'text-rose-500/70 dark:text-rose-300/70'
     if (isListening) return 'text-green-500 dark:text-green-400'
     if (isSpeaking) return 'text-purple-500 dark:text-purple-400'
     return 'text-blue-500 dark:text-blue-400'
@@ -95,14 +173,15 @@ export function SimpleVoiceChat({
 
   if (!isSupported) {
     return (
-      <AnimatePresence>
+      <AnimatePresence mode="wait">
         {isOpen && (
           <motion.div
+            key="unsupported-modal"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-            onClick={onClose}
+            onClick={handleClose}
           >
             <motion.div
               initial={{ scale: 0.9, opacity: 0 }}
@@ -110,19 +189,17 @@ export function SimpleVoiceChat({
               exit={{ scale: 0.9, opacity: 0 }}
               className="w-full max-w-md"
             >
-              <Card className="border-rose-200/50 dark:border-rose-500/20 shadow-2xl">
-                <CardContent className="p-8 text-center">
-                  <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
-                    <Mic className="w-8 h-8 text-red-500 dark:text-red-400" />
+              <Card className="border shadow-lg bg-background">
+                <CardContent className="p-6 text-center">
+                  <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-rose-100 dark:bg-rose-900/30 flex items-center justify-center">
+                    <MicOff className="w-8 h-8 text-rose-500 dark:text-rose-400" />
                   </div>
-                  <h3 className="text-xl font-semibold mb-3 text-gray-900 dark:text-gray-100">
-                    Voice Chat Not Supported
-                  </h3>
-                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-6 leading-relaxed">
+                  <h3 className="text-lg font-semibold mb-3">Voice Chat Not Supported</h3>
+                  <p className="text-sm text-muted-foreground mb-6 leading-relaxed">
                     Your browser doesn't support speech recognition. Please try using Chrome, Edge, or Safari for the
                     best voice chat experience.
                   </p>
-                  <Button onClick={onClose} className="w-full">
+                  <Button onClick={handleClose} className="w-full">
                     Close
                   </Button>
                 </CardContent>
@@ -135,287 +212,181 @@ export function SimpleVoiceChat({
   }
 
   return (
-    <AnimatePresence>
+    <AnimatePresence mode="wait">
       {isOpen && (
         <motion.div
+          key="voice-chat-modal"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 bg-black/60 backdrop-blur-md z-50 flex items-center justify-center p-4"
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
           onClick={(e) => {
             if (e.target === e.currentTarget && !isActive) {
-              onClose()
+              handleClose()
             }
           }}
         >
           <motion.div
-            initial={{ scale: 0.9, opacity: 0, y: 20 }}
-            animate={{ scale: 1, opacity: 1, y: 0 }}
-            exit={{ scale: 0.9, opacity: 0, y: 20 }}
-            transition={{ type: 'spring', duration: 0.5 }}
+            initial={{ scale: 0.95, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.95, opacity: 0 }}
+            transition={{ duration: 0.2 }}
             className="w-full max-w-lg"
           >
-            <Card className="border-rose-200/50 dark:border-rose-500/20 shadow-2xl bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl">
-              <CardContent className="p-8">
-                {/* Header with Context */}
-                <div className="mb-8">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-rose-500 to-purple-600 flex items-center justify-center">
-                        <MessageSquare className="w-5 h-5 text-white" />
-                      </div>
-                      <div>
-                        <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Voice Chat</h2>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">Natural conversation with AI</p>
-                      </div>
-                    </div>
-                    {!isActive && onModelChange && availableModels.length > 0 && (
-                      <div className="flex items-center gap-2">
-                        <Settings2 className="w-4 h-4 text-gray-400" />
-                        <Select
-                          value={selectedModel?.id}
-                          onValueChange={(value) => {
-                            const model = availableModels.find((m) => m.id === value)
-                            if (model) onModelChange(model)
-                          }}
-                        >
-                          <SelectTrigger className="w-36 h-8 text-xs border-gray-200 dark:border-gray-700">
-                            <SelectValue placeholder="Model" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {availableModels.slice(0, 5).map((model) => (
-                              <SelectItem key={model.id} value={model.id} className="text-xs">
-                                {model.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    )}
+            <Card className="border shadow-lg bg-background">
+              <CardContent className="p-6">
+                {/* Header */}
+                <div className="flex items-center justify-between mb-6">
+                  <div>
+                    <h2 className="text-lg font-semibold">Voice Chat</h2>
+                    <p className="text-sm text-muted-foreground">Natural conversation with AI</p>
                   </div>
-
-                  {/* User Context Display */}
-                  {/* {userSettings && getUserContext() && (
-                    <motion.div
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: "auto" }}
-                      className="mb-4 p-3 rounded-lg bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 border border-blue-200/50 dark:border-blue-700/30"
-                    >
-                      <div className="flex items-center gap-2 mb-2">
-                        <User className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                        <span className="text-sm font-medium text-blue-800 dark:text-blue-300">AI knows your context</span>
-                        {hasCustomPrompt && (
-                          <Badge variant="secondary" className="text-xs">
-                            <Sparkles className="w-3 h-3 mr-1" />
-                            Custom Prompt
-                          </Badge>
-                        )}
-                      </div>
-                      <div className="text-xs text-blue-700 dark:text-blue-300 space-y-1">
-                        {getUserContext()?.map((item, idx) => (
-                          <div key={idx} className="flex items-center gap-2">
-                            <div className="w-1 h-1 rounded-full bg-blue-400"></div>
-                            {item}
-                          </div>
-                        ))}
-                      </div>
-                      <div className="mt-2 text-xs text-blue-600 dark:text-blue-400 font-medium">
-                        ✓ This context will be shared with the AI during your conversation
-                      </div>
-                    </motion.div>
-                  )} */}
-
-                  {/* Status */}
-                  <div className="text-center">
-                    <motion.p
-                      className={cn('text-sm font-medium', getStatusColor())}
-                      animate={{ opacity: isListening ? [1, 0.7, 1] : 1 }}
-                      transition={{ duration: 1.5, repeat: isListening ? Infinity : 0 }}
-                    >
-                      {getStatus()}
-                    </motion.p>
-                    {selectedModel && !isActive && (
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Using {selectedModel.name}</p>
-                    )}
-                  </div>
-                </div>
-
-                {/* Visual Indicator */}
-                <div className="mb-8 flex justify-center">
-                  <motion.div
-                    className={cn(
-                      'relative w-40 h-40 rounded-full flex items-center justify-center shadow-2xl transition-all duration-500',
-                      isListening
-                        ? 'bg-gradient-to-br from-green-400 to-green-600 shadow-green-500/30'
-                        : isSpeaking
-                          ? 'bg-gradient-to-br from-purple-400 to-purple-600 shadow-purple-500/30'
-                          : isActive
-                            ? 'bg-gradient-to-br from-blue-400 to-blue-600 shadow-blue-500/30'
-                            : 'bg-gradient-to-br from-gray-400 to-gray-600 shadow-gray-500/20',
-                    )}
-                    animate={
-                      isListening
-                        ? {
-                            scale: [1, 1.05, 1],
-                            rotate: [0, 2, -2, 0],
-                          }
-                        : isSpeaking
-                          ? {
-                              scale: [1, 1.02, 1],
-                            }
-                          : {}
-                    }
-                    transition={{
-                      duration: isListening ? 2 : 1.5,
-                      repeat: Infinity,
-                      ease: 'easeInOut',
-                    }}
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    onClick={handleClose} 
+                    disabled={isActive}
+                    className="text-muted-foreground hover:text-foreground"
                   >
-                    {/* Outer Ring */}
-                    <motion.div
-                      className="absolute inset-0 rounded-full border-4 border-white/30"
-                      animate={
-                        isActive
-                          ? {
-                              scale: [1, 1.1, 1],
-                              opacity: [0.3, 0.6, 0.3],
-                            }
-                          : {}
-                      }
-                      transition={{
-                        duration: 3,
-                        repeat: Infinity,
-                        ease: 'easeInOut',
-                      }}
-                    />
-
-                    {/* Inner Ring */}
-                    <motion.div
-                      className="absolute inset-4 rounded-full border-2 border-white/50"
-                      animate={
-                        isActive
-                          ? {
-                              scale: [1, 1.05, 1],
-                              opacity: [0.5, 0.8, 0.5],
-                            }
-                          : {}
-                      }
-                      transition={{
-                        duration: 2,
-                        repeat: Infinity,
-                        ease: 'easeInOut',
-                        delay: 0.5,
-                      }}
-                    />
-
-                    <Mic className="w-16 h-16 text-white drop-shadow-lg" />
-
-                    {/* Pulse Effect for Listening */}
-                    {isListening && (
-                      <motion.div
-                        className="absolute inset-0 rounded-full bg-white/20"
-                        animate={{
-                          scale: [1, 1.3, 1],
-                          opacity: [0, 0.4, 0],
-                        }}
-                        transition={{
-                          duration: 1,
-                          repeat: Infinity,
-                          ease: 'easeOut',
-                        }}
-                      />
-                    )}
-                  </motion.div>
+                    <X className="w-4 h-4" />
+                  </Button>
                 </div>
 
-                {/* Controls */}
-                <div className="flex justify-center gap-6 mb-8">
+                {/* Model Selection */}
+                {!isActive && onModelChange && availableModels.length > 0 && (
+                  <div className="mb-6 p-4 rounded-lg border bg-muted/50">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">AI Model</span>
+                      <Select
+                        value={selectedModel?.id}
+                        onValueChange={(value) => {
+                          const model = availableModels.find((m) => m.id === value)
+                          if (model) onModelChange(model)
+                        }}
+                      >
+                        <SelectTrigger className="w-48 bg-background">
+                          <SelectValue placeholder="Select model" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {availableModels.slice(0, 5).map((model) => (
+                            <SelectItem key={model.id} value={model.id}>
+                              {model.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                )}
+
+                {/* Status */}
+                <div className="text-center mb-6">
+                  <p className={cn('text-sm font-medium mb-4', getStatusColor())}>{getStatus()}</p>
+                  <div className="flex items-center justify-center gap-4">
+                    <div className="flex items-center gap-2">
+                      <div
+                        className={cn(
+                          'w-2 h-2 rounded-full',
+                          isListening ? 'bg-rose-500 animate-pulse' : 'bg-muted-foreground/30',
+                        )}
+                      />
+                      <span className="text-xs text-muted-foreground">Listening</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div
+                        className={cn(
+                          'w-2 h-2 rounded-full',
+                          isSpeaking ? 'bg-rose-500 animate-pulse' : 'bg-muted-foreground/30',
+                        )}
+                      />
+                      <span className="text-xs text-muted-foreground">Speaking</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Central Control */}
+                <div className="flex justify-center mb-6">
                   {!isActive ? (
-                    <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                      <Button
-                        onClick={handleStart}
-                        size="lg"
-                        className="w-20 h-20 rounded-full bg-gradient-to-br from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white shadow-lg shadow-green-500/30 border-0 transition-all duration-300"
-                      >
-                        <Phone className="w-8 h-8" />
-                      </Button>
-                    </motion.div>
+                    <Button
+                      onClick={handleStart}
+                      size="lg"
+                      className="w-20 h-20 rounded-full bg-rose-500 hover:bg-rose-600 text-white"
+                    >
+                      <Phone className="w-8 h-8" />
+                    </Button>
                   ) : (
-                    <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                      <Button
-                        onClick={handleEnd}
-                        size="lg"
-                        className="w-20 h-20 rounded-full bg-gradient-to-br from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white shadow-lg shadow-red-500/30 border-0 transition-all duration-300"
-                      >
-                        <PhoneOff className="w-8 h-8" />
-                      </Button>
-                    </motion.div>
+                    <Button
+                      onClick={handleEnd}
+                      size="lg"
+                      className="w-20 h-20 rounded-full bg-rose-500 hover:bg-rose-600 text-white"
+                    >
+                      <PhoneOff className="w-8 h-8" />
+                    </Button>
                   )}
                 </div>
 
-                {/* Conversation History */}
-                <AnimatePresence>
-                  {conversationHistory.length > 0 && (
-                    <motion.div
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: 'auto' }}
-                      exit={{ opacity: 0, height: 0 }}
-                      className="max-h-48 overflow-y-auto bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900 rounded-xl p-4 mb-6 border border-gray-200 dark:border-gray-700"
-                    >
-                      <div className="text-xs text-gray-500 dark:text-gray-400 mb-3 font-medium flex items-center gap-2">
-                        <MessageSquare className="w-3 h-3" />
-                        Conversation ({conversationHistory.length} messages)
-                      </div>
-                      <div className="space-y-3">
-                        {conversationHistory.map((msg, idx) => (
-                          <motion.div
-                            key={idx}
-                            initial={{ opacity: 0, x: msg.role === 'user' ? 20 : -20 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            transition={{ delay: idx * 0.1 }}
-                            className={cn(
-                              'p-3 rounded-lg max-w-[85%] shadow-sm',
-                              msg.role === 'user'
-                                ? 'ml-auto bg-blue-500 text-white'
-                                : 'bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 border border-gray-200 dark:border-gray-600',
-                            )}
-                          >
+                {/* Conversation History - Match normal chat UI */}
+                {conversationHistory.length > 0 && (
+                  <div
+                    className="max-h-60 overflow-y-auto scrollbar-hide"
+                    style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+                  >
+                    <div className="text-sm font-medium mb-4 text-muted-foreground">
+                      Conversation ({conversationHistory.length} messages)
+                    </div>
+                    <div className="space-y-4">
+                      {conversationHistory.map((msg, idx) => {
+                        // Create a unique key using index, role, and content hash
+                        const contentHash = msg.content.slice(0, 10).replace(/\s/g, '')
+                        const uniqueKey = `message-${idx}-${msg.role}-${contentHash}-${Date.now()}`
+                        
+                        return (
+                          <div key={uniqueKey} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                             <div
                               className={cn(
-                                'text-xs font-medium mb-1 flex items-center gap-1',
-                                msg.role === 'user' ? 'text-blue-100' : 'text-gray-500 dark:text-gray-400',
+                                'group flex flex-col gap-2 min-w-0 focus:outline-none',
+                                msg.role === 'user' ? 'max-w-[85%]' : 'w-full',
                               )}
                             >
-                              {msg.role === 'user' ? '🎤 You' : '🤖 AI'}
                               <div
                                 className={cn(
-                                  'w-1 h-1 rounded-full',
-                                  msg.role === 'user' ? 'bg-blue-200' : 'bg-gray-400',
+                                  'px-4 py-3 break-words overflow-wrap-anywhere text-base leading-relaxed',
+                                  msg.role === 'user'
+                                    ? 'bg-rose-500/5 dark:bg-rose-300/5 text-black dark:text-white rounded-lg'
+                                    : 'text-black dark:text-white'
                                 )}
-                              />
+                              >
+                                {msg.role === 'assistant' ? (
+                                  <MessageRenderer 
+                                    content={msg.content} 
+                                    modelId={selectedModel?.id}
+                                  />
+                                ) : (
+                                  msg.content
+                                )}
+                              </div>
                             </div>
-                            <div className="text-sm leading-relaxed">{msg.content}</div>
-                          </motion.div>
-                        ))}
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-
-                {/* Instructions */}
-                {!isActive && (
-                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center">
-                    <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
-                      Click the green button to start your voice conversation. Speak naturally and the AI will respond.
-                      Your conversation will be automatically saved as a new chat when you end the session.
-                    </p>
-                  </motion.div>
+                          </div>
+                        )
+                      })}
+                      <div ref={messagesEndRef} />
+                    </div>
+                  </div>
                 )}
               </CardContent>
             </Card>
           </motion.div>
         </motion.div>
       )}
+      <style jsx>{`
+        .scrollbar-hide {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+        }
+        .scrollbar-hide::-webkit-scrollbar {
+          display: none;
+        }
+      `}</style>
     </AnimatePresence>
   )
 }
