@@ -79,6 +79,117 @@ export const retryMessage = action({
   },
 });
 
+export const editMessageAndRegenerate = action({
+  args: {
+    messageId: v.id("messages"),
+    content: v.string(),
+    modelId: v.string(),
+    webSearch: v.optional(v.boolean()),
+  },
+  handler: async (ctx, { messageId, content, modelId, webSearch }): Promise<{
+    success: boolean;
+    assistantMessageId: Id<"messages">;
+  }> => {
+    // Verify authentication and chat ownership first
+    const userId = await betterAuthComponent.getAuthUserId(ctx);
+    if (!userId) {
+      throw new Error("Authentication required");
+    }
+
+    // Get the message to validate and get chat info
+    const message = await ctx.runQuery(api.chat.queries.getMessage, { messageId });
+    if (!message) {
+      throw new Error("Message not found");
+    }
+
+    const chat = await ctx.runQuery(api.chat.queries.getChat, { chatId: message.chatId });
+    if (!chat) {
+      throw new Error("Chat not found or access denied");
+    }
+
+    // Only allow editing user messages
+    if (message.role !== "user") {
+      throw new Error("Only user messages can be edited");
+    }
+
+    try {
+      // First, update the user message content
+      await ctx.runMutation(api.chat.mutations.updateMessage, {
+        messageId,
+        content,
+      });
+
+      // Get all messages in the chat to find what comes after the edited message
+      const allMessages = await ctx.runQuery(api.chat.queries.getChatMessages, { chatId: message.chatId });
+
+      // Find the index of the edited message
+      const editedMessageIndex = allMessages.findIndex((msg: any) => msg._id === messageId);
+      if (editedMessageIndex === -1) {
+        throw new Error("Message not found in chat");
+      }
+
+      // Find the next assistant message after the edited user message
+      let nextAssistantMessageIndex = -1;
+      for (let i = editedMessageIndex + 1; i < allMessages.length; i++) {
+        if (allMessages[i].role === "assistant") {
+          nextAssistantMessageIndex = i;
+          break;
+        }
+      }
+
+      // If there's an assistant message after the edited user message, delete it and all subsequent messages
+      if (nextAssistantMessageIndex !== -1) {
+        const fromMessageId = allMessages[nextAssistantMessageIndex]._id;
+        await ctx.runMutation(api.chat.mutations.deleteMessagesFromIndex, {
+          chatId: message.chatId,
+          fromMessageId,
+        });
+      }
+
+      // Get remaining chat history for context (including the updated user message)
+      const messages = await ctx.runQuery(api.chat.queries.getChatMessages, { chatId: message.chatId });
+      
+      // Convert to AI SDK format
+      const chatMessages: CoreMessage[] = messages
+        .filter((msg: any) => msg.isComplete !== false)
+        .map((msg: any) => ({
+          role: msg.role as "user" | "assistant",
+          content: msg.content,
+        }));
+
+      // Create new assistant message placeholder
+      const assistantMessageId: Id<"messages"> = await ctx.runMutation(api.chat.mutations.addMessage, {
+        chatId: message.chatId,
+        role: "assistant",
+        content: "",
+        modelId,
+        isComplete: false,
+      });
+
+      // Generate the AI response
+      await generateAIResponse(ctx, chatMessages, modelId, assistantMessageId, webSearch);
+
+      return {
+        success: true,
+        assistantMessageId,
+      };
+
+    } catch (error) {
+      console.error('Error in editMessageAndRegenerate action:', error);
+      
+      // Add error message to chat
+      await ctx.runMutation(api.chat.mutations.addMessage, {
+        chatId: message.chatId,
+        role: "assistant",
+        content: "I apologize, but I encountered an error while processing your edited message. Please try again.",
+        modelId,
+      });
+
+      throw error;
+    }
+  },
+});
+
 // ACTIONS - for external API calls
 
 export const sendMessage = action({
