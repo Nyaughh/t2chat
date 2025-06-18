@@ -6,11 +6,14 @@ import WelcomeScreen from '@/components/WelcomeScreen'
 import { useChatInterface } from './hooks/useChatInterface'
 import { MessageList } from './components/MessageList'
 import { ScrollToBottomButton } from './components/ScrollToBottomButton'
+import { SimpleVoiceChat } from './components/SimpleVoiceChat'
 import { ChatErrorBoundary } from '@/components/ChatErrorBoundary'
+import { useVoiceChatAPI } from '@/hooks/useVoiceChatAPI'
+import { models } from '@/lib/models'
 import { UploadButton } from '@/lib/uploadthing'
-import { Paperclip, FileText } from 'lucide-react'
+import { Paperclip, FileText, Phone } from 'lucide-react'
 import { toast } from 'sonner'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { cn } from '@/lib/utils'
 import { ConvexMessage } from '@/lib/types'
 import { useMutation } from 'convex/react'
@@ -79,7 +82,10 @@ export default function ChatInterface({ chatId, initialMessages }: ChatInterface
   const maxFiles = 2
   const [uploadProgress, setUploadProgress] = useState<{ [key: string]: number }>({})
   const [isUploading, setIsUploading] = useState(false)
+  const [isVoiceChatOpen, setIsVoiceChatOpen] = useState(false)
   const branchChat = useMutation(api.chat.mutations.branchChat)
+  const createChat = useMutation(api.chat.mutations.createChat)
+  const addMessage = useMutation(api.chat.mutations.addMessage)
   const router = useRouter()
 
   const handleBranch = async (messageId: string) => {
@@ -131,6 +137,45 @@ export default function ChatInterface({ chatId, initialMessages }: ChatInterface
 
     const type = fileType === 'pdf' ? 'PDF' : fileType === 'file' ? 'File' : 'Image'
     toast.error(`${type} upload failed: ${error.message}`)
+  }
+
+  const handleVoiceChatToggle = () => {
+    setIsVoiceChatOpen(!isVoiceChatOpen)
+  }
+
+  const { sendVoiceMessage } = useVoiceChatAPI()
+
+  const handleSaveConversation = async (conversationHistory: Array<{role: 'user' | 'assistant', content: string}>) => {
+    if (conversationHistory.length === 0) return
+
+    try {
+      // Create a new chat with a title based on the first user message
+      const firstUserMessage = conversationHistory.find(msg => msg.role === 'user')
+      const title = firstUserMessage ? firstUserMessage.content.substring(0, 50) : 'Voice Chat'
+      
+      const newChatId = await createChat({ title })
+
+      // Add all messages from the conversation to the new chat
+      for (const message of conversationHistory) {
+        await addMessage({
+          chatId: newChatId,
+          role: message.role,
+          content: message.content,
+          modelId: selectedModel.id,
+        })
+      }
+
+      // Navigate to the new chat
+      router.push(`/chat/${newChatId}`)
+      toast.success(`Voice chat saved with ${conversationHistory.length} messages!`)
+    } catch (error) {
+      console.error('Error saving voice conversation:', error)
+      toast.error('Failed to save voice conversation')
+    }
+  }
+
+  const handleVoiceMessageSend = async (message: string, conversationHistory: Array<{role: 'user' | 'assistant', content: string}>) => {
+    return await sendVoiceMessage(message, selectedModel.id, conversationHistory)
   }
 
   return (
@@ -269,6 +314,35 @@ export default function ChatInterface({ chatId, initialMessages }: ChatInterface
           />
         </div>
       </div>
+
+      {/* Floating Voice Chat Button */}
+      <div className="fixed bottom-20 right-4 z-40">
+        <button
+          onClick={handleVoiceChatToggle}
+          className={cn(
+            "w-14 h-14 rounded-full shadow-lg transition-all duration-300 flex items-center justify-center",
+            isVoiceChatOpen 
+              ? "bg-red-500 hover:bg-red-600 text-white scale-110" 
+              : "bg-gradient-to-br from-rose-500 to-purple-600 hover:from-rose-600 hover:to-purple-700 text-white hover:scale-110"
+          )}
+        >
+          <Phone className={cn(
+            "w-6 h-6 transition-transform",
+            isVoiceChatOpen && "rotate-45"
+          )} />
+        </button>
+      </div>
+
+      {/* Simple Voice Chat */}
+      <SimpleVoiceChat
+        isOpen={isVoiceChatOpen}
+        onClose={() => setIsVoiceChatOpen(false)}
+        onSaveConversation={handleSaveConversation}
+        onSendMessage={handleVoiceMessageSend}
+        selectedModel={selectedModel}
+        onModelChange={setSelectedModel}
+        availableModels={models}
+      />
     </>
   )
 }

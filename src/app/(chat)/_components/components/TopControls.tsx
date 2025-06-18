@@ -59,6 +59,8 @@ export function TopControls({
             
             {/* Vertical divider */}
             <div className="relative z-10 w-px h-4.5 bg-rose-500/20 dark:bg-rose-300/20"></div>
+
+
           </div>
 
           <ThemeSwitcher />
