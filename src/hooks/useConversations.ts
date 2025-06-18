@@ -39,6 +39,7 @@ export const useConversations = (
     deleteChat: deleteConvexChat,
     deleteMessagesFromIndex,
     cancelMessage,
+    editMessage,
   } = useConvexChat(currentChatId ? (currentChatId as Id<"chats">) : undefined)
 
   const userSettings = useQuery(
@@ -530,6 +531,28 @@ export const useConversations = (
     }
   }, [isAuthenticated, currentChatId, activeMessages, selectedModel, retryMessage])
 
+  const handleEditMessage = useCallback(async (messageId: string, content: string) => {
+    if (!currentChatId) return
+
+    try {
+      if (isAuthenticated) {
+        // For Convex: Use the editMessage mutation
+        await editMessage({
+          messageId: messageId as Id<"messages">,
+          content: content.trim(),
+        })
+        toast.success('Message edited successfully.')
+      } else {
+        // For local: Update the message in Dexie
+        await db.messages.update(messageId, { content: content.trim() })
+        toast.success('Message edited successfully.')
+      }
+    } catch (error) {
+      console.error("Error editing message:", error)
+      toast.error("Failed to edit message.")
+    }
+  }, [isAuthenticated, editMessage])
+
   const handleStopGeneration = useCallback(async () => {
     if (isAuthenticated && isConvexStreaming) {
       // For Convex, immediately show stopped in UI, then cancel on server
@@ -617,6 +640,7 @@ export const useConversations = (
     isAuthenticated,
     handleNewMessage,
     handleRetryMessage,
+    handleEditMessage,
     handleStopGeneration,
     deleteConversation,
     currentChatId,

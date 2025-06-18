@@ -12,6 +12,7 @@ interface ModelDropdownProps {
   onClose: () => void
   className?: string
   isSignedIn: boolean
+  apiKeys?: Array<{ service: string }>
 }
 
 const getCategoryColor = (category: string) => {
@@ -39,7 +40,7 @@ const getCategoryColor = (category: string) => {
   }
 }
 
-export function ModelDropdown({ selectedModel, onModelSelect, onClose, className, isSignedIn }: ModelDropdownProps) {
+export function ModelDropdown({ selectedModel, onModelSelect, onClose, className, isSignedIn, apiKeys = [] }: ModelDropdownProps) {
   const [isOpen, setIsOpen] = useState(true)
   const [showAbove, setShowAbove] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
@@ -70,7 +71,21 @@ export function ModelDropdown({ selectedModel, onModelSelect, onClose, className
 
   if (!isOpen) return null
 
-  const availableModels = isSignedIn ? models : models.filter((m) => m.isFree)
+  const availableModels = models.filter((model) => {
+    // Free models are always available
+    if (model.isFree) return true
+    
+    // For non-authenticated users, only show free models
+    if (!isSignedIn) return false
+    
+    // For pro models, check if user has the required API key
+    if (model.isApiKeyOnly) {
+      return apiKeys.some(key => key.service === model.provider)
+    }
+    
+    // For other models, they're available to signed-in users
+    return true
+  })
 
   return (
     <div className={cn('relative z-50', className)}>

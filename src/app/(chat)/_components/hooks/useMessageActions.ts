@@ -6,6 +6,7 @@ import { useSpeechSynthesis } from '@/hooks/useSpeechSynthesis'
 
 interface UseMessageActionsProps {
   onRetryMessage?: (messageId: string, modelId?: string) => void
+  onEditMessage?: (messageId: string, content: string) => void
 }
 
 export function useMessageActions(props?: UseMessageActionsProps) {
@@ -49,7 +50,9 @@ export function useMessageActions(props?: UseMessageActionsProps) {
 
   const saveEdit = () => {
     if (editingMessageId && editingContent.trim()) {
-      console.log("Editing not yet implemented in the new hook.")
+      if (props?.onEditMessage) {
+        props.onEditMessage(editingMessageId, editingContent.trim())
+      }
       cancelEditing()
     }
   }

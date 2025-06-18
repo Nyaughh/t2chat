@@ -1,9 +1,11 @@
+import { tree } from "next/dist/build/templates/app-page"
+
 export interface ModelInfo {
   id: string
   name: string
   description: string
   provider: 'gemini' | 'openrouter' | 'groq'
-  category: 'google' | 'anthropic' | 'openai' | 'deepseek' | 'meta' | 'sarvam'
+  category: 'google' | 'anthropic' | 'openai' | 'deepseek' | 'meta' | 'sarvam' | 'qwen'
   features: ('vision' | 'web' | 'code' | 'imagegen')[]
   isPro?: boolean
   isNew?: boolean
@@ -90,7 +92,7 @@ export const models: ModelInfo[] = [
     category: 'google',
     features: ['vision', 'web', 'code', 'imagegen'],
     isPro: true,
-    supportsThinking: true,
+    supportsThinking: false,
     unauthenticated: false,
     apiKeyOnly: true,
     attachmentsSuppport: {
@@ -146,14 +148,14 @@ export const models: ModelInfo[] = [
     },
   },
   {
-    id: 'ddeepseek/deepseek-chat-v3-0324:free',
+    id: 'deepseek/deepseek-chat-v3-0324:free',
     name: 'DeepSeek Chat V3',
     description: 'Via OpenRouter',
     provider: 'openrouter',
     category: 'deepseek',
-    features: [],
+    features: ["imagegen"],
     isPro: false,
-    supportsThinking: false,
+    supportsThinking: true,
     unauthenticated: false,
     attachmentsSuppport: {
       pdf: false,
@@ -222,10 +224,63 @@ export const models: ModelInfo[] = [
       image: false,
     },
   },
+  {
+    id: 'deepseek/deepseek-r1-0528-qwen3-8b:free',
+    name: 'DeepSeek R1 Qwen3 8B',
+    description: 'Via OpenRouter',
+    provider: 'openrouter',
+    category: 'deepseek',
+    features: [],
+    isPro: false,
+    isFree: true,
+    supportsThinking: true,
+    unauthenticated: false,
+    attachmentsSuppport: {
+      pdf: false,
+      image: false,
+    },
+    toolCalls: false,
+  },
+  {
+    id: 'anthropic/claude-4-sonnet-20250522',
+    name: 'Claude 4 Sonnet',
+    description: 'Via OpenRouter',
+    provider: 'openrouter',
+    category: 'anthropic',
+    features: ['vision', 'code', 'imagegen', 'web'],
+    isPro: true,
+    isFree: false,
+    supportsThinking: true,
+    unauthenticated: false,
+    attachmentsSuppport: {
+      pdf: true,
+      image: true,
+    },
+    toolCalls: true,
+  },
+  {
+    id: 'qwen/qwen3-32b',
+    name: 'Qwen 3.2B',
+    description: 'Via Groq',
+    provider: 'groq',
+    category: 'qwen',
+    features: ['code', 'imagegen'],
+    isPro: false, 
+    isFree: true,
+    supportsThinking: true,
+    unauthenticated: false,
+    attachmentsSuppport: {
+      pdf: false,
+      image: false, 
+    },
+    toolCalls: false,
+  }
 ].map((model) => {
   return {
     ...model,
+    features: model.features.filter((feature) => !(feature === 'imagegen' && model.supportsThinking)),
     isApiKeyOnly: model.provider === 'openrouter',
     isFree: model.provider === 'openrouter' ? false : model.isFree,
   } as ModelInfo
 })
+

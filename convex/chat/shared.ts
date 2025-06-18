@@ -25,6 +25,8 @@ You're conversational yet professional, enthusiastic but balanced, adapting to t
 
 Provide helpful, relevant, and respectful responses. Ask clarifying questions when needed. Start with key information, present it logically, explain its relevance, and suggest next steps.
 
+**IMPORTANT: When you need to use tools (like generating images or searching), always explain what you're going to do BEFORE calling the tool. Provide context and describe your plan in conversational text first.**
+
 Use markdown strategically: headers for organization, italic/bold for emphasis, lists for information, code blocks with backticks, blockquotes, tables for data, and properly formatted links.
 
 Format math expressions using LaTeX - inline with single dollars ($E = mc^2$) and display equations with double dollars. Use proper notation, define variables, and break complex expressions into readable lines.
@@ -76,9 +78,14 @@ export const generateAIResponse = async (
   // Get user's API keys for different providers
   const userGeminiKey = await ctx.runQuery(api.api_keys.getUserDefaultApiKey, { service: "gemini" });
   const userGroqKey = await ctx.runQuery(api.api_keys.getUserDefaultApiKey, { service: "groq" });
-  const userOpenRouterKey = await ctx.runQuery(api.api_keys.getUserDefaultApiKey, { service: "openrouter" });
+  const userOpenRouterKey = await ctx.runQuery(api.api_keys.getUserDefaultApiKey, { service: "openrouter"});
 
   // Initialize AI providers with user keys when available, fallback to system keys
+
+  console.log("userGeminiKey", userGeminiKey);
+  console.log("userGroqKey", userGroqKey);
+  console.log("userOpenRouterKey", userOpenRouterKey);
+
   const google = createGoogleGenerativeAI({
     apiKey: userGeminiKey || process.env.GEMINI_API_KEY,
   });
@@ -132,7 +139,7 @@ export const generateAIResponse = async (
   
   if (webSearch) {
     tools.search = tool({
-      description: "Search the web for current information. Use this when you need up-to-date information that might not be in your training data.",
+      description: "Search the web for current information. Use this when you need up-to-date information that might not be in your training data. IMPORTANT: Always explain what you're searching for and why before calling this tool.",
       parameters: z.object({
         query: z.string().describe("The search query to find relevant information"),
       }),
@@ -179,9 +186,10 @@ export const generateAIResponse = async (
     });
   }
 
-  // Add image generation tool
-  tools.generateImage = tool({
-    description: "Generate an image based on a text description. Use this when the user asks you to create, generate, or make an image.",
+  //Add image generation tool
+  if (model.features.includes('imagegen')) {
+    tools.generateImage = tool({
+    description: "Generate an image based on a text description. Use this when the user asks you to create, generate, or make an image. IMPORTANT: Always explain what you're going to generate and why before calling this tool.",
     parameters: z.object({
       prompt: z.string().describe("The detailed description of the image to generate"),
     }),
@@ -247,14 +255,14 @@ export const generateAIResponse = async (
         console.error('Image generation error:', error);
         return {
           success: false,
-          error: `Failed to generate image: ${error?.message || error}`,
+            error: `Failed to generate image: ${error?.message || error}`,
           prompt: prompt,
           timestamp: new Date().toISOString(),
         };
       }
     },
   });
-
+  }
   // Stream the response
   const { fullStream } = streamText({
     system: personalizedSystemPrompt,
@@ -270,6 +278,12 @@ export const generateAIResponse = async (
     messages: chatMessages,
     maxSteps: 20,
     tools: Object.keys(tools).length > 0 ? tools : undefined,
+    // Add explicit instruction to generate explanatory text before tool calls
+    toolChoice: Object.keys(tools).length > 0 ? 'auto' : undefined,
+    // Add temperature to encourage more varied responses
+    temperature: 0.7,
+    // Encourage more text generation
+    maxTokens: provider === 'openrouter' ? 4000 : undefined,
     providerOptions: {
       google: {
         thinkingConfig: thinking
@@ -277,11 +291,17 @@ export const generateAIResponse = async (
               thinkingBudget: 2048,
             }
           : {},
+        // Add Google-specific options to encourage text generation
+        candidateCount: 1,
+        safetySettings: [],
       },
-      openrouter: {},
+      openrouter: {
+        // Add OpenRouter specific options
+        transforms: ['middle-out'],
+      },
     },
     experimental_transform: [smoothStream({
-      chunking: "word",
+      chunking: "line",
     })],
   });
 
@@ -290,6 +310,7 @@ export const generateAIResponse = async (
   let thinkingStartTime: number | null = null;
   let thinkingEndTime: number | null = null;
   let accumulatedToolCalls: any[] = [];
+  let hasGeneratedTextBeforeTools = false;
 
   for await (const chunk of fullStream) {
     try {
@@ -299,8 +320,13 @@ export const generateAIResponse = async (
         break;
       }
 
+      // Enhanced debugging for all chunk types
+      console.log("Received chunk type:", chunk.type, Object.keys(tools).length > 0 ? "(tools available)" : "(no tools)");
+
       if (chunk.type === 'text-delta') {
+        console.log("Text delta received:", chunk.textDelta?.substring(0, 50) + "...");
         accumulatedContent += chunk.textDelta;
+        hasGeneratedTextBeforeTools = true;
         
         // Update the message in real-time with error handling
         await ctx.runMutation(api.chat.mutations.updateMessage, {
@@ -348,6 +374,21 @@ export const generateAIResponse = async (
           });
         }
       } else if (chunk.type === 'tool-call') {
+        console.log("Tool call received:", chunk.toolName, "with args:", JSON.stringify(chunk.args));
+        
+        // If no text was generated before this tool call, add some explanatory text
+        if (!hasGeneratedTextBeforeTools && accumulatedContent.trim() === "") {
+          let explanatoryText = "";
+          if (chunk.toolName === 'generateImage') {
+            explanatoryText = `I'll generate an image for you based on your request. `;
+          } else if (chunk.toolName === 'search') {
+            explanatoryText = `Let me search for current information about that. `;
+          } else {
+            explanatoryText = `I'll use a tool to help with your request. `;
+          }
+          accumulatedContent += explanatoryText;
+        }
+        
         const placeholder = `\n[TOOL_CALL:${chunk.toolCallId}]\n`;
         accumulatedContent += placeholder;
         accumulatedToolCalls.push({
@@ -361,7 +402,7 @@ export const generateAIResponse = async (
           toolCalls: accumulatedToolCalls,
         });
       } else if (chunk.type === 'tool-result') {
-        console.log("tool-result", chunk);
+        console.log("Tool result received for:", chunk.toolCallId);
         const toolCall = accumulatedToolCalls.find(tc => tc.toolCallId === chunk.toolCallId);
         if (toolCall) {
           toolCall.result = chunk.result;
@@ -371,6 +412,7 @@ export const generateAIResponse = async (
           toolCalls: accumulatedToolCalls,
         });
       } else if (chunk.type === 'finish') {
+        console.log("Stream finished. Final content length:", accumulatedContent.length);
         // Track thinking end time
         if (thinkingStartTime && !thinkingEndTime) {
           thinkingEndTime = Date.now();
@@ -392,7 +434,7 @@ export const generateAIResponse = async (
         });
         break;
       } else if (chunk.type === 'error') {
-        console.log("error", chunk);
+        console.log("Stream error:", chunk);
         // Handle error
         await ctx.runMutation(api.chat.mutations.updateMessage, {
           messageId: assistantMessageId,
@@ -401,6 +443,9 @@ export const generateAIResponse = async (
           isComplete: true,
         });
         break;
+      } else {
+        // Log any unknown chunk types for debugging
+        console.log("Unknown chunk type received:", chunk.type, chunk);
       }
     } catch (updateError) {
       // If we can't update the message (e.g., due to conflicts), continue streaming

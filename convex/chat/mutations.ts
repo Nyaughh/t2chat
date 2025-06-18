@@ -194,6 +194,44 @@ export const addMessage = mutation({
     },
   });
 
+  export const editMessage = mutation({
+    args: {
+      messageId: v.id("messages"),
+      content: v.string(),
+    },
+    handler: async (ctx, { messageId, content }) => {
+      const userId = await betterAuthComponent.getAuthUserId(ctx);
+      if (!userId) {
+        throw new Error("Authentication required");
+      }
+
+      const message = await ctx.db.get(messageId);
+      if (!message) {
+        throw new Error("Message not found");
+      }
+
+      // Verify chat ownership
+      const chat = await ctx.db.get(message.chatId);
+      if (!chat || chat.userId !== userId) {
+        throw new Error("Access denied");
+      }
+
+      // Only allow editing user messages
+      if (message.role !== "user") {
+        throw new Error("Only user messages can be edited");
+      }
+
+      await ctx.db.patch(messageId, { content });
+
+      // Update chat's updatedAt timestamp
+      await ctx.db.patch(message.chatId, {
+        updatedAt: Date.now(),
+      });
+
+      return messageId;
+    },
+  });
+
   export const deleteMessage = mutation({
     args: {
       messageId: v.id("messages"),
