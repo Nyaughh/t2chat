@@ -1,7 +1,7 @@
 'use client'
 
-import { useMemo, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useMemo, useState, useEffect } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
 import { useConversations } from '@/hooks/useConversations'
 import { useIsMobile } from '@/hooks/use-mobile'
@@ -25,16 +25,31 @@ import { authClient } from '@/lib/auth-client'
 import { toast } from 'sonner'
 
 export default function SettingsPage() {
-
   const { userMetadata, isPending, isSignedIn } = useAuth()
 
   const { unmigratedLocalChats } = useConversations()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const isMobile = useIsMobile()
 
   const [activeSection, setActiveSection] = useState<SettingsSection>('account')
   const userSettings = useQuery(api.users.getMySettings)
   const apiKeys = useQuery(api.api_keys.getApiKeys)
+
+  // Update active section based on URL query params
+  useEffect(() => {
+    const tab = searchParams.get('tab') as SettingsSection
+    if (tab && settingsSections.some((section) => section.id === tab)) {
+      setActiveSection(tab)
+    }
+  }, [searchParams])
+
+  const handleSectionChange = (section: SettingsSection) => {
+    setActiveSection(section)
+    const url = new URL(window.location.href)
+    url.searchParams.set('tab', section)
+    router.replace(url.pathname + url.search)
+  }
 
   const handleClose = () => {
     router.back()
@@ -43,7 +58,7 @@ export default function SettingsPage() {
   if (!isPending && !isSignedIn) {
     router.push('/')
   }
-  
+
   if (isPending) {
     return <div>Loading...</div>
   }
@@ -66,7 +81,10 @@ export default function SettingsPage() {
         if ('indexedDB' in window) {
           // Get all database names
           const databases = await indexedDB.databases()
-          console.log('Found IndexedDB databases:', databases.map(db => db.name))
+          console.log(
+            'Found IndexedDB databases:',
+            databases.map((db) => db.name),
+          )
 
           // Delete each database
           for (const dbInfo of databases) {
@@ -98,23 +116,23 @@ export default function SettingsPage() {
       try {
         // Clear specific known keys first
         const localStorageKeys = [
-          'lastUsedModelId',          // Last selected model
-          't2chat-sidebar-open',      // Sidebar state
-          'mainFont',                 // Font preferences
-          'codeFont',                 // Code font preferences
-          'selectedVoiceURI',         // Speech synthesis voice
-          'thinkingEnabled',          // AI thinking mode
-          'webSearchEnabled',         // Web search toggle
-          'groupBy'                   // Model grouping preference
+          'lastUsedModelId', // Last selected model
+          't2chat-sidebar-open', // Sidebar state
+          'mainFont', // Font preferences
+          'codeFont', // Code font preferences
+          'selectedVoiceURI', // Speech synthesis voice
+          'thinkingEnabled', // AI thinking mode
+          'webSearchEnabled', // Web search toggle
+          'groupBy', // Model grouping preference
         ]
 
-        localStorageKeys.forEach(key => {
+        localStorageKeys.forEach((key) => {
           localStorage.removeItem(key)
         })
 
         // Clear any other t2chat related localStorage items
         const allKeys = Object.keys(localStorage)
-        allKeys.forEach(key => {
+        allKeys.forEach((key) => {
           if (key.startsWith('t2chat-') || key.startsWith('t2Chat')) {
             localStorage.removeItem(key)
           }
@@ -128,7 +146,7 @@ export default function SettingsPage() {
       // Clear sessionStorage as well
       try {
         const sessionKeys = Object.keys(sessionStorage)
-        sessionKeys.forEach(key => {
+        sessionKeys.forEach((key) => {
           if (key.startsWith('t2chat-') || key.startsWith('t2Chat')) {
             sessionStorage.removeItem(key)
           }
@@ -235,7 +253,7 @@ export default function SettingsPage() {
         <SettingsSidebar
           settingsSections={settingsSections}
           activeSection={activeSection}
-          setActiveSection={setActiveSection}
+          setActiveSection={handleSectionChange}
           isMobile={isMobile}
         />
         <main className={cn('flex-1 overflow-y-auto bg-background', isMobile ? 'p-4' : 'p-6')}>

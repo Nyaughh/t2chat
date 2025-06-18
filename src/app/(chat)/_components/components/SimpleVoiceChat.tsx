@@ -68,7 +68,7 @@ export function SimpleVoiceChat({
       if (window.speechSynthesis) {
         window.speechSynthesis.cancel()
       }
-      
+
       // Stop any ongoing speech synthesis utterances
       if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
         const synth = window.speechSynthesis
@@ -76,7 +76,7 @@ export function SimpleVoiceChat({
           synth.cancel()
         }
       }
-      
+
       // End voice chat if active
       if (isActive) {
         endVoiceChat()
@@ -102,7 +102,7 @@ export function SimpleVoiceChat({
     if (window.speechSynthesis) {
       window.speechSynthesis.cancel()
     }
-    
+
     endVoiceChat()
     if (conversationHistory.length > 0) {
       await onSaveConversation(conversationHistory)
@@ -115,7 +115,7 @@ export function SimpleVoiceChat({
     if (window.speechSynthesis) {
       window.speechSynthesis.cancel()
     }
-    
+
     // Stop any ongoing speech synthesis utterances
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
       const synth = window.speechSynthesis
@@ -123,7 +123,7 @@ export function SimpleVoiceChat({
         synth.cancel()
       }
     }
-    
+
     if (isActive) {
       endVoiceChat()
     }
@@ -241,10 +241,10 @@ export function SimpleVoiceChat({
                     <h2 className="text-lg font-semibold">Voice Chat</h2>
                     <p className="text-sm text-muted-foreground">Natural conversation with AI</p>
                   </div>
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    onClick={handleClose} 
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={handleClose}
                     disabled={isActive}
                     className="text-muted-foreground hover:text-foreground"
                   >
@@ -339,9 +339,12 @@ export function SimpleVoiceChat({
                         // Create a unique key using index, role, and content hash
                         const contentHash = msg.content.slice(0, 10).replace(/\s/g, '')
                         const uniqueKey = `message-${idx}-${msg.role}-${contentHash}-${Date.now()}`
-                        
+
                         return (
-                          <div key={uniqueKey} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                          <div
+                            key={uniqueKey}
+                            className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                          >
                             <div
                               className={cn(
                                 'group flex flex-col gap-2 min-w-0 focus:outline-none',
@@ -353,14 +356,11 @@ export function SimpleVoiceChat({
                                   'px-4 py-3 break-words overflow-wrap-anywhere text-base leading-relaxed',
                                   msg.role === 'user'
                                     ? 'bg-rose-500/5 dark:bg-rose-300/5 text-black dark:text-white rounded-lg'
-                                    : 'text-black dark:text-white'
+                                    : 'text-black dark:text-white',
                                 )}
                               >
                                 {msg.role === 'assistant' ? (
-                                  <MessageRenderer 
-                                    content={msg.content} 
-                                    modelId={selectedModel?.id}
-                                  />
+                                  <MessageRenderer content={msg.content} modelId={selectedModel?.id} />
                                 ) : (
                                   msg.content
                                 )}

@@ -15,7 +15,11 @@ import { CoreMessage } from 'ai'
 import { useQuery } from 'convex/react'
 import { api } from '../../convex/_generated/api'
 
-export const useConversations = (chatId?: string, initialMessages?: ConvexMessage[] | null, initialChats?: ConvexChat[] | null) => {
+export const useConversations = (
+  chatId?: string,
+  initialMessages?: ConvexMessage[] | null,
+  initialChats?: ConvexChat[] | null,
+) => {
   const router = useRouter()
   const pathname = usePathname()
   const chatIdFromUrl = Array.isArray(chatId) ? chatId[1] : chatId
@@ -186,14 +190,16 @@ export const useConversations = (chatId?: string, initialMessages?: ConvexMessag
         .sort((a, b) => b.lastMessageAt.getTime() - a.lastMessageAt.getTime())
     }
     // For anonymous users, just use Dexie
-    return initialChats ? initialChats : dexieConversations?.map((chat) => ({
-      id: chat.id as Id<'chats'>,
-      title: chat.title || 'New Chat',
-      createdAt: new Date(chat.createdAt),
-      updatedAt: new Date(chat.updatedAt),
-      lastMessageAt: new Date(chat.updatedAt),
-      isBranch: false,
-    })) || []
+    return initialChats
+      ? initialChats
+      : dexieConversations?.map((chat) => ({
+          id: chat.id as Id<'chats'>,
+          title: chat.title || 'New Chat',
+          createdAt: new Date(chat.createdAt),
+          updatedAt: new Date(chat.updatedAt),
+          lastMessageAt: new Date(chat.updatedAt),
+          isBranch: false,
+        })) || []
   }, [isAuthenticated, isConvexStreaming, cachedConvexChats, convexChats, dexieConversations, initialChats])
 
   const unmigratedLocalChatsRef = useRef<DBConversation[]>([])
@@ -763,7 +769,7 @@ export const useConversations = (chatId?: string, initialMessages?: ConvexMessag
           await db.messages.where('conversationId').equals(id).delete()
           toast.success('Conversation deleted.')
         }
-        
+
         // Always redirect to home if we're currently viewing the deleted chat
         if (currentChatId === id) {
           router.push('/')

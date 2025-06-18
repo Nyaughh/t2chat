@@ -64,7 +64,7 @@ export function useSimpleVoiceChat(
         // Get current conversation history
         const currentHistory = currentHistoryRef.current
         const newUserMessage = { role: 'user' as const, content: transcript }
-        
+
         // Add user message first
         const historyWithUser = [...currentHistory, newUserMessage]
         setConversationHistory(historyWithUser)
@@ -72,7 +72,7 @@ export function useSimpleVoiceChat(
         if (onSendMessage && isActive) {
           // Get AI response using the original history (without the new user message for context)
           const aiResponse = await onSendMessage(transcript, currentHistory)
-          
+
           // Check again if still active before adding response
           if (!isActive) {
             isWaitingForResponse.current = false
@@ -197,10 +197,10 @@ export function useSimpleVoiceChat(
           // Ignore errors if already stopped
         }
       }
-      
+
       // Stop speech synthesis
       stopSpeech()
-      
+
       // Reset states
       setIsListening(false)
       isWaitingForResponse.current = false

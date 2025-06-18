@@ -12,7 +12,12 @@ import { ConvexChat } from '@/lib/types'
 export function useChatLayout(initialChats?: ConvexChat[] | null) {
   const [mounted, setMounted] = useState(false)
   const { sidebarOpen, toggleSidebar } = useSidebar()
-  const { chats: activeChats, currentChatId, deleteConversation, unmigratedLocalChats } = useConversations(undefined, undefined, initialChats)
+  const {
+    chats: activeChats,
+    currentChatId,
+    deleteConversation,
+    unmigratedLocalChats,
+  } = useConversations(undefined, undefined, initialChats)
   const router = useRouter()
 
   const { onTouchStart, onTouchMove, onTouchEnd } = useTouch({

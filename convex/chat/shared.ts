@@ -294,11 +294,6 @@ export const generateAIResponse = async (
         transforms: ['middle-out'],
       },
     },
-    experimental_transform: [
-      smoothStream({
-        chunking: 'word',
-      }),
-    ],
   })
 
   let accumulatedContent = ''

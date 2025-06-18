@@ -26,8 +26,8 @@ const ToolCallDisplay = ({ toolCalls }: { toolCalls: any[] }) => {
         <div
           key={call.toolCallId}
           className={cn(
-            "p-3 rounded-lg bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10",
-            call.toolName === 'generateImage' && "w-fit max-w-full"
+            'p-3 rounded-lg bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10',
+            call.toolName === 'generateImage' && 'w-fit max-w-full',
           )}
         >
           {call.toolName === 'search' && (
@@ -100,12 +100,11 @@ const ToolCallDisplay = ({ toolCalls }: { toolCalls: any[] }) => {
                   <Loader2 className="w-4 h-4 animate-spin text-rose-500 dark:text-rose-400" />
                 )}
                 <span className="text-sm font-medium text-black/80 dark:text-white/80">
-                  {call.result 
-                    ? call.result.success 
-                      ? 'Image generated' 
+                  {call.result
+                    ? call.result.success
+                      ? 'Image generated'
                       : 'Generation failed'
-                    : 'Generating image...'
-                  }
+                    : 'Generating image...'}
                 </span>
               </div>
 
@@ -117,7 +116,7 @@ const ToolCallDisplay = ({ toolCalls }: { toolCalls: any[] }) => {
                     alt={call.args.prompt}
                     className="rounded-lg shadow-sm border border-black/10 dark:border-white/10 w-full max-h-[250px] sm:max-h-[300px] object-contain"
                   />
-                  
+
                   {/* Action buttons overlay */}
                   <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
                     <button
@@ -142,7 +141,7 @@ const ToolCallDisplay = ({ toolCalls }: { toolCalls: any[] }) => {
                       <ExternalLink className="w-3.5 h-3.5 text-white" />
                     </button>
                   </div>
-                  
+
                   {/* Caption */}
                   <p className="text-xs text-black/50 dark:text-white/50 mt-2 italic break-words hyphens-auto">
                     "{call.args.prompt}"
@@ -159,9 +158,7 @@ const ToolCallDisplay = ({ toolCalls }: { toolCalls: any[] }) => {
                       <p className="text-sm font-medium text-red-700 dark:text-red-300 mb-1">
                         Failed to generate image
                       </p>
-                      <p className="text-sm text-red-600 dark:text-red-400">
-                        {call.result.error}
-                      </p>
+                      <p className="text-sm text-red-600 dark:text-red-400">{call.result.error}</p>
                     </div>
                   </div>
                 </div>

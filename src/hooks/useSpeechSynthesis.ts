@@ -93,14 +93,14 @@ export function useSpeechSynthesis() {
           setIsSpeaking(true)
         }
       }
-      
+
       utterance.onend = () => {
         setIsSpeaking(false)
         if (!isStopped.current) {
           onEnd()
         }
       }
-      
+
       utterance.onerror = () => {
         setIsSpeaking(false)
         if (!isStopped.current) {

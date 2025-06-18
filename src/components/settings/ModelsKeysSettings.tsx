@@ -118,10 +118,7 @@ const LLMProviderKeysSection = ({
   }
 
   return (
-    <SectionWrapper
-      title={title}
-      description={`Manage your API keys for ${title.replace(' Keys', '')}. The first key you add will be set as default, and will be used automatically when available.`}
-    >
+    <SectionWrapper title={title} description={`Manage your API keys for ${title.replace(' Keys', '')}`}>
       <div className="flex justify-end">
         <Button variant="outline" size="sm" onClick={handleAddNew} disabled={!!editingKey}>
           <Plus className="w-4 h-4 mr-2" />

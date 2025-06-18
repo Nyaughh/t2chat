@@ -8,17 +8,17 @@ export const useConvexChat = (chatId?: Id<'chats'>) => {
 
   // First get the user's chats to verify access
   const chats = useQuery(api.chat.queries.getUserChats, isAuthenticated ? {} : 'skip')
-  
+
   // Only query messages if the chat exists in the user's chats
   const chatExists = useMemo(() => {
     if (!chatId || !chats) return false
-    return chats.some(chat => chat._id === chatId)
+    return chats.some((chat) => chat._id === chatId)
   }, [chatId, chats])
 
   // Queries
   const messages = useQuery(
-    api.chat.queries.getChatMessages, 
-    chatId && isAuthenticated && chatExists ? { chatId } : 'skip'
+    api.chat.queries.getChatMessages,
+    chatId && isAuthenticated && chatExists ? { chatId } : 'skip',
   )
 
   // Mutations & Actions

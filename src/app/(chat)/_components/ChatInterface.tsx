@@ -321,8 +321,6 @@ export default function ChatInterface({ chatId, initialMessages }: ChatInterface
         </div>
       </div>
 
-
-
       {/* Simple Voice Chat */}
       <SimpleVoiceChat
         isOpen={isVoiceChatOpen}
