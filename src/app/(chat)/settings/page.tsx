@@ -126,7 +126,10 @@ export default function SettingsPage() {
           setActiveSection={setActiveSection}
           isMobile={isMobile}
         />
-        <main className="flex-1 p-6 overflow-y-auto bg-background">
+        <main className={cn(
+          "flex-1 overflow-y-auto bg-background",
+          isMobile ? "p-4" : "p-6"
+        )}>
           <AnimatePresence mode="wait">
             <motion.div
               key={activeSection}

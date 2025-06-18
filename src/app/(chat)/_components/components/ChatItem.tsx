@@ -213,25 +213,6 @@ export const ChatItem = memo(function ChatItem({ chat, currentChatId, totalChats
                     <div className="absolute inset-0 -z-10 bg-gradient-to-r from-rose-300/0 via-rose-300/15 to-rose-300/0 rounded-2xl blur-2xl opacity-0 dark:opacity-30 pointer-events-none" />
                   </DropdownMenuContent>
                 </DropdownMenu>
-
-                {totalChats > 1 && (
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          onDelete(chat.id)
-                        }}
-                        className="opacity-100 md:opacity-0 md:group-hover:opacity-100 p-1 -m-1 text-black/40 dark:text-white/40 hover:text-red-500 dark:hover:text-red-400 transition-all duration-150 ease-[0.25,1,0.5,1] hover:scale-110"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                    </TooltipTrigger>
-                    <TooltipContent side="right">
-                      Delete conversation
-                    </TooltipContent>
-                  </Tooltip>
-                )}
               </div>
             </div>
           </div>

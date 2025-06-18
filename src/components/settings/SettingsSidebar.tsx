@@ -20,16 +20,15 @@ export function SettingsSidebar({
       className={cn(
         'flex-shrink-0 bg-card/20 backdrop-blur-sm',
         isMobile
-          ? 'p-3 border-b border-border'
+          ? 'px-2 py-3 border-b border-border'
           : 'w-64 p-4 border-r border-border',
       )}
     >
       <nav
         className={cn(
-          'flex',
           isMobile 
-            ? 'flex-row space-x-2 overflow-x-auto scrollbar-hide pb-1' 
-            : 'flex-col space-y-2'
+            ? 'grid grid-cols-5 gap-1' 
+            : 'flex flex-col space-y-2'
         )}
       >
         {settingsSections.map((section) => (

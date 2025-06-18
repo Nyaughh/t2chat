@@ -12,7 +12,36 @@ interface SettingsSidebarItemProps {
   isMobile: boolean
 }
 
+// Abbreviated labels for mobile
+const mobileLabels = {
+  account: 'Account',
+  models: 'Models',
+  customize: 'Custom',
+  speech: 'Speech',
+  data: 'Data',
+}
+
 export function SettingsSidebarItem({ section, isActive, onClick, isMobile }: SettingsSidebarItemProps) {
+  if (isMobile) {
+    return (
+      <div
+        onClick={onClick}
+        className={cn(
+          'flex flex-col items-center justify-center p-2 cursor-pointer transition-all duration-200 rounded-lg',
+          'min-h-[60px] gap-1',
+          isActive
+            ? 'text-rose-600 dark:text-rose-300 bg-rose-50 dark:bg-rose-950/30'
+            : 'text-muted-foreground hover:text-rose-600 dark:hover:text-rose-300 hover:bg-muted/30',
+        )}
+      >
+        <section.icon className="w-4 h-4" />
+        <span className="text-xs font-medium leading-none">
+          {mobileLabels[section.id as keyof typeof mobileLabels] || section.label}
+        </span>
+      </div>
+    )
+  }
+
   return (
     <div
       onClick={onClick}
@@ -21,7 +50,7 @@ export function SettingsSidebarItem({ section, isActive, onClick, isMobile }: Se
         isActive
           ? 'text-rose-600 dark:text-rose-300'
           : 'hover:text-rose-600 dark:hover:text-rose-300 text-muted-foreground',
-        isMobile ? 'justify-center' : 'w-full text-left',
+        'w-full text-left',
       )}
     >
       {/* Premium background for active state - matching chat history */}
@@ -50,11 +79,9 @@ export function SettingsSidebarItem({ section, isActive, onClick, isMobile }: Se
       <section.icon className="w-4 h-4 relative z-10" />
       
       {/* Label */}
-      {!isMobile && (
-        <span className="text-sm relative z-10">
-          {section.label}
-        </span>
-      )}
+      <span className="text-sm relative z-10">
+        {section.label}
+      </span>
     </div>
   )
 } 
