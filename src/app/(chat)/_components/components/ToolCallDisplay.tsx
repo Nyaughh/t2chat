@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Loader2, Search, Link as LinkIcon, ChevronDown } from 'lucide-react';
+import { Loader2, Search, Link as LinkIcon, ChevronDown, Image as ImageIcon, Download, ExternalLink } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 
@@ -68,6 +68,76 @@ const ToolCallDisplay = ({ toolCalls }: { toolCalls: any[] }) => {
                   </motion.div>
                 )}
               </AnimatePresence>
+            </div>
+          )}
+
+          {call.toolName === 'generateImage' && (
+            <div>
+              <div className="flex items-center gap-2 text-sm text-black/60 dark:text-white/60 mb-3">
+                {call.result ? <ImageIcon className="w-4 h-4" /> : <Loader2 className="w-4 h-4 animate-spin" />}
+                <span>
+                  {call.result 
+                    ? call.result.success 
+                      ? 'Generated image for:' 
+                      : 'Failed to generate image for:'
+                    : 'Generating image for:'
+                  } <em>"{call.args.prompt}"</em>
+                </span>
+              </div>
+
+              {call.result && call.result.success && call.result.imageUrl && (
+                <div className="space-y-3">
+                  {call.result.description && (
+                    <div className="text-sm p-3 rounded-md bg-black/5 dark:bg-white/5">
+                      <strong>Description:</strong> {call.result.description}
+                    </div>
+                  )}
+                  <div className="relative group">
+                    <img 
+                      src={call.result.imageUrl} 
+                      alt={call.args.prompt}
+                      className="w-full max-w-lg rounded-lg shadow-lg border border-black/10 dark:border-white/10"
+                      style={{ maxHeight: '400px', objectFit: 'contain' }}
+                    />
+                    <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-2">
+                      <button
+                        onClick={() => {
+                          const link = document.createElement('a');
+                          link.href = call.result.imageUrl;
+                          link.download = `generated-image-${Date.now()}.png`;
+                          link.click();
+                        }}
+                        className="p-2 rounded-md bg-black/20 dark:bg-white/20 backdrop-blur-sm hover:bg-black/30 dark:hover:bg-white/30 transition-colors"
+                        title="Download image"
+                      >
+                        <Download className="w-4 h-4 text-white" />
+                      </button>
+                      <button
+                        onClick={() => {
+                          window.open(call.result.imageUrl, '_blank');
+                        }}
+                        className="p-2 rounded-md bg-black/20 dark:bg-white/20 backdrop-blur-sm hover:bg-black/30 dark:hover:bg-white/30 transition-colors"
+                        title="Open in new tab"
+                      >
+                        <ExternalLink className="w-4 h-4 text-white" />
+                      </button>
+                    </div>
+                  </div>
+                  <div className="flex justify-between items-center text-xs text-black/50 dark:text-white/50">
+                    <span>Generated at: {new Date(call.result.timestamp).toLocaleTimeString()}</span>
+                    {call.result.usedUserKey && (
+                      <span className="text-green-600 dark:text-green-400">Used your API key</span>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {call.result && !call.result.success && (
+                <div className="text-sm p-3 rounded-md bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
+                  <strong className="text-red-600 dark:text-red-400">Error:</strong> 
+                  <span className="text-red-700 dark:text-red-300 ml-1">{call.result.error}</span>
+                </div>
+              )}
             </div>
           )}
         </div>

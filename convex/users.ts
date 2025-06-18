@@ -15,6 +15,8 @@ export const updateUserSettings = mutation({
     sendBehavior: v.optional(v.union(v.literal('enter'), v.literal('shiftEnter'), v.literal('button'))),
     autoSave: v.optional(v.boolean()),
     showTimestamps: v.optional(v.boolean()),
+    uploadthing_key: v.optional(v.string()),
+    tavily_key: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const userId = await betterAuthComponent.getAuthUserId(ctx);

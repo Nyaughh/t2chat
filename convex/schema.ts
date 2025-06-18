@@ -11,11 +11,6 @@ export default defineSchema({
   
   userSettings: defineTable({
     userId: v.id("users"),
-    use_keys_for_gemini: v.optional(v.boolean()),
-    use_keys_for_groq: v.optional(v.boolean()),
-    use_keys_for_openrouter: v.optional(v.boolean()),
-    use_keys_for_uploadthing: v.optional(v.boolean()),
-    use_keys_for_tavily: v.optional(v.boolean()),
     uploadthing_key: v.optional(v.string()),
     tavily_key: v.optional(v.string()),
     userName: v.optional(v.string()),

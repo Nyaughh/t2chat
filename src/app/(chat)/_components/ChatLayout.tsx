@@ -5,6 +5,7 @@ import { useRouter, usePathname } from 'next/navigation'
 import { useChatLayout } from './hooks/useChatLayout'
 import { Sidebar } from './components/Sidebar'
 import { TopControls } from './components/TopControls'
+
 import { UserMetadata } from '@/lib/types'
 import { useAuth } from '@/hooks/useAuth'
 import { useFont } from '@/hooks/useFont'
@@ -67,7 +68,11 @@ function RenameDialog({
   )
 }
 
-export default function ChatLayout({ children, userMetadata: serverUserMetadata, isSignedIn: serverIsSignedIn }: ChatLayoutProps) {
+export default function ChatLayout({ 
+  children, 
+  userMetadata: serverUserMetadata, 
+  isSignedIn: serverIsSignedIn 
+}: ChatLayoutProps) {
   const router = useRouter()
   const pathname = usePathname()
   const { 
@@ -93,6 +98,7 @@ export default function ChatLayout({ children, userMetadata: serverUserMetadata,
   const [deletingChatId, setDeletingChatId] = useState<string | null>(null)
   const [sharingChatId, setSharingChatId] = useState<string | null>(null)
   const [shareUrl, setShareUrl] = useState('')
+
 
   const renameChat = useMutation(api.chat.mutations.renameChat)
   const shareChat = useMutation(api.chat.mutations.shareChat)
@@ -144,6 +150,8 @@ export default function ChatLayout({ children, userMetadata: serverUserMetadata,
     navigator.clipboard.writeText(shareUrl)
     toast.success('Share link copied to clipboard!')
   }
+
+
 
   const isOnHomePage = currentChatId === null
   const isSettingsPage = pathname === '/settings'
@@ -198,6 +206,7 @@ export default function ChatLayout({ children, userMetadata: serverUserMetadata,
             onToggleSidebar={toggleSidebar}
             onSettingsClick={() => router.push('/settings')}
             onNewChat={createNewChat}
+
           />
         }
 
@@ -207,6 +216,8 @@ export default function ChatLayout({ children, userMetadata: serverUserMetadata,
         {/* Premium subtle glow effect */}
         <div className="absolute inset-0 -z-10 bg-gradient-to-r from-rose-300/0 via-rose-300/5 to-rose-300/0 rounded-xl blur-xl opacity-0 dark:opacity-30 pointer-events-none"></div>
       </div>
+
+
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={!!deletingChatId} onOpenChange={(open) => !open && setDeletingChatId(null)}>

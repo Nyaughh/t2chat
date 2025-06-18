@@ -5,7 +5,7 @@ import type React from 'react'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { cn } from '@/lib/utils'
 import { useAutoResizeTextarea } from '@/hooks/resize-textarea'
-import { ArrowUpCircle, Paperclip, Globe, ChevronDown, Sparkles, Lightbulb, Plus, Square, X, FileText, Image, Upload, ArrowRight, Mic } from 'lucide-react'
+import { ArrowUpCircle, Paperclip, Globe, ChevronDown, Sparkles, Lightbulb, Plus, Square, X, FileText, Image, Upload, ArrowRight, Mic, Eye, Code, MountainIcon } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { ModelInfo, models } from '@/lib/models'
 import { useQuery } from 'convex/react'
@@ -99,6 +99,11 @@ export default function AIInput({
   const originalTextRef = useRef('');
 
   const apiKeys = useQuery(api.api_keys.getApiKeys) || []
+  
+  // Check if user has API keys for each provider
+  const hasGeminiKey = useQuery(api.api_keys.hasApiKeyForProvider, { provider: "gemini" }) ?? false
+  const hasGroqKey = useQuery(api.api_keys.hasApiKeyForProvider, { provider: "groq" }) ?? false
+  const hasOpenRouterKey = useQuery(api.api_keys.hasApiKeyForProvider, { provider: "openrouter" }) ?? false
 
   // Speech Recognition setup
   useEffect(() => {
@@ -156,7 +161,33 @@ export default function AIInput({
     setIsListening(!isListening);
   };
 
-  const availableModels = models
+  // Function to check if a model is available to the user
+  const isModelAvailable = (model: ModelInfo) => {
+    // If user is not signed in, only free models are available
+    if (!isSignedIn && !model.isFree) {
+      return false;
+    }
+
+    // If model requires API key and user doesn't have one for that provider, disable it
+    if (model.isApiKeyOnly) {
+      switch (model.provider) {
+        case 'gemini':
+          return hasGeminiKey;
+        case 'groq':
+          return hasGroqKey;
+        case 'openrouter':
+          return hasOpenRouterKey;
+        default:
+          return false;
+      }
+    }
+
+    return true;
+  };
+
+  // Show all models but filter available ones for selection fallback
+  const availableModels = models.filter(isModelAvailable);
+  
   const supportsAttachments = selectedModel.attachmentsSuppport.image || selectedModel.attachmentsSuppport.pdf
   const maxFiles = 2
 
@@ -192,6 +223,13 @@ export default function AIInput({
   useEffect(() => {
     localStorage.setItem('groupBy', groupBy)
   }, [groupBy])
+
+  // If selected model is no longer available, switch to a default available one
+  useEffect(() => {
+    if (!isModelAvailable(selectedModel) && availableModels.length > 0) {
+      setSelectedModel(availableModels[0]);
+    }
+  }, [selectedModel, availableModels, setSelectedModel]);
 
   useEffect(() => {
     adjustHeight();
@@ -277,14 +315,14 @@ export default function AIInput({
     // switch to a model that doesn't require thinking
     if (!enabled && selectedModel.supportsThinking) {
       // Find the first model that doesn't require thinking
-      const nonThinkingModel = models.find((m) => !m.supportsThinking && (isSignedIn || m.isFree))
+      const nonThinkingModel = availableModels.find((m) => !m.supportsThinking)
       if (nonThinkingModel) {
         setSelectedModel(nonThinkingModel)
       }
     }
   }
 
-  const groupedModels = availableModels.reduce(
+  const groupedModels = models.reduce(
     (acc, model) => {
       const groupKey = groupBy === 'provider' ? model.provider : model.category
       if (!acc[groupKey]) {
@@ -462,7 +500,7 @@ export default function AIInput({
 
         <div className="h-14 md:h-16">
           <div className="absolute left-3 md:left-4 right-3 md:right-4 bottom-3 md:bottom-4 flex items-center justify-between">
-            <div className="flex items-center gap-1 md:gap-2">
+            <div className="flex items-center gap-1 md:ga2">
               <div className="relative">
                 <button
                   type="button"
@@ -601,22 +639,32 @@ export default function AIInput({
                                 <button
                                   key={model.id}
                                   onClick={() => {
-                                    setSelectedModel(model)
-                                    setShowModelSelect(false)
+                                    if (isModelAvailable(model)) {
+                                      setSelectedModel(model)
+                                      setShowModelSelect(false)
+                                    }
                                   }}
                                   className={cn(
-                                    'group w-full p-1.5 cursor-pointer transition-all duration-150 ease-[0.25,1,0.5,1] relative overflow-hidden text-left',
+                                    'group w-full p-1.5 transition-all duration-150 ease-[0.25,1,0.5,1] relative overflow-hidden text-left',
                                     selectedModel.id === model.id
                                       ? 'text-rose-600 dark:text-rose-300'
                                       : 'hover:text-rose-600 dark:hover:text-rose-300 text-black/70 dark:text-white/70',
                                     (!thinkingEnabled && model.supportsThinking) && 'opacity-40 cursor-not-allowed',
-                                    !isSignedIn && !model.isFree && 'opacity-40 cursor-not-allowed',
-                                    model.isPro && !apiKeys.some(k => k.service === model.provider) && 'opacity-40 cursor-not-allowed',
+                                    !isModelAvailable(model) && 'opacity-40 cursor-not-allowed',
                                   )}
                                   disabled={
-                                    (!thinkingEnabled && model.supportsThinking) || 
-                                    (!isSignedIn && !model.isFree) ||
-                                    (model.isPro && !apiKeys.some(k => k.service === model.provider))
+                                    (!thinkingEnabled && model.supportsThinking) || !isModelAvailable(model)
+                                  }
+                                  title={
+                                    !isModelAvailable(model)
+                                      ? model.isApiKeyOnly
+                                        ? `Requires ${model.provider} API key`
+                                        : !isSignedIn && !model.isFree
+                                        ? 'Sign in required'
+                                        : 'Not available'
+                                      : (!thinkingEnabled && model.supportsThinking)
+                                      ? 'Enable thinking mode to use this model'
+                                      : undefined
                                   }
                                 >
                                   {/* Premium background for active state */}
@@ -665,18 +713,70 @@ export default function AIInput({
                                       )}
                                     </div>
 
+
+                                    <div className="flex items-center gap-1">
                                     {model.supportsThinking && (
-                                      <div className="flex-shrink-0 relative">
-                                        <Lightbulb
-                                          className={cn(
-                                            'w-3.5 h-3.5',
-                                            thinkingEnabled && selectedModel.id === model.id
-                                              ? 'text-rose-500'
-                                              : 'text-rose-400/60 dark:text-rose-500/60',
-                                          )}
-                                        />
-                                      </div>
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <span className="text-xs text-rose-500/60 dark:text-rose-300/60 px-1 py-0.5 rounded-full">
+                                            <Lightbulb
+                                              className={cn(
+                                                'w-3.5 h-3.5',
+                                                thinkingEnabled && selectedModel.id === model.id
+                                                  ? 'text-rose-500'
+                                                  : 'text-rose-400/60 dark:text-rose-500/60',
+                                              )}
+                                            />
+                                          </span>
+                                        </TooltipTrigger>
+                                        <TooltipContent side="top">
+                                          Thinking mode enabled
+                                        </TooltipContent>
+                                      </Tooltip>
                                     )}
+                                     {model.features.filter(feature => feature !== 'code').map((feature) => (
+                                      <Tooltip key={feature}>
+                                        <TooltipTrigger asChild>
+                                          <span className="text-xs text-rose-500/60 dark:text-rose-300/60 px-1 py-0.5 rounded-full">
+                                            {feature === 'web' ? 
+                                              <Globe className="w-3.5 h-3.5" />
+                                            : feature === 'vision' ?
+                                              <Eye className="w-3.5 h-3.5" />
+                                            : feature === 'imagegen' ?
+                                              <MountainIcon className="w-3.5 h-3.5" />
+                                            : null}
+                                          </span>
+                                        </TooltipTrigger>
+                                        <TooltipContent side="top">
+                                          {feature === 'web' ? 'Web search enabled' : feature === 'imagegen' ? 'Image generation enabled' : 'Vision capabilities'}
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    ))}
+                                    {model.attachmentsSuppport.image && (
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <span className="text-xs text-rose-500/60 dark:text-rose-300/60 px-1 py-0.5 rounded-full">
+                                            <Image className="w-3.5 h-3.5" />
+                                          </span>
+                                        </TooltipTrigger>
+                                        <TooltipContent side="top">
+                                          Supports image attachments
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    )}
+                                    {model.attachmentsSuppport.pdf && (
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <span className="text-xs text-rose-500/60 dark:text-rose-300/60 px-1 py-0.5 rounded-full">
+                                            <FileText className="w-3.5 h-3.5" />
+                                          </span>
+                                        </TooltipTrigger>
+                                        <TooltipContent side="top">
+                                          Supports PDF attachments
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    )}
+                                    </div>  
                                   </div>
                                 </button>
                               ))}

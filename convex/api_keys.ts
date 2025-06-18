@@ -19,6 +19,27 @@ export const getApiKeys = query({
   },
 });
 
+export const hasApiKeyForProvider = query({
+  args: { 
+    provider: v.union(v.literal("gemini"), v.literal("groq"), v.literal("openrouter"), v.literal("deepgram"))
+  },
+  handler: async (ctx, { provider }) => {
+    const userId = await betterAuthComponent.getAuthUserId(ctx);
+    if (!userId) {
+      return false;
+    }
+
+    const apiKey = await ctx.db
+      .query("apiKeys")
+      .withIndex("by_user_and_service", (q) => 
+        q.eq("userId", userId as Id<"users">).eq("service", provider)
+      )
+      .first();
+
+    return !!apiKey;
+  },
+});
+
 export const saveApiKey = mutation({
     args: {
         _id: v.optional(v.id("apiKeys")),
@@ -36,8 +57,24 @@ export const saveApiKey = mutation({
             if (existingKey?.userId !== userId) throw new Error("Not authorized to edit this key");
             await ctx.db.patch(_id, { name, key });
         } else {
-            // It's a new key
-            await ctx.db.insert("apiKeys", { userId: userId as Id<"users">, name, service, key, is_default: false });
+            // It's a new key - check if this is the first key for this service
+            const existingKeys = await ctx.db
+                .query("apiKeys")
+                .withIndex("by_user_and_service", (q) => 
+                    q.eq("userId", userId as Id<"users">).eq("service", service)
+                )
+                .collect();
+
+            // If this is the first key for this service, make it default
+            const isFirstKey = existingKeys.length === 0;
+            
+            await ctx.db.insert("apiKeys", { 
+                userId: userId as Id<"users">, 
+                name, 
+                service, 
+                key, 
+                is_default: isFirstKey 
+            });
         }
     }
 });
@@ -51,7 +88,23 @@ export const deleteApiKey = mutation({
         const existingKey = await ctx.db.get(_id);
         if (existingKey?.userId !== userId) throw new Error("Not authorized to delete this key");
         
+        const wasDefault = existingKey.is_default;
         await ctx.db.delete(_id);
+
+        // If we deleted the default key, set another key as default
+        if (wasDefault) {
+            const remainingKeys = await ctx.db
+                .query("apiKeys")
+                .withIndex("by_user_and_service", (q) => 
+                    q.eq("userId", userId as Id<"users">).eq("service", existingKey.service)
+                )
+                .collect();
+
+            if (remainingKeys.length > 0) {
+                // Set the first remaining key as default
+                await ctx.db.patch(remainingKeys[0]._id, { is_default: true });
+            }
+        }
     }
 });
 
@@ -77,4 +130,39 @@ export const setDefaultApiKey = mutation({
         // Set the new default
         await ctx.db.patch(_id, { is_default: true });
     }
-}) 
+})
+
+export const getUserDefaultApiKey = query({
+    args: { 
+        service: v.union(v.literal("gemini"), v.literal("groq"), v.literal("openrouter"), v.literal("deepgram"))
+    },
+    handler: async (ctx, { service }) => {
+        const userId = await betterAuthComponent.getAuthUserId(ctx);
+        if (!userId) {
+            return null;
+        }
+
+        // First try to get the default key
+        const defaultKey = await ctx.db
+            .query("apiKeys")
+            .withIndex("by_user_and_service", (q) => 
+                q.eq("userId", userId as Id<"users">).eq("service", service)
+            )
+            .filter(q => q.eq(q.field("is_default"), true))
+            .first();
+
+        if (defaultKey) {
+            return defaultKey.key;
+        }
+
+        // If no default key, get any key for the service
+        const anyKey = await ctx.db
+            .query("apiKeys")
+            .withIndex("by_user_and_service", (q) => 
+                q.eq("userId", userId as Id<"users">).eq("service", service)
+            )
+            .first();
+
+        return anyKey?.key || null;
+    },
+}); 

@@ -17,6 +17,7 @@ export function useChatInterface(chatId?: string, initialMessages?: ConvexMessag
     isStreaming,
     handleNewMessage,
     handleRetryMessage,
+    handleEditMessage,
     handleStopGeneration,
     currentChatId,
     selectedModel,
@@ -26,7 +27,10 @@ export function useChatInterface(chatId?: string, initialMessages?: ConvexMessag
     userSettings,
   } = useConversations(chatId, initialMessages)
 
-  const messageActions = useMessageActions({ onRetryMessage: handleRetryMessage })
+  const messageActions = useMessageActions({ 
+    onRetryMessage: handleRetryMessage,
+    onEditMessage: handleEditMessage 
+  })
   const scrollToBottom = useScrollToBottom(activeMessages, isStreaming)
 
   const handleSend = (message: string, model: string, options: { webSearch?: boolean }) => {

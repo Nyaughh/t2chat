@@ -4,6 +4,8 @@ import { Copy, Check, RotateCcw, GitFork, Volume2, VolumeX } from 'lucide-react'
 import { ModelDropdown } from '@/components/ui/model-dropdown'
 import { ModelInfo } from '@/lib/models'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { useQuery } from 'convex/react'
+import { api } from '../../../../../convex/_generated/api'
 
 interface MessageActionsProps {
   messageId: string
@@ -44,6 +46,7 @@ export function MessageActions({
   getProviderColor,
   isSignedIn,
 }: MessageActionsProps) {
+  const apiKeys = useQuery(api.api_keys.getApiKeys, isSignedIn ? {} : 'skip') || []
   return (
     <div className="flex items-center gap-4 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity duration-150 ease-[0.25,1,0.5,1] relative">
       {!isStreaming && (
@@ -111,6 +114,7 @@ export function MessageActions({
                 onClose={onCloseRetryDropdown}
                 className="absolute left-0"
                 isSignedIn={isSignedIn}
+                apiKeys={apiKeys}
               />
             )}
           </div>

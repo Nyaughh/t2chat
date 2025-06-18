@@ -41,7 +41,7 @@ const CodeBlock = memo(({ inline, className, children, theme = 'dark', ...props 
   if (!inline && language) {
     const code = String(children).replace(/\n$/, '')
     return (
-      <div className="my-4 last:mb-0 group relative w-full max-w-full">
+      <div className="my-4 last:mb-0 group relative overflow-x-auto max-w-[87vw] md:max-w-full">
         <div className="flex items-center justify-between bg-black/5 dark:bg-white/5 px-4 py-2 rounded-t-lg border-b border-black/10 dark:border-white/10">
           <span className="text-xs font-medium text-black/60 dark:text-white/60 uppercase tracking-wide">
             {language}
@@ -186,13 +186,13 @@ const components: Partial<Components> = {
     const match = /language-(\w+)/.exec(className || '')
     if (match) {
       return (
-        <CodeBlock inline={false} language={match[1]} className={className} {...props}>
+        <CodeBlock inline={false} language={match[1]} className={cn('overflow-x-auto', className)} {...props}>
           {children}
         </CodeBlock>
       )
     }
     return (
-      <code className={cn('rounded bg-muted px-[0.3rem] py-[0.2rem] font-mono text-sm', className)} {...props}>
+      <code className={cn('rounded bg-muted px-[0.3rem] py-[0.2rem] font-mono text-sm overflow-x-auto', className)} {...props}>
         {children}
       </code>
     )

@@ -27,6 +27,34 @@ const groq = createGroq({
   apiKey: process.env.GROQ_API_KEY,
 })
 
+interface UserSettings {
+  userName?: string
+  userRole?: string
+  userTraits?: string[]
+  userAdditionalInfo?: string
+  promptTemplate?: string
+}
+
+const buildPersonalizedSystemPrompt = (userSettings?: UserSettings): string => {
+  if (!userSettings) return basePersonality
+
+  let personalization = "### User Personalization\n"
+  if (userSettings.userName) personalization += `The user's name is ${userSettings.userName}.\n`
+  if (userSettings.userRole) personalization += `The user is a ${userSettings.userRole}.\n`
+  if (userSettings.userTraits && userSettings.userTraits.length > 0) {
+    personalization += `The user has the following traits/interests: ${userSettings.userTraits.join(', ')}.\n`
+  }
+  if (userSettings.userAdditionalInfo) {
+    personalization += `Here is some additional information about the user: ${userSettings.userAdditionalInfo}\n`
+  }
+
+  if (userSettings.promptTemplate) {
+    return `${userSettings.promptTemplate}\n\n${personalization}`
+  } else {
+    return `${basePersonality}\n\n${personalization}`
+  }
+}
+
 const mapModel = (modelId: string) => {
   const model = models.find((m) => m.id === modelId)
 
@@ -67,12 +95,13 @@ const mapModel = (modelId: string) => {
 export async function POST(req: Request) {
   try {
     const { messages, data } = await req.json()
-    const { modelId } = data
+    const { modelId, userSettings } = data
 
     const { model, thinking } = mapModel(modelId)
+    const systemPrompt = buildPersonalizedSystemPrompt(userSettings)
 
     const { fullStream } = streamText({
-      system: basePersonality,
+      system: systemPrompt,
       model: thinking
         ? wrapLanguageModel({
             model,

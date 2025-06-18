@@ -20,10 +20,12 @@ export const useConvexChat = (chatId?: Id<"chats">) => {
   const createChat = useMutation(api.chat.mutations.createChat);
   const sendMessage = useAction(api.chat.actions.sendMessage);
   const retryMessage = useAction(api.chat.actions.retryMessage);
+  const editMessageAndRegenerate = useAction(api.chat.actions.editMessageAndRegenerate);
   const deleteChat = useMutation(api.chat.mutations.deleteChat);
   const updateChatTitle = useMutation(api.chat.mutations.updateChatTitle);
   const deleteMessagesFromIndex = useMutation(api.chat.mutations.deleteMessagesFromIndex);
   const cancelMessage = useMutation(api.chat.mutations.cancelMessage);
+  const editMessage = useMutation(api.chat.mutations.editMessage);
 
   const isStreaming = useMemo(() => {
     if (!messages) return false;
@@ -45,9 +47,11 @@ export const useConvexChat = (chatId?: Id<"chats">) => {
     createChat,
     sendMessage,
     retryMessage,
+    editMessageAndRegenerate,
     deleteChat,
     updateChatTitle,
     deleteMessagesFromIndex,
     cancelMessage,
+    editMessage,
   };
 }; 

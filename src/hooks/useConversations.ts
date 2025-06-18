@@ -36,9 +36,11 @@ export const useConversations = (
     createChat,
     sendMessage,
     retryMessage,
+    editMessageAndRegenerate,
     deleteChat: deleteConvexChat,
     deleteMessagesFromIndex,
     cancelMessage,
+    editMessage,
   } = useConvexChat(currentChatId ? (currentChatId as Id<"chats">) : undefined)
 
   const userSettings = useQuery(
@@ -530,6 +532,134 @@ export const useConversations = (
     }
   }, [isAuthenticated, currentChatId, activeMessages, selectedModel, retryMessage])
 
+  const handleEditMessage = useCallback(async (messageId: string, content: string) => {
+    if (!currentChatId) return
+
+    try {
+      if (isAuthenticated) {
+        // For Convex: Use the editMessageAndRegenerate action to edit and regenerate response
+        await editMessageAndRegenerate({
+          messageId: messageId as Id<"messages">,
+          content: content.trim(),
+          modelId: selectedModel.id,
+        })
+        toast.success('Message edited and response regenerated.')
+      } else {
+        // For local: Update the message and regenerate response
+        await db.messages.update(messageId, { content: content.trim() })
+        
+        // Find the next assistant message and regenerate from there
+        const allMessages = await db.messages
+          .where('conversationId')
+          .equals(currentChatId)
+          .sortBy('createdAt')
+        
+        const editedMessageIndex = allMessages.findIndex(msg => msg.id === messageId)
+        if (editedMessageIndex !== -1) {
+          // Find the next assistant message after the edited user message
+          let nextAssistantMessageIndex = -1
+          for (let i = editedMessageIndex + 1; i < allMessages.length; i++) {
+            if (allMessages[i].role === 'assistant') {
+              nextAssistantMessageIndex = i
+              break
+            }
+          }
+          
+          // If there's an assistant message, delete it and all subsequent messages
+          if (nextAssistantMessageIndex !== -1) {
+            const messagesToDelete = allMessages.slice(nextAssistantMessageIndex)
+            for (const msg of messagesToDelete) {
+              await db.messages.delete(msg.id)
+            }
+            
+            // Regenerate response by sending the conversation history
+            const historyMessages = allMessages.slice(0, nextAssistantMessageIndex)
+            const coreHistory: CoreMessage[] = historyMessages.map(m => ({ 
+              role: m.role as 'user' | 'assistant', 
+              content: typeof m.content === 'string' ? m.content : ''
+            }))
+
+            // Generate new response
+            setIsLocalStreaming(true)
+            abortControllerRef.current = new AbortController()
+
+            const response = await fetch('/api/chat', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                messages: coreHistory,
+                data: { modelId: selectedModel.id },
+              }),
+              signal: abortControllerRef.current.signal,
+            })
+
+            if (!response.body) throw new Error('No response body')
+
+            const assistantId = uuidv4()
+            const assistantMessage: DBMessage = {
+              id: assistantId,
+              conversationId: currentChatId,
+              content: '',
+              role: 'assistant',
+              createdAt: new Date(),
+              model: selectedModel.id,
+              parts: [],
+            }
+            await db.messages.add(assistantMessage)
+
+            const dataStream = parseDataStream(response.body)
+            let streamingContent = ''
+            let streamingThinking = ''
+            let finalThinkingDuration: number | undefined
+
+            for await (const chunk of dataStream) {
+              if (abortControllerRef.current?.signal.aborted) {
+                break
+              }
+              if (chunk.type === 'text') {
+                streamingContent += chunk.value
+                await db.messages.update(assistantId, { content: streamingContent })
+              } else if (chunk.type === 'reasoning') {
+                streamingThinking += chunk.value
+                await db.messages.update(assistantId, { 
+                  content: streamingContent,
+                  thinking: streamingThinking 
+                })
+              } else if (chunk.type === 'finish') {
+                finalThinkingDuration = chunk.value?.thinkingDuration
+                await db.messages.update(assistantId, { 
+                  content: streamingContent,
+                  thinking: streamingThinking || undefined,
+                  thinkingDuration: finalThinkingDuration
+                })
+              }
+            }
+            
+            if (!streamingContent.trim() && !abortControllerRef.current?.signal.aborted) {
+              await db.messages.delete(assistantId)
+            }
+            
+            setIsLocalStreaming(false)
+            abortControllerRef.current = null
+          }
+        }
+        
+        toast.success('Message edited and response regenerated.')
+      }
+    } catch (error) {
+      if ((error as Error).name === 'AbortError') {
+        console.log("Edit regeneration was stopped by user")
+      } else {
+        console.error("Error editing message:", error)
+        toast.error("Failed to edit message.")
+      }
+      if (!isAuthenticated) {
+        setIsLocalStreaming(false)
+        abortControllerRef.current = null
+      }
+    }
+  }, [isAuthenticated, editMessageAndRegenerate, selectedModel, currentChatId])
+
   const handleStopGeneration = useCallback(async () => {
     if (isAuthenticated && isConvexStreaming) {
       // For Convex, immediately show stopped in UI, then cancel on server
@@ -617,6 +747,7 @@ export const useConversations = (
     isAuthenticated,
     handleNewMessage,
     handleRetryMessage,
+    handleEditMessage,
     handleStopGeneration,
     deleteConversation,
     currentChatId,
