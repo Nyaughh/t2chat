@@ -301,7 +301,7 @@ export const generateAIResponse = async (
       },
     },
     experimental_transform: [smoothStream({
-      chunking: "line",
+      chunking: "word",
     })],
   });
 
