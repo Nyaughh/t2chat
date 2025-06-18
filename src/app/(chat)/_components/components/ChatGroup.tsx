@@ -12,6 +12,7 @@ interface ChatGroupProps {
   totalChats: number
   editingChatId: string | null
   isFirst?: boolean
+  isSignedIn: boolean
   onChatSelect: (chatId: string) => void
   onChatDelete: (chatId: string) => void
   onChatRename: (chatId: string, currentTitle: string) => void
@@ -25,6 +26,7 @@ export const ChatGroup = memo(function ChatGroup({
   totalChats,
   editingChatId,
   isFirst = false,
+  isSignedIn,
   onChatSelect,
   onChatDelete,
   onChatRename,
@@ -45,6 +47,7 @@ export const ChatGroup = memo(function ChatGroup({
             chat={chat}
             currentChatId={currentChatId}
             totalChats={totalChats}
+            isSignedIn={isSignedIn}
             onSelect={onChatSelect}
             onDelete={onChatDelete}
             onRename={onChatRename}

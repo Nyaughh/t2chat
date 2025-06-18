@@ -12,6 +12,7 @@ interface ChatListProps {
   currentChatId: string | null
   totalChats: number
   editingChatId: string | null
+  isSignedIn: boolean
   onChatSelect: (chatId: string) => void
   onChatDelete: (chatId: string) => void
   onChatRename: (chatId: string, currentTitle: string) => void
@@ -23,6 +24,7 @@ export const ChatList = memo(function ChatList({
   currentChatId,
   totalChats,
   editingChatId,
+  isSignedIn,
   onChatSelect,
   onChatDelete,
   onChatRename,
@@ -41,6 +43,7 @@ export const ChatList = memo(function ChatList({
               totalChats={totalChats}
               editingChatId={editingChatId}
               isFirst={groupIndex === 0}
+              isSignedIn={isSignedIn}
               onChatSelect={onChatSelect}
               onChatDelete={onChatDelete}
               onChatRename={onChatRename}

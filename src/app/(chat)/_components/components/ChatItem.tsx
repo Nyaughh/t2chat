@@ -27,6 +27,7 @@ interface ChatItemProps {
   }
   currentChatId: string | null
   totalChats: number
+  isSignedIn: boolean
   onSelect: (chatId: string) => void
   onDelete: (chatId: string) => void
   onRename: (chatId: string, currentTitle: string) => void
@@ -37,6 +38,7 @@ export const ChatItem = memo(function ChatItem({
   chat,
   currentChatId,
   totalChats,
+  isSignedIn,
   onSelect,
   onDelete,
   onRename,
@@ -166,27 +168,29 @@ export const ChatItem = memo(function ChatItem({
                         <span>Rename</span>
                       </DropdownMenuItem>
 
-                      <DropdownMenuItem
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          onShare(chat.id)
-                          setDropdownOpen(false)
-                        }}
-                        className={cn(
-                          'text-black/80 dark:text-white/80 hover:text-rose-600 dark:hover:text-rose-300',
-                          'hover:bg-rose-500/10 dark:hover:bg-rose-300/10',
-                          'focus:bg-rose-500/10 dark:focus:bg-rose-300/10',
-                          'focus:text-rose-600 dark:focus:text-rose-300',
-                          'transition-all duration-150 cursor-pointer',
-                          'px-3 py-2.5 text-sm font-medium flex items-center gap-3',
-                          'rounded-xl outline-none ring-0 border-0',
-                          // Remove any focus rings or blue colors
-                          'focus-visible:ring-0 focus-visible:ring-offset-0 focus:ring-0',
-                        )}
-                      >
-                        <Share2 className="w-4 h-4" />
-                        <span>Share</span>
-                      </DropdownMenuItem>
+                      {isSignedIn && (
+                        <DropdownMenuItem
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            onShare(chat.id)
+                            setDropdownOpen(false)
+                          }}
+                          className={cn(
+                            'text-black/80 dark:text-white/80 hover:text-rose-600 dark:hover:text-rose-300',
+                            'hover:bg-rose-500/10 dark:hover:bg-rose-300/10',
+                            'focus:bg-rose-500/10 dark:focus:bg-rose-300/10',
+                            'focus:text-rose-600 dark:focus:text-rose-300',
+                            'transition-all duration-150 cursor-pointer',
+                            'px-3 py-2.5 text-sm font-medium flex items-center gap-3',
+                            'rounded-xl outline-none ring-0 border-0',
+                            // Remove any focus rings or blue colors
+                            'focus-visible:ring-0 focus-visible:ring-offset-0 focus:ring-0',
+                          )}
+                        >
+                          <Share2 className="w-4 h-4" />
+                          <span>Share</span>
+                        </DropdownMenuItem>
+                      )}
 
                       <DropdownMenuSeparator className="my-2 mx-2 h-px bg-gradient-to-r from-transparent via-rose-500/20 dark:via-rose-300/20 to-transparent border-0" />
 
@@ -265,23 +269,25 @@ export const ChatItem = memo(function ChatItem({
               <span>Rename</span>
             </ContextMenuItem>
 
-            <ContextMenuItem
-              onClick={() => onShare(chat.id)}
-              className={cn(
-                'text-black/80 dark:text-white/80 hover:text-rose-600 dark:hover:text-rose-300',
-                'hover:bg-rose-500/10 dark:hover:bg-rose-300/10',
-                'focus:bg-rose-500/10 dark:focus:bg-rose-300/10',
-                'focus:text-rose-600 dark:focus:text-rose-300',
-                'transition-all duration-150 cursor-pointer',
-                'px-3 py-2.5 text-sm font-medium flex items-center gap-3',
-                'rounded-xl outline-none ring-0 border-0',
-                // Remove any focus rings or blue colors
-                'focus-visible:ring-0 focus-visible:ring-offset-0 focus:ring-0',
-              )}
-            >
-              <Share2 className="w-4 h-4" />
-              <span>Share</span>
-            </ContextMenuItem>
+            {isSignedIn && (
+              <ContextMenuItem
+                onClick={() => onShare(chat.id)}
+                className={cn(
+                  'text-black/80 dark:text-white/80 hover:text-rose-600 dark:hover:text-rose-300',
+                  'hover:bg-rose-500/10 dark:hover:bg-rose-300/10',
+                  'focus:bg-rose-500/10 dark:focus:bg-rose-300/10',
+                  'focus:text-rose-600 dark:focus:text-rose-300',
+                  'transition-all duration-150 cursor-pointer',
+                  'px-3 py-2.5 text-sm font-medium flex items-center gap-3',
+                  'rounded-xl outline-none ring-0 border-0',
+                  // Remove any focus rings or blue colors
+                  'focus-visible:ring-0 focus-visible:ring-offset-0 focus:ring-0',
+                )}
+              >
+                <Share2 className="w-4 h-4" />
+                <span>Share</span>
+              </ContextMenuItem>
+            )}
 
             <ContextMenuSeparator className="my-2 mx-2 h-px bg-gradient-to-r from-transparent via-rose-500/20 dark:via-rose-300/20 to-transparent border-0" />
 

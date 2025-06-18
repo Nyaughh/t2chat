@@ -132,6 +132,7 @@ export const Sidebar = memo(function Sidebar({
         currentChatId={currentChatId}
         totalChats={totalChats}
         editingChatId={editingChatId}
+        isSignedIn={isSignedIn}
         onChatSelect={onChatSelect}
         onChatDelete={onChatDelete}
         onChatRename={onChatRename}
