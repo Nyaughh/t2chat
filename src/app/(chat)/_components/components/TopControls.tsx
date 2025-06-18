@@ -33,31 +33,36 @@ export function TopControls({
     }
   }
 
+  // Shared styles for consistent button groups
+  const buttonGroupStyles = "group relative p-2 rounded-lg bg-white/70 dark:bg-[oklch(0.18_0.015_25)]/30 backdrop-blur-xl border border-rose-500/10 dark:border-white/10 hover:border-rose-500/20 dark:hover:border-rose-300/20 shadow-lg shadow-rose-500/5 dark:shadow-lg dark:shadow-black/20 hover:shadow-xl hover:shadow-rose-500/10 dark:hover:shadow-rose-500/10 flex items-center gap-1.5"
+  
+  const buttonStyles = "relative z-10 text-rose-600 dark:text-rose-300 hover:text-rose-700 dark:hover:text-rose-200 h-5.5 w-5.5 p-0 hover:bg-transparent flex items-center justify-center"
+  
+  const dividerStyles = "relative z-10 w-px h-4.5 bg-rose-500/20 dark:bg-rose-300/20"
+
   return (
     <>
       {/* Settings & Theme Switcher - Always visible */}
       <div className="absolute top-2.5 right-2.5 z-10">
-        <div className="group relative p-2 rounded-lg bg-white/70 dark:bg-[oklch(0.18_0.015_25)]/30 backdrop-blur-xl border border-rose-500/10 dark:border-white/10 hover:border-rose-500/20 dark:hover:border-rose-300/20 shadow-lg shadow-rose-500/5 dark:shadow-lg dark:shadow-black/20 hover:shadow-xl hover:shadow-rose-500/10 dark:hover:shadow-rose-500/10 flex items-center gap-1.5">
+        <div className={buttonGroupStyles}>
           {/* Gradient overlays for premium look */}
           <div className="absolute inset-0 bg-gradient-to-br from-rose-500/5 via-transparent to-rose-500/10 dark:from-rose-500/10 dark:via-transparent dark:to-rose-500/20 pointer-events-none rounded-lg"></div>
           <div className="absolute inset-0 bg-gradient-to-t from-transparent via-transparent to-white/20 dark:to-white/5 pointer-events-none rounded-lg"></div>
 
-          <div className="flex items-center gap-1.5">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  onClick={handleSettingsClick}
-                  className="relative z-10 text-rose-600 dark:text-rose-300 hover:text-rose-700 dark:hover:text-rose-200 h-5.5 w-5.5 p-0 hover:bg-transparent"
-                >
-                  <Settings className="w-4.5 h-4.5" />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom">{isSignedIn ? 'Settings' : 'Sign in to access settings'}</TooltipContent>
-            </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                onClick={handleSettingsClick}
+                className={buttonStyles}
+              >
+                <Settings className="w-4.5 h-4.5" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">{isSignedIn ? 'Settings' : 'Sign in to access settings'}</TooltipContent>
+          </Tooltip>
 
-            {/* Vertical divider */}
-            <div className="relative z-10 w-px h-4.5 bg-rose-500/20 dark:bg-rose-300/20"></div>
-          </div>
+          {/* Vertical divider */}
+          <div className={dividerStyles}></div>
 
           <ThemeSwitcher />
 
@@ -68,7 +73,7 @@ export function TopControls({
 
       {/* Menu and New Chat buttons for mobile/collapsed sidebar */}
       <div className={cn('absolute top-2.5 left-2.5 z-30', effectiveSidebarOpen ? 'md:opacity-0' : 'opacity-100')}>
-        <div className="group relative p-2 rounded-lg bg-white/70 dark:bg-[oklch(0.18_0.015_25)]/30 backdrop-blur-xl border border-rose-500/10 dark:border-white/10 hover:border-rose-500/20 dark:hover:border-rose-300/20 shadow-lg shadow-rose-500/5 dark:shadow-lg dark:shadow-black/20 hover:shadow-xl hover:shadow-rose-500/10 dark:hover:shadow-rose-500/10 flex items-center gap-1.5">
+        <div className={buttonGroupStyles}>
           {/* Gradient overlays for premium look */}
           <div className="absolute inset-0 bg-gradient-to-br from-rose-500/5 via-transparent to-rose-500/10 dark:from-rose-500/10 dark:via-transparent dark:to-rose-500/20 pointer-events-none rounded-lg"></div>
           <div className="absolute inset-0 bg-gradient-to-t from-transparent via-transparent to-white/20 dark:to-white/5 pointer-events-none rounded-lg"></div>
@@ -77,7 +82,7 @@ export function TopControls({
             <TooltipTrigger asChild>
               <button
                 onClick={onToggleSidebar}
-                className="relative z-10 text-rose-600 dark:text-rose-300 hover:text-rose-700 dark:hover:text-rose-200 h-5.5 w-5.5 p-0 hover:bg-transparent"
+                className={buttonStyles}
               >
                 <Menu className="w-4.5 h-4.5" />
               </button>
@@ -86,14 +91,14 @@ export function TopControls({
           </Tooltip>
 
           {/* Vertical divider */}
-          <div className="relative z-10 w-px h-4.5 bg-rose-500/20 dark:bg-rose-300/20"></div>
+          <div className={dividerStyles}></div>
 
           <Tooltip>
             <TooltipTrigger asChild>
               <button
                 onClick={onNewChat}
                 className={cn(
-                  'relative z-10 text-rose-600 dark:text-rose-300 hover:text-rose-700 dark:hover:text-rose-200 h-5.5 w-5.5 p-0 hover:bg-transparent',
+                  buttonStyles,
                   isOnHomePage && 'opacity-30 cursor-not-allowed',
                 )}
                 disabled={isOnHomePage}
