@@ -39,9 +39,9 @@ export const ChatGroup = memo(function ChatGroup({
 
       {/* Group chats */}
       <div className="space-y-1">
-        {chats.map((chat) => (
+        {chats.map((chat, index) => (
           <ChatItem
-            key={chat.id}
+            key={chat.id || `chat-${index}`}
             chat={chat}
             currentChatId={currentChatId}
             totalChats={totalChats}

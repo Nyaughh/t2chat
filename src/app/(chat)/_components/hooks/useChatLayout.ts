@@ -35,7 +35,8 @@ export function useChatLayout(initialChats?: ConvexChat[] | null) {
 
   const createNewChat = () => {
     router.push(`/`)
-    if (typeof window !== 'undefined' && window.innerWidth < 768) {
+    // Only close the sidebar if it's currently open on small screens
+    if (typeof window !== 'undefined' && window.innerWidth < 768 && sidebarOpen) {
       toggleSidebar()
     }
   }

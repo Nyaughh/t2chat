@@ -25,7 +25,10 @@ const ToolCallDisplay = ({ toolCalls }: { toolCalls: any[] }) => {
       {toolCalls.map((call) => (
         <div
           key={call.toolCallId}
-          className="p-3 rounded-lg bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10"
+          className={cn(
+            "p-3 rounded-lg bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10",
+            call.toolName === 'generateImage' && "w-fit max-w-full"
+          )}
         >
           {call.toolName === 'search' && (
             <div>
@@ -88,70 +91,79 @@ const ToolCallDisplay = ({ toolCalls }: { toolCalls: any[] }) => {
           )}
 
           {call.toolName === 'generateImage' && (
-            <div>
-              <div className="flex items-center gap-2 text-sm text-black/60 dark:text-white/60 mb-3">
-                {call.result ? <ImageIcon className="w-4 h-4" /> : <Loader2 className="w-4 h-4 animate-spin" />}
-                <span>
-                  {call.result
-                    ? call.result.success
-                      ? 'Generated image for:'
-                      : 'Failed to generate image for:'
-                    : 'Generating image for:'}{' '}
-                  <em>"{call.args.prompt}"</em>
+            <div className="space-y-4">
+              {/* Status indicator */}
+              <div className="flex items-center gap-2">
+                {call.result ? (
+                  <ImageIcon className="w-4 h-4 text-rose-500 dark:text-rose-400" />
+                ) : (
+                  <Loader2 className="w-4 h-4 animate-spin text-rose-500 dark:text-rose-400" />
+                )}
+                <span className="text-sm font-medium text-black/80 dark:text-white/80">
+                  {call.result 
+                    ? call.result.success 
+                      ? 'Image generated' 
+                      : 'Generation failed'
+                    : 'Generating image...'
+                  }
                 </span>
               </div>
 
+              {/* Success: Display image */}
               {call.result && call.result.success && call.result.imageUrl && (
-                <div className="space-y-3">
-                  {call.result.description && (
-                    <div className="text-sm p-3 rounded-md bg-black/5 dark:bg-white/5">
-                      <strong>Description:</strong> {call.result.description}
-                    </div>
-                  )}
-                  <div className="relative group">
-                    <img
-                      src={call.result.imageUrl}
-                      alt={call.args.prompt}
-                      className="w-full max-w-lg rounded-lg shadow-lg border border-black/10 dark:border-white/10"
-                      style={{ maxHeight: '400px', objectFit: 'contain' }}
-                    />
-                    <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-2">
-                      <button
-                        onClick={() => {
-                          const link = document.createElement('a')
-                          link.href = call.result.imageUrl
-                          link.download = `generated-image-${Date.now()}.png`
-                          link.click()
-                        }}
-                        className="p-2 rounded-md bg-black/20 dark:bg-white/20 backdrop-blur-sm hover:bg-black/30 dark:hover:bg-white/30 transition-colors"
-                        title="Download image"
-                      >
-                        <Download className="w-4 h-4 text-white" />
-                      </button>
-                      <button
-                        onClick={() => {
-                          window.open(call.result.imageUrl, '_blank')
-                        }}
-                        className="p-2 rounded-md bg-black/20 dark:bg-white/20 backdrop-blur-sm hover:bg-black/30 dark:hover:bg-white/30 transition-colors"
-                        title="Open in new tab"
-                      >
-                        <ExternalLink className="w-4 h-4 text-white" />
-                      </button>
-                    </div>
+                <div className="relative group w-full max-w-[240px] sm:max-w-[280px]">
+                  <img
+                    src={call.result.imageUrl}
+                    alt={call.args.prompt}
+                    className="rounded-lg shadow-sm border border-black/10 dark:border-white/10 w-full max-h-[250px] sm:max-h-[300px] object-contain"
+                  />
+                  
+                  {/* Action buttons overlay */}
+                  <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
+                    <button
+                      onClick={() => {
+                        const link = document.createElement('a')
+                        link.href = call.result.imageUrl
+                        link.download = `generated-image-${Date.now()}.png`
+                        link.click()
+                      }}
+                      className="p-1.5 rounded bg-black/70 hover:bg-black/80 transition-colors"
+                      title="Download image"
+                    >
+                      <Download className="w-3.5 h-3.5 text-white" />
+                    </button>
+                    <button
+                      onClick={() => {
+                        window.open(call.result.imageUrl, '_blank')
+                      }}
+                      className="p-1.5 rounded bg-black/70 hover:bg-black/80 transition-colors"
+                      title="Open in new tab"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5 text-white" />
+                    </button>
                   </div>
-                  <div className="flex justify-between items-center text-xs text-black/50 dark:text-white/50">
-                    <span>Generated at: {new Date(call.result.timestamp).toLocaleTimeString()}</span>
-                    {call.result.usedUserKey && (
-                      <span className="text-green-600 dark:text-green-400">Used your API key</span>
-                    )}
-                  </div>
+                  
+                  {/* Caption */}
+                  <p className="text-xs text-black/50 dark:text-white/50 mt-2 italic break-words hyphens-auto">
+                    "{call.args.prompt}"
+                  </p>
                 </div>
               )}
 
+              {/* Error state */}
               {call.result && !call.result.success && (
-                <div className="text-sm p-3 rounded-md bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
-                  <strong className="text-red-600 dark:text-red-400">Error:</strong>
-                  <span className="text-red-700 dark:text-red-300 ml-1">{call.result.error}</span>
+                <div className="p-4 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200/50 dark:border-red-800/50">
+                  <div className="flex items-start gap-3">
+                    <div className="w-2 h-2 rounded-full bg-red-500 mt-2 flex-shrink-0"></div>
+                    <div>
+                      <p className="text-sm font-medium text-red-700 dark:text-red-300 mb-1">
+                        Failed to generate image
+                      </p>
+                      <p className="text-sm text-red-600 dark:text-red-400">
+                        {call.result.error}
+                      </p>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>

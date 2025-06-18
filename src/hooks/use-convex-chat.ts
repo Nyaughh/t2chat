@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useEffect } from 'react'
 import { useAction, useConvexAuth, useMutation, useQuery } from 'convex/react'
 import { api } from '../../convex/_generated/api'
 import { Id } from '../../convex/_generated/dataModel'
@@ -6,9 +6,20 @@ import { Id } from '../../convex/_generated/dataModel'
 export const useConvexChat = (chatId?: Id<'chats'>) => {
   const { isAuthenticated, isLoading } = useConvexAuth()
 
-  // Queries
-  const messages = useQuery(api.chat.queries.getChatMessages, chatId && isAuthenticated ? { chatId } : 'skip')
+  // First get the user's chats to verify access
   const chats = useQuery(api.chat.queries.getUserChats, isAuthenticated ? {} : 'skip')
+  
+  // Only query messages if the chat exists in the user's chats
+  const chatExists = useMemo(() => {
+    if (!chatId || !chats) return false
+    return chats.some(chat => chat._id === chatId)
+  }, [chatId, chats])
+
+  // Queries
+  const messages = useQuery(
+    api.chat.queries.getChatMessages, 
+    chatId && isAuthenticated && chatExists ? { chatId } : 'skip'
+  )
 
   // Mutations & Actions
   const createChat = useMutation(api.chat.mutations.createChat)
@@ -32,6 +43,7 @@ export const useConvexChat = (chatId?: Id<'chats'>) => {
     isAuthenticated,
     isLoading,
     isStreaming,
+    chatExists,
 
     // Data
     messages,

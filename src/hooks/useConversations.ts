@@ -27,6 +27,7 @@ export const useConversations = (chatId?: string, initialMessages?: ConvexMessag
     isAuthenticated,
     isLoading: isAuthLoading,
     isStreaming: isConvexStreaming,
+    chatExists: convexChatExists,
     messages: convexMessages,
     chats: convexChats,
     createChat,
@@ -242,14 +243,26 @@ export const useConversations = (chatId?: string, initialMessages?: ConvexMessag
 
   // This effect will redirect the user if the chat is not found
   useEffect(() => {
-    if (!isAuthLoading && isAuthenticated && currentChatId && convexChats) {
-      const chatExists = convexChats.some((chat) => chat._id === currentChatId)
-      if (!chatExists) {
-        router.push('/')
-        toast.error('Chat not found.')
+    if (!isAuthLoading && currentChatId) {
+      if (isAuthenticated) {
+        // For authenticated users, check using the chatExists flag from useConvexChat
+        // This prevents the Convex query error by checking chat existence first
+        if (convexChats && !convexChatExists) {
+          router.push('/')
+          toast.error('Chat not found.')
+        }
+      } else {
+        // For unauthenticated users, check against local Dexie conversations
+        if (dexieConversations) {
+          const conversationExists = dexieConversations.some((conv) => conv.id === currentChatId)
+          if (!conversationExists) {
+            router.push('/')
+            toast.error('Chat not found.')
+          }
+        }
       }
     }
-  }, [isAuthLoading, isAuthenticated, currentChatId, convexChats, router])
+  }, [isAuthLoading, isAuthenticated, currentChatId, convexChats, convexChatExists, dexieConversations, router])
 
   const currentConversation = useMemo(
     () => dexieConversations?.find((conv) => conv.id === currentChatId),
@@ -741,19 +754,23 @@ export const useConversations = (chatId?: string, initialMessages?: ConvexMessag
 
   const deleteConversation = useCallback(
     async (id: string) => {
-      if (isAuthenticated) {
-        await deleteConvexChat({ chatId: id as Id<'chats'> })
+      try {
+        if (isAuthenticated) {
+          await deleteConvexChat({ chatId: id as Id<'chats'> })
+          toast.success('Chat deleted.')
+        } else {
+          await db.conversations.delete(id)
+          await db.messages.where('conversationId').equals(id).delete()
+          toast.success('Conversation deleted.')
+        }
+        
+        // Always redirect to home if we're currently viewing the deleted chat
         if (currentChatId === id) {
           router.push('/')
         }
-        toast.success('Chat deleted.')
-      } else {
-        await db.conversations.delete(id)
-        await db.messages.where('conversationId').equals(id).delete()
-        if (currentChatId === id) {
-          router.push('/')
-        }
-        toast.success('Conversation deleted.')
+      } catch (error) {
+        console.error('Error deleting conversation:', error)
+        toast.error('Failed to delete conversation.')
       }
     },
     [isAuthenticated, deleteConvexChat, currentChatId, router],
