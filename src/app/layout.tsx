@@ -17,6 +17,7 @@ const interTight = Inter_Tight({
 export const metadata: Metadata = {
   title: 'T2Chat',
   description: 'Modern AI chat interface with multiple model support',
+  manifest: '/site.webmanifest',
   openGraph: {
     images: [
       {

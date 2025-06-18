@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <defs>
+    <linearGradient id="roseGold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#E8B4CB;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#D4A574;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#C8956D;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Main chat bubble -->
+  <path d="M8 6 C5 6 3 8 3 11 L3 18 C3 21 5 23 8 23 L12 23 L17 28 C17.5 28.5 18.5 28.2 18.5 27.5 L18.5 23 L24 23 C27 23 29 21 29 18 L29 11 C29 8 27 6 24 6 Z" 
+        fill="url(#roseGold)" 
+        stroke="none"/>
+  
+  <!-- AI indicator dots -->
+  <circle cx="12" cy="14.5" r="1.5" fill="rgba(255,255,255,0.9)"/>
+  <circle cx="16" cy="14.5" r="1.5" fill="rgba(255,255,255,0.7)"/>
+  <circle cx="20" cy="14.5" r="1.5" fill="rgba(255,255,255,0.5)"/>
+</svg>

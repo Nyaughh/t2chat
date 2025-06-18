@@ -23,6 +23,8 @@ import {
   Eye,
   Code,
   MountainIcon,
+  Phone,
+  AudioLines,
 } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { ModelInfo, models } from '@/lib/models'
@@ -55,6 +57,7 @@ interface AIInputProps {
   isUploading?: boolean
   mounted?: boolean
   sendBehavior?: 'enter' | 'shiftEnter' | 'button'
+  onVoiceChatToggle?: () => void
 }
 
 const getCategoryColor = (category: string) => {
@@ -100,6 +103,7 @@ export default function AIInput({
   isUploading = false,
   mounted = true,
   sendBehavior = 'enter',
+  onVoiceChatToggle,
 }: AIInputProps) {
   const [showModelSelect, setShowModelSelect] = useState(false)
   const [thinkingEnabled, setThinkingEnabled] = useState(true)
@@ -842,25 +846,42 @@ export default function AIInput({
                 >
                   <Square className="w-4 md:w-5 h-4 md:h-5 transition-transform duration-300 animate-pulse" />
                 </button>
-              ) : (
+              ) : value.trim() ? (
                 <button
                   type="button"
                   onClick={handleSend}
-                  disabled={!value.trim() || isStreaming}
+                  disabled={isStreaming}
                   className={cn(
                     'group p-2 md:p-2.5 transition-all duration-300 rounded-full',
-                    value.trim() && !isTyping
-                      ? 'text-rose-500 dark:text-rose-300 shadow-md shadow-rose-500/20 dark:shadow-rose-500/20 scale-100 hover:bg-rose-500/5 dark:hover:bg-rose-300/5'
-                      : 'text-black/30 dark:text-rose-300/30 scale-95',
+                    'text-rose-500 dark:text-rose-300 shadow-md shadow-rose-500/20 dark:shadow-rose-500/20 scale-100 hover:bg-rose-500/5 dark:hover:bg-rose-300/5'
                   )}
                 >
                   <ArrowRight
                     className={cn(
                       'w-5 md:w-6 h-5 md:h-6 transition-transform duration-300 -rotate-90',
-                      value.trim() && !isStreaming && 'translate-y-[-2px] group-hover:translate-y-[-4px]',
+                      'translate-y-[-2px] group-hover:translate-y-[-4px]',
                     )}
                   />
                 </button>
+              ) : (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      onClick={onVoiceChatToggle}
+                      disabled={!onVoiceChatToggle}
+                      className={cn(
+                        'group p-2 md:p-2.5 transition-all duration-300 rounded-full',
+                        onVoiceChatToggle
+                          ? 'text-rose-500 dark:text-rose-300 shadow-md shadow-rose-500/20 dark:shadow-rose-500/20 scale-100 hover:bg-rose-500/5 dark:hover:bg-rose-300/5'
+                          : 'text-black/30 dark:text-rose-300/30 scale-95',
+                      )}
+                    >
+                      <AudioLines className="w-5 md:w-6 h-5 md:h-6 transition-transform duration-300 group-hover:scale-110" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="top">Start voice chat</TooltipContent>
+                </Tooltip>
               )}
             </div>
           </div>

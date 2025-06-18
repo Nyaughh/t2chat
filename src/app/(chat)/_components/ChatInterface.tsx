@@ -244,6 +244,7 @@ export default function ChatInterface({ chatId, initialMessages }: ChatInterface
             isUploading={isUploading}
             mounted={mounted}
             sendBehavior={userSettings?.sendBehavior || 'enter'}
+            onVoiceChatToggle={handleVoiceChatToggle}
             uploadButton={
               selectedModel.attachmentsSuppport.image || selectedModel.attachmentsSuppport.pdf ? (
                 <div className={cn('flex gap-1', attachments.length >= maxFiles && 'opacity-50 pointer-events-none')}>
@@ -320,20 +321,7 @@ export default function ChatInterface({ chatId, initialMessages }: ChatInterface
         </div>
       </div>
 
-      {/* Floating Voice Chat Button */}
-      <div className="fixed bottom-20 right-4 z-40">
-        <button
-          onClick={handleVoiceChatToggle}
-          className={cn(
-            'w-14 h-14 rounded-full shadow-lg transition-all duration-300 flex items-center justify-center',
-            isVoiceChatOpen
-              ? 'bg-red-500 hover:bg-red-600 text-white scale-110'
-              : 'bg-gradient-to-br from-rose-500 to-purple-600 hover:from-rose-600 hover:to-purple-700 text-white hover:scale-110',
-          )}
-        >
-          <Phone className={cn('w-6 h-6 transition-transform', isVoiceChatOpen && 'rotate-45')} />
-        </button>
-      </div>
+
 
       {/* Simple Voice Chat */}
       <SimpleVoiceChat
