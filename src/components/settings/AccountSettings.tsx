@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { User, Mail, Eye, EyeOff } from 'lucide-react'
 import { motion } from 'framer-motion'
@@ -15,8 +15,35 @@ interface AccountSettingsProps {
 }
 
 export function AccountSettings({ user }: AccountSettingsProps) {
-  const [showName, setShowName] = useState(true)
-  const [showEmail, setShowEmail] = useState(true)
+  // Initialize state with localStorage values or defaults
+  const [showName, setShowName] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('privacy-show-name')
+      return saved !== null ? saved === 'true' : true
+    }
+    return true
+  })
+
+  const [showEmail, setShowEmail] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('privacy-show-email')
+      return saved !== null ? saved === 'true' : true
+    }
+    return true
+  })
+
+  // Save to localStorage whenever state changes
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('privacy-show-name', showName.toString())
+    }
+  }, [showName])
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('privacy-show-email', showEmail.toString())
+    }
+  }, [showEmail])
 
   return (
     <div className="space-y-8">
