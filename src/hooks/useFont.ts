@@ -44,7 +44,7 @@ export function useFont() {
 
   useEffect(() => {
     const codeElements = document.querySelectorAll('code, pre, kbd')
-    codeElements.forEach(el => {
+    codeElements.forEach((el) => {
       el.classList.remove('font-fira-code', 'font-mono', 'font-consolas', 'font-jetbrains', 'font-source-code-pro')
       switch (codeFont) {
         case 'fira-code':
@@ -70,4 +70,4 @@ export function useFont() {
   }, [codeFont])
 
   return { mainFont, setMainFont, codeFont, setCodeFont }
-} 
+}

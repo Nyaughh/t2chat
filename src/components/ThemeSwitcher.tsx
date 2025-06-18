@@ -25,9 +25,7 @@ const ThemeSwitcher = () => {
             <Sun className="w-4.5 h-4.5" />
           </button>
         </TooltipTrigger>
-        <TooltipContent side="bottom">
-          Theme switcher
-        </TooltipContent>
+        <TooltipContent side="bottom">Theme switcher</TooltipContent>
       </Tooltip>
     )
   }
@@ -49,16 +47,10 @@ const ThemeSwitcher = () => {
           onClick={toggleTheme}
           className="relative z-10 text-rose-600 dark:text-rose-300 hover:text-rose-700 dark:hover:text-rose-200 h-5.5 w-5.5 p-0 hover:bg-transparent"
         >
-          {theme === 'dark' ? (
-            <Moon className="w-4.5 h-4.5" />
-          ) : (
-            <Sun className="w-4.5 h-4.5" />
-          )}
+          {theme === 'dark' ? <Moon className="w-4.5 h-4.5" /> : <Sun className="w-4.5 h-4.5" />}
         </button>
       </TooltipTrigger>
-      <TooltipContent side="bottom">
-        Switch to {theme === 'dark' ? 'light' : 'dark'} mode
-      </TooltipContent>
+      <TooltipContent side="bottom">Switch to {theme === 'dark' ? 'light' : 'dark'} mode</TooltipContent>
     </Tooltip>
   )
 }

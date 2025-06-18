@@ -53,19 +53,17 @@ function TooltipContent({
         {/* Premium gradient overlays */}
         <div className="absolute inset-0 bg-gradient-to-br from-rose-500/5 via-transparent to-rose-500/10 dark:from-rose-500/10 dark:via-transparent dark:to-rose-500/15 pointer-events-none rounded-lg" />
         <div className="absolute inset-0 bg-gradient-to-t from-transparent via-transparent to-white/10 dark:to-white/5 pointer-events-none rounded-lg" />
-        
+
         {/* Content */}
-        <div className="relative z-10">
-          {children}
-        </div>
-        
+        <div className="relative z-10">{children}</div>
+
         {/* Arrow with matching styling */}
-        <TooltipPrimitive.Arrow 
-          className="fill-white/80 dark:fill-[oklch(0.18_0.015_25)]/80 drop-shadow-sm" 
-          width={12} 
-          height={6} 
+        <TooltipPrimitive.Arrow
+          className="fill-white/80 dark:fill-[oklch(0.18_0.015_25)]/80 drop-shadow-sm"
+          width={12}
+          height={6}
         />
-        
+
         {/* Premium glow effect */}
         <div className="absolute inset-0 -z-10 bg-gradient-to-r from-rose-300/0 via-rose-300/10 to-rose-300/0 rounded-lg blur-xl opacity-0 dark:opacity-30 pointer-events-none" />
       </TooltipPrimitive.Content>

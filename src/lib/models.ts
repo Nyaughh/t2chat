@@ -1,4 +1,4 @@
-import { tree } from "next/dist/build/templates/app-page"
+import { tree } from 'next/dist/build/templates/app-page'
 
 export interface ModelInfo {
   id: string
@@ -52,7 +52,7 @@ export const models: ModelInfo[] = [
       pdf: false,
       image: true,
     },
-    toolCalls: true
+    toolCalls: true,
   },
   {
     id: 'gemini-2.0-flash-thinking-exp-01-21',
@@ -99,7 +99,7 @@ export const models: ModelInfo[] = [
       pdf: true,
       image: true,
     },
-    toolCalls: true
+    toolCalls: true,
   },
   {
     id: 'google/gemini-flash-1.5',
@@ -153,7 +153,7 @@ export const models: ModelInfo[] = [
     description: 'Via OpenRouter',
     provider: 'openrouter',
     category: 'deepseek',
-    features: ["imagegen"],
+    features: ['imagegen'],
     isPro: false,
     supportsThinking: true,
     unauthenticated: false,
@@ -265,16 +265,16 @@ export const models: ModelInfo[] = [
     provider: 'groq',
     category: 'qwen',
     features: ['code', 'imagegen'],
-    isPro: false, 
+    isPro: false,
     isFree: true,
     supportsThinking: true,
     unauthenticated: false,
     attachmentsSuppport: {
       pdf: false,
-      image: false, 
+      image: false,
     },
     toolCalls: false,
-  }
+  },
 ].map((model) => {
   return {
     ...model,
@@ -283,4 +283,3 @@ export const models: ModelInfo[] = [
     isFree: model.provider === 'openrouter' ? false : model.isFree,
   } as ModelInfo
 })
-

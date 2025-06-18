@@ -10,9 +10,7 @@ export function useChatSearch(chats: any[]) {
     if (!searchQuery) {
       return chats
     }
-    return chats.filter(chat =>
-      chat.title.toLowerCase().includes(searchQuery.toLowerCase())
-    )
+    return chats.filter((chat) => chat.title.toLowerCase().includes(searchQuery.toLowerCase()))
   }, [chats, searchQuery])
 
   return {
@@ -20,4 +18,4 @@ export function useChatSearch(chats: any[]) {
     setSearchQuery,
     filteredChats,
   }
-} 
+}

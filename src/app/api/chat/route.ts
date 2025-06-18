@@ -38,7 +38,7 @@ interface UserSettings {
 const buildPersonalizedSystemPrompt = (userSettings?: UserSettings): string => {
   if (!userSettings) return basePersonality
 
-  let personalization = "### User Personalization\n"
+  let personalization = '### User Personalization\n'
   if (userSettings.userName) personalization += `The user's name is ${userSettings.userName}.\n`
   if (userSettings.userRole) personalization += `The user is a ${userSettings.userRole}.\n`
   if (userSettings.userTraits && userSettings.userTraits.length > 0) {
@@ -131,9 +131,9 @@ export async function POST(req: Request) {
         'Custom-Header': 'value',
       },
       execute: async (dataStream) => {
-        let thinkingStartTime: number | null = null;
-        let thinkingEndTime: number | null = null;
-        
+        let thinkingStartTime: number | null = null
+        let thinkingEndTime: number | null = null
+
         for await (const chunk of fullStream) {
           if (chunk.type === 'text-delta') {
             dataStream.writeData({
@@ -143,9 +143,9 @@ export async function POST(req: Request) {
           } else if (chunk.type === 'reasoning') {
             // Track thinking timing
             if (!thinkingStartTime) {
-              thinkingStartTime = Date.now();
+              thinkingStartTime = Date.now()
             }
-            
+
             if (model.provider === 'google.generative-ai') {
               console.log('GOOGLE REASONING', chunk.textDelta)
               if (typeof chunk.textDelta === 'string' && chunk.textDelta.startsWith('**')) {
@@ -170,13 +170,14 @@ export async function POST(req: Request) {
           } else if (chunk.type === 'finish') {
             // Calculate thinking duration
             if (thinkingStartTime && !thinkingEndTime) {
-              thinkingEndTime = Date.now();
+              thinkingEndTime = Date.now()
             }
-            
-            const thinkingDuration = thinkingStartTime && thinkingEndTime 
-              ? Math.round((thinkingEndTime - thinkingStartTime) / 1000) 
-              : undefined;
-              
+
+            const thinkingDuration =
+              thinkingStartTime && thinkingEndTime
+                ? Math.round((thinkingEndTime - thinkingStartTime) / 1000)
+                : undefined
+
             dataStream.writeData({
               type: 'finish',
               value: {

@@ -72,14 +72,12 @@ export function MessageItem({
   isSignedIn,
 }: MessageItemProps) {
   return (
-    <div
-      className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
-    >
+    <div className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
       <div
         tabIndex={0}
         className={cn(
           'group flex flex-col gap-2 min-w-0 focus:outline-none',
-          message.role === 'user' ? 'max-w-[85%]' : 'w-full'
+          message.role === 'user' ? 'max-w-[85%]' : 'w-full',
         )}
       >
         <div
@@ -131,8 +129,10 @@ export function MessageItem({
                           </div>
                         </div>
                       ) : (
-                        <div className="flex items-center gap-3 p-3 bg-white/30 dark:bg-black/20 rounded-lg border border-rose-500/20 dark:border-white/20 hover:bg-white/40 dark:hover:bg-black/30 transition-colors cursor-pointer"
-                             onClick={() => window.open(attachment.url, '_blank')}>
+                        <div
+                          className="flex items-center gap-3 p-3 bg-white/30 dark:bg-black/20 rounded-lg border border-rose-500/20 dark:border-white/20 hover:bg-white/40 dark:hover:bg-black/30 transition-colors cursor-pointer"
+                          onClick={() => window.open(attachment.url, '_blank')}
+                        >
                           <FileText className="w-8 h-8 text-rose-500/70 dark:text-rose-300/70 flex-shrink-0" />
                           <div className="flex-1 min-w-0">
                             <div className="text-sm font-medium text-black/80 dark:text-white/80 truncate">
@@ -191,4 +191,4 @@ export function MessageItem({
       </div>
     </div>
   )
-} 
+}

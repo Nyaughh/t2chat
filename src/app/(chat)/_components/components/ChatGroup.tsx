@@ -6,7 +6,7 @@ import { ChatItem } from './ChatItem'
 
 interface ChatGroupProps {
   title: string
-  chats: Array<{ id: string; title: string; isBranch?: boolean; }>
+  chats: Array<{ id: string; title: string; isBranch?: boolean }>
   currentChatId: string | null
   totalChats: number
   editingChatId: string | null
@@ -30,12 +30,10 @@ export const ChatGroup = memo(function ChatGroup({
   onChatShare,
 }: ChatGroupProps) {
   return (
-    <div className={cn("mb-4", isFirst && "mt-0")}>
+    <div className={cn('mb-4', isFirst && 'mt-0')}>
       {/* Group header */}
       <div className="px-3 py-1.5 mb-2">
-        <h3 className="text-xs font-medium text-black/50 dark:text-white/50 uppercase tracking-wider">
-          {title}
-        </h3>
+        <h3 className="text-xs font-medium text-black/50 dark:text-white/50 uppercase tracking-wider">{title}</h3>
       </div>
 
       {/* Group chats */}
@@ -55,4 +53,4 @@ export const ChatGroup = memo(function ChatGroup({
       </div>
     </div>
   )
-}) 
+})

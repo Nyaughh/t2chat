@@ -21,6 +21,7 @@ Custom hooks that encapsulate business logic and state management:
 Reusable UI components:
 
 #### Chat Interface Components
+
 - **`MessageList.tsx`** - Container for all messages with scroll area
 - **`MessageItem.tsx`** - Individual message component (user/assistant)
 - **`MessageActions.tsx`** - Action buttons for messages (copy, retry, model display)
@@ -28,6 +29,7 @@ Reusable UI components:
 - **`ScrollToBottomButton.tsx`** - Floating scroll-to-bottom button
 
 #### Chat Layout Components
+
 - **`Sidebar.tsx`** - Main sidebar container
 - **`ChatList.tsx`** - Container for grouped chat conversations
 - **`ChatGroup.tsx`** - Group of chats (e.g., "Today", "Yesterday")
@@ -61,4 +63,4 @@ import { MessageList, Sidebar } from './_components/components'
 - All functionality from the original monolithic files has been preserved
 - Component interfaces are designed to be backward compatible
 - The main `ChatInterface.tsx` and `ChatLayout.tsx` files now act as orchestrators
-- No breaking changes to the external API 
+- No breaking changes to the external API

@@ -1,20 +1,20 @@
-"use client";
+'use client'
 
-import { useRouter } from "next/navigation";
-import React, { useEffect } from "react";
-import { ErrorBoundary, FallbackProps } from "react-error-boundary";
+import { useRouter } from 'next/navigation'
+import React, { useEffect } from 'react'
+import { ErrorBoundary, FallbackProps } from 'react-error-boundary'
 
 function ChatErrorFallback({ error, resetErrorBoundary }: FallbackProps) {
-  const router = useRouter();
+  const router = useRouter()
 
   useEffect(() => {
-    if (error.message.includes("ArgumentValidationError")) {
-      router.push("/");
+    if (error.message.includes('ArgumentValidationError')) {
+      router.push('/')
     }
-  }, [error, router]);
+  }, [error, router])
 
-  if (error.message.includes("ArgumentValidationError")) {
-    return <div>Invalid chat. Redirecting...</div>;
+  if (error.message.includes('ArgumentValidationError')) {
+    return <div>Invalid chat. Redirecting...</div>
   }
 
   // You can render any custom fallback UI for other errors
@@ -24,7 +24,7 @@ function ChatErrorFallback({ error, resetErrorBoundary }: FallbackProps) {
       <pre>{error.message}</pre>
       <button onClick={resetErrorBoundary}>Try again</button>
     </div>
-  );
+  )
 }
 
 export function ChatErrorBoundary({ children }: { children: React.ReactNode }) {
@@ -38,5 +38,5 @@ export function ChatErrorBoundary({ children }: { children: React.ReactNode }) {
     >
       {children}
     </ErrorBoundary>
-  );
-} 
+  )
+}

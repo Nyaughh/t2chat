@@ -37,10 +37,10 @@ export function useScrollToBottom(activeMessages: any[], isStreaming?: boolean) 
       const isAtBottom = scrollHeight - scrollTop - clientHeight < 200
       const wasAtBottom = isAtBottomRef.current
       const lastScrollTop = lastScrollTopRef.current
-      
+
       isAtBottomRef.current = isAtBottom
       setShowScrollToBottom(!isAtBottom)
-      
+
       // Detect any upward scroll during streaming (not programmatic)
       if (isStreamingRef.current && !programmaticScrollRef.current) {
         // If user scrolled up (even slightly) during streaming
@@ -52,12 +52,12 @@ export function useScrollToBottom(activeMessages: any[], isStreaming?: boolean) 
           userScrolledUpDuringStreamingRef.current = true
         }
       }
-      
+
       // If user scrolls back to bottom, reset the flag
       if (isAtBottom) {
         userScrolledUpDuringStreamingRef.current = false
       }
-      
+
       // Update last scroll position
       lastScrollTopRef.current = scrollTop
     }
@@ -121,7 +121,7 @@ export function useScrollToBottom(activeMessages: any[], isStreaming?: boolean) 
           scrollToBottom('auto')
         }
       }, 10)
-      
+
       return () => clearTimeout(timeoutId)
     }
   }, [activeMessages, isStreaming]) // This effect handles content updates during streaming

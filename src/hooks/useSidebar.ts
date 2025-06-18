@@ -21,7 +21,7 @@ export function useSidebar() {
   }, [isMobile])
 
   const toggleSidebar = useCallback(() => {
-    setSidebarOpen(open => {
+    setSidebarOpen((open) => {
       const newState = !open
       // Save preference to localStorage on desktop only
       if (typeof window !== 'undefined' && !isMobile) {

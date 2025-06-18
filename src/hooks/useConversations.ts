@@ -15,14 +15,10 @@ import { CoreMessage } from 'ai'
 import { useQuery } from 'convex/react'
 import { api } from '../../convex/_generated/api'
 
-export const useConversations = (
-  chatId?: string,
-  initialMessages?: ConvexMessage[] | null
-) => {
-
+export const useConversations = (chatId?: string, initialMessages?: ConvexMessage[] | null) => {
   const router = useRouter()
   const pathname = usePathname()
-  const chatIdFromUrl = Array.isArray(chatId) ? chatId[1] : chatId;
+  const chatIdFromUrl = Array.isArray(chatId) ? chatId[1] : chatId
   const [currentChatId, setCurrentChatId] = useState<string | null>(chatIdFromUrl || null)
   const [selectedModel, setSelectedModel] = useState<ModelInfo>(models[0])
   const [mounted, setMounted] = useState(false)
@@ -41,24 +37,21 @@ export const useConversations = (
     deleteMessagesFromIndex,
     cancelMessage,
     editMessage,
-  } = useConvexChat(currentChatId ? (currentChatId as Id<"chats">) : undefined)
+  } = useConvexChat(currentChatId ? (currentChatId as Id<'chats'>) : undefined)
 
-  const userSettings = useQuery(
-    api.users.getMySettings,
-    isAuthenticated ? {} : 'skip'
-  );
+  const userSettings = useQuery(api.users.getMySettings, isAuthenticated ? {} : 'skip')
 
   const [cachedConvexChats, setCachedConvexChats] = useState(convexChats)
 
   const dexieConversations = useLiveQuery(() => db.conversations.orderBy('lastMessageAt').reverse().toArray(), [])
   const liveLocalMessages = useLiveQuery(
     () => {
-      if (!currentChatId) return [];
+      if (!currentChatId) return []
       // Now loads from Dexie for both auth'd and unauth'd users
-      return db.messages.where('conversationId').equals(currentChatId).sortBy('createdAt');
+      return db.messages.where('conversationId').equals(currentChatId).sortBy('createdAt')
     },
     [currentChatId], // No longer depends on isAuthenticated
-    []
+    [],
   )
   const [isLocalStreaming, setIsLocalStreaming] = useState(false)
 
@@ -66,21 +59,24 @@ export const useConversations = (
   useEffect(() => {
     if (isAuthenticated && convexMessages && currentChatId) {
       const syncToDexie = async () => {
-        const messagesToUpsert = convexMessages.map(m => ({
-          id: m._id,
-          conversationId: m.chatId,
-          role: m.role,
-          content: m.content,
-          createdAt: new Date(m.createdAt),
-          model: m.modelId,
-          thinking: m.thinking,
-          thinkingDuration: m.thinkingDuration,
-          attachments: m.attachments,
-          parts: [], // Assuming parts are not used for Convex messages
-        } as DBMessage))
+        const messagesToUpsert = convexMessages.map(
+          (m) =>
+            ({
+              id: m._id,
+              conversationId: m.chatId,
+              role: m.role,
+              content: m.content,
+              createdAt: new Date(m.createdAt),
+              model: m.modelId,
+              thinking: m.thinking,
+              thinkingDuration: m.thinkingDuration,
+              attachments: m.attachments,
+              parts: [], // Assuming parts are not used for Convex messages
+            }) as DBMessage,
+        )
 
         if (messagesToUpsert.length > 0) {
-          await db.messages.bulkPut(messagesToUpsert);
+          await db.messages.bulkPut(messagesToUpsert)
         }
       }
       syncToDexie()
@@ -97,77 +93,91 @@ export const useConversations = (
     if (isAuthLoading) {
       // Still show initial messages if available on first load
       if (initialMessages && currentChatId) {
-        return initialMessages.map(msg => ({
-          id: msg._id,
-          role: msg.role,
-          content: msg.content,
-          modelId: msg.modelId,
-          thinking: msg.thinking,
-          thinkingDuration: msg.thinkingDuration,
-          attachments: msg.attachments,
-          createdAt: new Date(msg.createdAt),
-        } as ClientMessage & { modelId: string; attachments?: any[] }))
+        return initialMessages.map(
+          (msg) =>
+            ({
+              id: msg._id,
+              role: msg.role,
+              content: msg.content,
+              modelId: msg.modelId,
+              thinking: msg.thinking,
+              thinkingDuration: msg.thinkingDuration,
+              attachments: msg.attachments,
+              createdAt: new Date(msg.createdAt),
+            }) as ClientMessage & { modelId: string; attachments?: any[] },
+        )
       }
-      return [];
+      return []
     }
 
     if (isAuthenticated) {
       // For authed users, we use Dexie messages as the base
       // and merge with Convex messages as they arrive.
-      const localClientMessages = (liveLocalMessages || []).map(msg => ({
-        id: msg.id,
-        role: msg.role,
-        content: msg.content,
-        modelId: msg.model,
-        thinking: msg.thinking,
-        thinkingDuration: msg.thinkingDuration,
-        attachments: msg.attachments,
-        createdAt: new Date(msg.createdAt),
-      } as ClientMessage & { modelId: string; attachments?: any[] }))
+      const localClientMessages = (liveLocalMessages || []).map(
+        (msg) =>
+          ({
+            id: msg.id,
+            role: msg.role,
+            content: msg.content,
+            modelId: msg.model,
+            thinking: msg.thinking,
+            thinkingDuration: msg.thinkingDuration,
+            attachments: msg.attachments,
+            createdAt: new Date(msg.createdAt),
+          }) as ClientMessage & { modelId: string; attachments?: any[] },
+      )
 
       // If convex messages haven't loaded yet, just show local
       if (!convexMessages) {
-        return localClientMessages;
+        return localClientMessages
       }
-      
+
       // Once convex messages are loaded, they are the source of truth
-      return (convexMessages || []).map(msg => ({
-        id: msg._id,
-        role: msg.role,
-        content: msg.content,
-        modelId: msg.modelId,
-        thinking: msg.thinking,
-        thinkingDuration: msg.thinkingDuration,
-        attachments: msg.attachments,
-        toolCalls: msg.toolCalls,
-        createdAt: new Date(msg.createdAt),
-      } as ClientMessage & { modelId: string; attachments?: any[]; toolCalls?: any[] }))
+      return (convexMessages || []).map(
+        (msg) =>
+          ({
+            id: msg._id,
+            role: msg.role,
+            content: msg.content,
+            modelId: msg.modelId,
+            thinking: msg.thinking,
+            thinkingDuration: msg.thinkingDuration,
+            attachments: msg.attachments,
+            toolCalls: msg.toolCalls,
+            createdAt: new Date(msg.createdAt),
+          }) as ClientMessage & { modelId: string; attachments?: any[]; toolCalls?: any[] },
+      )
     }
-    
+
     // For anonymous users, just use Dexie
-    return (liveLocalMessages || []).map(msg => ({
-      id: msg.id,
-      role: msg.role,
-      content: msg.content,
-      modelId: msg.model,
-      thinking: msg.thinking,
-      thinkingDuration: msg.thinkingDuration,
-      attachments: msg.attachments,
-      createdAt: new Date(msg.createdAt),
-    } as ClientMessage & { modelId: string; attachments?: any[] }))
+    return (liveLocalMessages || []).map(
+      (msg) =>
+        ({
+          id: msg.id,
+          role: msg.role,
+          content: msg.content,
+          modelId: msg.model,
+          thinking: msg.thinking,
+          thinkingDuration: msg.thinkingDuration,
+          attachments: msg.attachments,
+          createdAt: new Date(msg.createdAt),
+        }) as ClientMessage & { modelId: string; attachments?: any[] },
+    )
   }, [isAuthLoading, isAuthenticated, convexMessages, liveLocalMessages, initialMessages, currentChatId])
 
   const activeChats = useMemo(() => {
     // If authenticated, ONLY show chats from Convex.
     if (isAuthenticated) {
       const sourceChats = isConvexStreaming ? cachedConvexChats : convexChats
-      return (sourceChats || []).map(chat => ({
-        id: chat._id,
-        title: chat.title || "New Chat",
-        createdAt: new Date(chat.createdAt),
-        lastMessageAt: new Date(chat.updatedAt),
-        isBranch: chat.isBranch,
-      })).sort((a, b) => b.lastMessageAt.getTime() - a.lastMessageAt.getTime())
+      return (sourceChats || [])
+        .map((chat) => ({
+          id: chat._id,
+          title: chat.title || 'New Chat',
+          createdAt: new Date(chat.createdAt),
+          lastMessageAt: new Date(chat.updatedAt),
+          isBranch: chat.isBranch,
+        }))
+        .sort((a, b) => b.lastMessageAt.getTime() - a.lastMessageAt.getTime())
     }
     // For anonymous users, just use Dexie
     return dexieConversations || []
@@ -179,10 +189,8 @@ export const useConversations = (
       return []
     }
 
-    const convexChatIds = new Set(convexChats.map(c => c._id))
-    const newUnmigrated = dexieConversations.filter(
-      c => !convexChatIds.has(c.id as Id<'chats'>),
-    )
+    const convexChatIds = new Set(convexChats.map((c) => c._id))
+    const newUnmigrated = dexieConversations.filter((c) => !convexChatIds.has(c.id as Id<'chats'>))
 
     const oldUnmigrated = unmigratedLocalChatsRef.current
 
@@ -201,14 +209,17 @@ export const useConversations = (
   useEffect(() => {
     if (isAuthenticated && convexChats) {
       const syncToDexie = async () => {
-        const conversationsToUpsert = convexChats.map(c => ({
-          id: c._id,
-          title: c.title || 'New Chat',
-          createdAt: new Date(c.createdAt),
-          updatedAt: new Date(c.updatedAt),
-          lastMessageAt: new Date(c.updatedAt),
-        } as DBConversation))
-        
+        const conversationsToUpsert = convexChats.map(
+          (c) =>
+            ({
+              id: c._id,
+              title: c.title || 'New Chat',
+              createdAt: new Date(c.createdAt),
+              updatedAt: new Date(c.updatedAt),
+              lastMessageAt: new Date(c.updatedAt),
+            }) as DBConversation,
+        )
+
         if (conversationsToUpsert.length > 0) {
           await db.conversations.bulkPut(conversationsToUpsert)
         }
@@ -220,13 +231,13 @@ export const useConversations = (
   // This effect will redirect the user if the chat is not found
   useEffect(() => {
     if (!isAuthLoading && isAuthenticated && currentChatId && convexChats) {
-      const chatExists = convexChats.some(chat => chat._id === currentChatId);
+      const chatExists = convexChats.some((chat) => chat._id === currentChatId)
       if (!chatExists) {
-        router.push('/');
-        toast.error("Chat not found.");
+        router.push('/')
+        toast.error('Chat not found.')
       }
     }
-  }, [isAuthLoading, isAuthenticated, currentChatId, convexChats, router]);
+  }, [isAuthLoading, isAuthenticated, currentChatId, convexChats, router])
 
   const currentConversation = useMemo(
     () => dexieConversations?.find((conv) => conv.id === currentChatId),
@@ -238,427 +249,435 @@ export const useConversations = (
   // This effect correctly sets the displayed model on mount and on auth change
   // without incorrectly writing to localStorage.
   useEffect(() => {
-    setMounted(true);
+    setMounted(true)
 
-    const lastUsedModelId = localStorage.getItem('lastUsedModelId');
-    const availableModels = isAuthenticated ? models : models.filter((m) => m.isFree);
-    
+    const lastUsedModelId = localStorage.getItem('lastUsedModelId')
+    const availableModels = isAuthenticated ? models : models.filter((m) => m.isFree)
+
     // Default to the first available model.
-    let modelToDisplay = availableModels.length > 0 ? availableModels[0] : models[0];
+    let modelToDisplay = availableModels.length > 0 ? availableModels[0] : models[0]
 
     if (lastUsedModelId) {
-      const preferredModel = models.find(m => m.id === lastUsedModelId);
+      const preferredModel = models.find((m) => m.id === lastUsedModelId)
       // Check if the user's preferred model is valid in the current auth context.
-      if (preferredModel && availableModels.some(m => m.id === preferredModel.id)) {
-        modelToDisplay = preferredModel;
+      if (preferredModel && availableModels.some((m) => m.id === preferredModel.id)) {
+        modelToDisplay = preferredModel
       }
     }
-    setSelectedModel(modelToDisplay);
-  }, [isAuthenticated]);
+    setSelectedModel(modelToDisplay)
+  }, [isAuthenticated])
 
   // This new function handles manual model selection, saving the user's preference.
   const handleSetSelectedModel = (model: ModelInfo) => {
-    localStorage.setItem('lastUsedModelId', model.id);
-    setSelectedModel(model);
-  };
+    localStorage.setItem('lastUsedModelId', model.id)
+    setSelectedModel(model)
+  }
 
-  const handleNewMessage = useCallback(async (
-    input: string,
-    options?: {
-      attachments?: Attachment[];
-      modelId?: string;
-      webSearch?: boolean;
-    }
-  ) => {
-    if (isAuthenticated) {
-      let chatId = currentChatId as Id<"chats">
-      if (!chatId) {
-        const newChatId = await createChat({ title: input.substring(0, 50) })
-        chatId = newChatId
-        // Use setTimeout to ensure localStorage write completes before navigation
-        setTimeout(() => {
-          router.push(`/chat/${newChatId}`)
-        }, 0)
-      }
-      await sendMessage({ 
-        chatId, 
-        message: input, 
-        modelId: options?.modelId || selectedModel.id,
-        attachments: options?.attachments,
-        webSearch: options?.webSearch,
-      })
-    } else {
-      setIsLocalStreaming(true)
-      console.log("message", input)
-      abortControllerRef.current = new AbortController()
-      let conversationId = currentChatId
-
-      const userMessage: DBMessage = {
-        id: uuidv4(),
-        conversationId: '',
-        content: input,
-        role: 'user',
-        createdAt: new Date(),
-        model: selectedModel.id,
-        parts: [],
-      }
-      
-      if (!conversationId) {
-        conversationId = uuidv4()
-        userMessage.conversationId = conversationId
-        const newConv: DBConversation = {
-          id: conversationId,
-          title: input.split(' ').slice(0, 4).join(' '),
-          createdAt: new Date(),
-          updatedAt: new Date(),
-          lastMessageAt: new Date(),
+  const handleNewMessage = useCallback(
+    async (
+      input: string,
+      options?: {
+        attachments?: Attachment[]
+        modelId?: string
+        webSearch?: boolean
+      },
+    ) => {
+      if (isAuthenticated) {
+        let chatId = currentChatId as Id<'chats'>
+        if (!chatId) {
+          const newChatId = await createChat({ title: input.substring(0, 50) })
+          chatId = newChatId
+          // Use setTimeout to ensure localStorage write completes before navigation
+          setTimeout(() => {
+            router.push(`/chat/${newChatId}`)
+          }, 0)
         }
-        const newConvId = await db.conversations.add(newConv)
-        console.log("newConvId", newConvId)
-        // Use setTimeout to ensure localStorage write completes before navigation
-        setTimeout(() => {
-          router.push(`/chat/${conversationId}`)
-        }, 0)
+        await sendMessage({
+          chatId,
+          message: input,
+          modelId: options?.modelId || selectedModel.id,
+          attachments: options?.attachments,
+          webSearch: options?.webSearch,
+        })
       } else {
-        userMessage.conversationId = conversationId
-      }
-      
-      await db.messages.add(userMessage)
+        setIsLocalStreaming(true)
+        console.log('message', input)
+        abortControllerRef.current = new AbortController()
+        let conversationId = currentChatId
 
-      const history = [...liveLocalMessages, userMessage]
-      const coreHistory: CoreMessage[] = history.map(m => ({ role: m.role as 'user' | 'assistant', content: m.content }))
-      
-      try {
-      const response = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          messages: coreHistory,
-            data: { modelId: selectedModel.id },
-        }),
-        signal: abortControllerRef.current.signal,
-      })
-
-      if (!response.body) throw new Error('No response body')
-
-      const assistantId = uuidv4()
-        const assistantMessage: DBMessage = {
-          id: assistantId,
-          conversationId,
-          content: '',
-          role: 'assistant',
+        const userMessage: DBMessage = {
+          id: uuidv4(),
+          conversationId: '',
+          content: input,
+          role: 'user',
           createdAt: new Date(),
           model: selectedModel.id,
           parts: [],
         }
-        await db.messages.add(assistantMessage)
 
-      const dataStream = parseDataStream(response.body)
-        let streamingContent = ''
-        let streamingThinking = ''
-        let finalThinkingDuration: number | undefined
-
-      for await (const chunk of dataStream) {
-          if (abortControllerRef.current?.signal.aborted) {
-            // Check if message already has stop text (from immediate UI update)
-            const currentMessage = await db.messages.get(assistantId)
-            if (currentMessage && !currentMessage.content.includes("*Generation was stopped by user.*")) {
-              await db.messages.update(assistantId, { 
-                content: streamingContent + "\n\n*Generation was stopped by user.*"
-              })
-            }
-            break
+        if (!conversationId) {
+          conversationId = uuidv4()
+          userMessage.conversationId = conversationId
+          const newConv: DBConversation = {
+            id: conversationId,
+            title: input.split(' ').slice(0, 4).join(' '),
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            lastMessageAt: new Date(),
           }
-          if (chunk.type === 'text') {
-            streamingContent += chunk.value
-            await db.messages.update(assistantId, { content: streamingContent })
-          } else if (chunk.type === 'reasoning') {
-            streamingThinking += chunk.value
-            await db.messages.update(assistantId, { 
-              content: streamingContent,
-              thinking: streamingThinking 
-            })
-          } else if (chunk.type === 'finish') {
-            finalThinkingDuration = chunk.value?.thinkingDuration
-            await db.messages.update(assistantId, { 
-              content: streamingContent,
-              thinking: streamingThinking || undefined,
-              thinkingDuration: finalThinkingDuration
-            })
-          }
-        }
-        
-        // Only delete if no content and not aborted
-        if (!streamingContent.trim() && !abortControllerRef.current?.signal.aborted) {
-          await db.messages.delete(assistantId)
-        }
-
-    } catch (error) {
-        if ((error as Error).name === 'AbortError') {
-          // Generation was stopped by user - no need to show error
-          console.log("Generation was stopped by user")
+          const newConvId = await db.conversations.add(newConv)
+          console.log('newConvId', newConvId)
+          // Use setTimeout to ensure localStorage write completes before navigation
+          setTimeout(() => {
+            router.push(`/chat/${conversationId}`)
+          }, 0)
         } else {
-          console.error("Error in local stream:", error)
-          toast.error("An error occurred while getting the response.")
-        }
-    } finally {
-        setIsLocalStreaming(false)
-      abortControllerRef.current = null
-    }
-    }
-  }, [isAuthenticated, currentChatId, selectedModel, createChat, sendMessage, router, liveLocalMessages])
-
-  const handleRetryMessage = useCallback(async (messageId: string, modelId?: string) => {
-    if (!currentChatId) return
-
-    try {
-      if (isAuthenticated) {
-        // For Convex: Use the proper retryMessage action
-        const messageIndex = activeMessages.findIndex(msg => msg.id === messageId)
-        if (messageIndex === -1) return
-
-        const messageToRetry = activeMessages[messageIndex]
-        if (messageToRetry.role !== 'assistant') return
-
-        await retryMessage({
-          chatId: currentChatId as Id<"chats">,
-          fromMessageId: messageToRetry.id as Id<"messages">,
-          modelId: modelId || selectedModel.id,
-        })
-      } else {
-        // For local: Find the message and remove it + subsequent messages, then regenerate
-        const messageIndex = activeMessages.findIndex(msg => msg.id === messageId)
-        if (messageIndex === -1) return
-
-        const messageToRetry = activeMessages[messageIndex]
-        if (messageToRetry.role !== 'assistant') return
-
-        // Remove the assistant message and any subsequent messages
-        const messagesToDelete = activeMessages.slice(messageIndex)
-        for (const msg of messagesToDelete) {
-          await db.messages.delete(msg.id)
+          userMessage.conversationId = conversationId
         }
 
-        // Get conversation history up to the retry point (excluding the deleted messages)
-        const historyMessages = activeMessages.slice(0, messageIndex)
-        const coreHistory: CoreMessage[] = historyMessages.map(m => ({ 
-          role: m.role as 'user' | 'assistant', 
-          content: typeof m.content === 'string' ? m.content : ''
+        await db.messages.add(userMessage)
+
+        const history = [...liveLocalMessages, userMessage]
+        const coreHistory: CoreMessage[] = history.map((m) => ({
+          role: m.role as 'user' | 'assistant',
+          content: m.content,
         }))
 
-        // Regenerate the response with the selected model
-        const modelToUse = modelId ? models.find(m => m.id === modelId) || selectedModel : selectedModel
-        
-        setIsLocalStreaming(true)
-        abortControllerRef.current = new AbortController()
+        try {
+          const response = await fetch('/api/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              messages: coreHistory,
+              data: { modelId: selectedModel.id },
+            }),
+            signal: abortControllerRef.current.signal,
+          })
 
-        const response = await fetch('/api/chat', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            messages: coreHistory,
-            data: { modelId: modelToUse.id },
-          }),
-          signal: abortControllerRef.current.signal,
-        })
+          if (!response.body) throw new Error('No response body')
 
-        if (!response.body) throw new Error('No response body')
-
-        const assistantId = uuidv4()
-        const assistantMessage: DBMessage = {
-          id: assistantId,
-          conversationId: currentChatId,
-          content: '',
-          role: 'assistant',
-          createdAt: new Date(),
-          model: modelToUse.id,
-          parts: [],
-        }
-        await db.messages.add(assistantMessage)
-
-        const dataStream = parseDataStream(response.body)
-        let streamingContent = ''
-        let streamingThinking = ''
-        let finalThinkingDuration: number | undefined
-
-        for await (const chunk of dataStream) {
-          if (abortControllerRef.current?.signal.aborted) {
-            // Check if message already has stop text (from immediate UI update)
-            const currentMessage = await db.messages.get(assistantId)
-            if (currentMessage && !currentMessage.content.includes("*Generation was stopped by user.*")) {
-              await db.messages.update(assistantId, { 
-                content: streamingContent + "\n\n*Generation was stopped by user.*"
-              })
-            }
-            break
+          const assistantId = uuidv4()
+          const assistantMessage: DBMessage = {
+            id: assistantId,
+            conversationId,
+            content: '',
+            role: 'assistant',
+            createdAt: new Date(),
+            model: selectedModel.id,
+            parts: [],
           }
-          if (chunk.type === 'text') {
-            streamingContent += chunk.value
-            await db.messages.update(assistantId, { content: streamingContent })
-          } else if (chunk.type === 'reasoning') {
-            streamingThinking += chunk.value
-            await db.messages.update(assistantId, { 
-              content: streamingContent,
-              thinking: streamingThinking 
-            })
-          } else if (chunk.type === 'finish') {
-            finalThinkingDuration = chunk.value?.thinkingDuration
-            await db.messages.update(assistantId, { 
-              content: streamingContent,
-              thinking: streamingThinking || undefined,
-              thinkingDuration: finalThinkingDuration
-            })
-          }
-        }
-        
-        // Only delete if no content and not aborted
-        if (!streamingContent.trim() && !abortControllerRef.current?.signal.aborted) {
-          await db.messages.delete(assistantId)
-        }
-      }
-    } catch (error) {
-      if ((error as Error).name === 'AbortError') {
-        // Generation was stopped by user - no need to show error
-        console.log("Retry generation was stopped by user")
-      } else {
-        console.error("Error in retry:", error)
-        toast.error("Failed to retry message.")
-      }
-    } finally {
-      if (!isAuthenticated) {
-        setIsLocalStreaming(false)
-        abortControllerRef.current = null
-      }
-    }
-  }, [isAuthenticated, currentChatId, activeMessages, selectedModel, retryMessage])
+          await db.messages.add(assistantMessage)
 
-  const handleEditMessage = useCallback(async (messageId: string, content: string) => {
-    if (!currentChatId) return
+          const dataStream = parseDataStream(response.body)
+          let streamingContent = ''
+          let streamingThinking = ''
+          let finalThinkingDuration: number | undefined
 
-    try {
-      if (isAuthenticated) {
-        // For Convex: Use the editMessageAndRegenerate action to edit and regenerate response
-        await editMessageAndRegenerate({
-          messageId: messageId as Id<"messages">,
-          content: content.trim(),
-          modelId: selectedModel.id,
-        })
-        toast.success('Message edited and response regenerated.')
-      } else {
-        // For local: Update the message and regenerate response
-        await db.messages.update(messageId, { content: content.trim() })
-        
-        // Find the next assistant message and regenerate from there
-        const allMessages = await db.messages
-          .where('conversationId')
-          .equals(currentChatId)
-          .sortBy('createdAt')
-        
-        const editedMessageIndex = allMessages.findIndex(msg => msg.id === messageId)
-        if (editedMessageIndex !== -1) {
-          // Find the next assistant message after the edited user message
-          let nextAssistantMessageIndex = -1
-          for (let i = editedMessageIndex + 1; i < allMessages.length; i++) {
-            if (allMessages[i].role === 'assistant') {
-              nextAssistantMessageIndex = i
+          for await (const chunk of dataStream) {
+            if (abortControllerRef.current?.signal.aborted) {
+              // Check if message already has stop text (from immediate UI update)
+              const currentMessage = await db.messages.get(assistantId)
+              if (currentMessage && !currentMessage.content.includes('*Generation was stopped by user.*')) {
+                await db.messages.update(assistantId, {
+                  content: streamingContent + '\n\n*Generation was stopped by user.*',
+                })
+              }
               break
             }
+            if (chunk.type === 'text') {
+              streamingContent += chunk.value
+              await db.messages.update(assistantId, { content: streamingContent })
+            } else if (chunk.type === 'reasoning') {
+              streamingThinking += chunk.value
+              await db.messages.update(assistantId, {
+                content: streamingContent,
+                thinking: streamingThinking,
+              })
+            } else if (chunk.type === 'finish') {
+              finalThinkingDuration = chunk.value?.thinkingDuration
+              await db.messages.update(assistantId, {
+                content: streamingContent,
+                thinking: streamingThinking || undefined,
+                thinkingDuration: finalThinkingDuration,
+              })
+            }
           }
-          
-          // If there's an assistant message, delete it and all subsequent messages
-          if (nextAssistantMessageIndex !== -1) {
-            const messagesToDelete = allMessages.slice(nextAssistantMessageIndex)
-            for (const msg of messagesToDelete) {
-              await db.messages.delete(msg.id)
-            }
-            
-            // Regenerate response by sending the conversation history
-            const historyMessages = allMessages.slice(0, nextAssistantMessageIndex)
-            const coreHistory: CoreMessage[] = historyMessages.map(m => ({ 
-              role: m.role as 'user' | 'assistant', 
-              content: typeof m.content === 'string' ? m.content : ''
-            }))
 
-            // Generate new response
-            setIsLocalStreaming(true)
-            abortControllerRef.current = new AbortController()
+          // Only delete if no content and not aborted
+          if (!streamingContent.trim() && !abortControllerRef.current?.signal.aborted) {
+            await db.messages.delete(assistantId)
+          }
+        } catch (error) {
+          if ((error as Error).name === 'AbortError') {
+            // Generation was stopped by user - no need to show error
+            console.log('Generation was stopped by user')
+          } else {
+            console.error('Error in local stream:', error)
+            toast.error('An error occurred while getting the response.')
+          }
+        } finally {
+          setIsLocalStreaming(false)
+          abortControllerRef.current = null
+        }
+      }
+    },
+    [isAuthenticated, currentChatId, selectedModel, createChat, sendMessage, router, liveLocalMessages],
+  )
 
-            const response = await fetch('/api/chat', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                messages: coreHistory,
-                data: { modelId: selectedModel.id },
-              }),
-              signal: abortControllerRef.current.signal,
-            })
+  const handleRetryMessage = useCallback(
+    async (messageId: string, modelId?: string) => {
+      if (!currentChatId) return
 
-            if (!response.body) throw new Error('No response body')
+      try {
+        if (isAuthenticated) {
+          // For Convex: Use the proper retryMessage action
+          const messageIndex = activeMessages.findIndex((msg) => msg.id === messageId)
+          if (messageIndex === -1) return
 
-            const assistantId = uuidv4()
-            const assistantMessage: DBMessage = {
-              id: assistantId,
-              conversationId: currentChatId,
-              content: '',
-              role: 'assistant',
-              createdAt: new Date(),
-              model: selectedModel.id,
-              parts: [],
-            }
-            await db.messages.add(assistantMessage)
+          const messageToRetry = activeMessages[messageIndex]
+          if (messageToRetry.role !== 'assistant') return
 
-            const dataStream = parseDataStream(response.body)
-            let streamingContent = ''
-            let streamingThinking = ''
-            let finalThinkingDuration: number | undefined
+          await retryMessage({
+            chatId: currentChatId as Id<'chats'>,
+            fromMessageId: messageToRetry.id as Id<'messages'>,
+            modelId: modelId || selectedModel.id,
+          })
+        } else {
+          // For local: Find the message and remove it + subsequent messages, then regenerate
+          const messageIndex = activeMessages.findIndex((msg) => msg.id === messageId)
+          if (messageIndex === -1) return
 
-            for await (const chunk of dataStream) {
-              if (abortControllerRef.current?.signal.aborted) {
-                break
-              }
-              if (chunk.type === 'text') {
-                streamingContent += chunk.value
-                await db.messages.update(assistantId, { content: streamingContent })
-              } else if (chunk.type === 'reasoning') {
-                streamingThinking += chunk.value
-                await db.messages.update(assistantId, { 
-                  content: streamingContent,
-                  thinking: streamingThinking 
+          const messageToRetry = activeMessages[messageIndex]
+          if (messageToRetry.role !== 'assistant') return
+
+          // Remove the assistant message and any subsequent messages
+          const messagesToDelete = activeMessages.slice(messageIndex)
+          for (const msg of messagesToDelete) {
+            await db.messages.delete(msg.id)
+          }
+
+          // Get conversation history up to the retry point (excluding the deleted messages)
+          const historyMessages = activeMessages.slice(0, messageIndex)
+          const coreHistory: CoreMessage[] = historyMessages.map((m) => ({
+            role: m.role as 'user' | 'assistant',
+            content: typeof m.content === 'string' ? m.content : '',
+          }))
+
+          // Regenerate the response with the selected model
+          const modelToUse = modelId ? models.find((m) => m.id === modelId) || selectedModel : selectedModel
+
+          setIsLocalStreaming(true)
+          abortControllerRef.current = new AbortController()
+
+          const response = await fetch('/api/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              messages: coreHistory,
+              data: { modelId: modelToUse.id },
+            }),
+            signal: abortControllerRef.current.signal,
+          })
+
+          if (!response.body) throw new Error('No response body')
+
+          const assistantId = uuidv4()
+          const assistantMessage: DBMessage = {
+            id: assistantId,
+            conversationId: currentChatId,
+            content: '',
+            role: 'assistant',
+            createdAt: new Date(),
+            model: modelToUse.id,
+            parts: [],
+          }
+          await db.messages.add(assistantMessage)
+
+          const dataStream = parseDataStream(response.body)
+          let streamingContent = ''
+          let streamingThinking = ''
+          let finalThinkingDuration: number | undefined
+
+          for await (const chunk of dataStream) {
+            if (abortControllerRef.current?.signal.aborted) {
+              // Check if message already has stop text (from immediate UI update)
+              const currentMessage = await db.messages.get(assistantId)
+              if (currentMessage && !currentMessage.content.includes('*Generation was stopped by user.*')) {
+                await db.messages.update(assistantId, {
+                  content: streamingContent + '\n\n*Generation was stopped by user.*',
                 })
-              } else if (chunk.type === 'finish') {
-                finalThinkingDuration = chunk.value?.thinkingDuration
-                await db.messages.update(assistantId, { 
-                  content: streamingContent,
-                  thinking: streamingThinking || undefined,
-                  thinkingDuration: finalThinkingDuration
-                })
               }
+              break
             }
-            
-            if (!streamingContent.trim() && !abortControllerRef.current?.signal.aborted) {
-              await db.messages.delete(assistantId)
+            if (chunk.type === 'text') {
+              streamingContent += chunk.value
+              await db.messages.update(assistantId, { content: streamingContent })
+            } else if (chunk.type === 'reasoning') {
+              streamingThinking += chunk.value
+              await db.messages.update(assistantId, {
+                content: streamingContent,
+                thinking: streamingThinking,
+              })
+            } else if (chunk.type === 'finish') {
+              finalThinkingDuration = chunk.value?.thinkingDuration
+              await db.messages.update(assistantId, {
+                content: streamingContent,
+                thinking: streamingThinking || undefined,
+                thinkingDuration: finalThinkingDuration,
+              })
             }
-            
-            setIsLocalStreaming(false)
-            abortControllerRef.current = null
+          }
+
+          // Only delete if no content and not aborted
+          if (!streamingContent.trim() && !abortControllerRef.current?.signal.aborted) {
+            await db.messages.delete(assistantId)
           }
         }
-        
-        toast.success('Message edited and response regenerated.')
+      } catch (error) {
+        if ((error as Error).name === 'AbortError') {
+          // Generation was stopped by user - no need to show error
+          console.log('Retry generation was stopped by user')
+        } else {
+          console.error('Error in retry:', error)
+          toast.error('Failed to retry message.')
+        }
+      } finally {
+        if (!isAuthenticated) {
+          setIsLocalStreaming(false)
+          abortControllerRef.current = null
+        }
       }
-    } catch (error) {
-      if ((error as Error).name === 'AbortError') {
-        console.log("Edit regeneration was stopped by user")
-      } else {
-        console.error("Error editing message:", error)
-        toast.error("Failed to edit message.")
+    },
+    [isAuthenticated, currentChatId, activeMessages, selectedModel, retryMessage],
+  )
+
+  const handleEditMessage = useCallback(
+    async (messageId: string, content: string) => {
+      if (!currentChatId) return
+
+      try {
+        if (isAuthenticated) {
+          // For Convex: Use the editMessageAndRegenerate action to edit and regenerate response
+          await editMessageAndRegenerate({
+            messageId: messageId as Id<'messages'>,
+            content: content.trim(),
+            modelId: selectedModel.id,
+          })
+          toast.success('Message edited and response regenerated.')
+        } else {
+          // For local: Update the message and regenerate response
+          await db.messages.update(messageId, { content: content.trim() })
+
+          // Find the next assistant message and regenerate from there
+          const allMessages = await db.messages.where('conversationId').equals(currentChatId).sortBy('createdAt')
+
+          const editedMessageIndex = allMessages.findIndex((msg) => msg.id === messageId)
+          if (editedMessageIndex !== -1) {
+            // Find the next assistant message after the edited user message
+            let nextAssistantMessageIndex = -1
+            for (let i = editedMessageIndex + 1; i < allMessages.length; i++) {
+              if (allMessages[i].role === 'assistant') {
+                nextAssistantMessageIndex = i
+                break
+              }
+            }
+
+            // If there's an assistant message, delete it and all subsequent messages
+            if (nextAssistantMessageIndex !== -1) {
+              const messagesToDelete = allMessages.slice(nextAssistantMessageIndex)
+              for (const msg of messagesToDelete) {
+                await db.messages.delete(msg.id)
+              }
+
+              // Regenerate response by sending the conversation history
+              const historyMessages = allMessages.slice(0, nextAssistantMessageIndex)
+              const coreHistory: CoreMessage[] = historyMessages.map((m) => ({
+                role: m.role as 'user' | 'assistant',
+                content: typeof m.content === 'string' ? m.content : '',
+              }))
+
+              // Generate new response
+              setIsLocalStreaming(true)
+              abortControllerRef.current = new AbortController()
+
+              const response = await fetch('/api/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  messages: coreHistory,
+                  data: { modelId: selectedModel.id },
+                }),
+                signal: abortControllerRef.current.signal,
+              })
+
+              if (!response.body) throw new Error('No response body')
+
+              const assistantId = uuidv4()
+              const assistantMessage: DBMessage = {
+                id: assistantId,
+                conversationId: currentChatId,
+                content: '',
+                role: 'assistant',
+                createdAt: new Date(),
+                model: selectedModel.id,
+                parts: [],
+              }
+              await db.messages.add(assistantMessage)
+
+              const dataStream = parseDataStream(response.body)
+              let streamingContent = ''
+              let streamingThinking = ''
+              let finalThinkingDuration: number | undefined
+
+              for await (const chunk of dataStream) {
+                if (abortControllerRef.current?.signal.aborted) {
+                  break
+                }
+                if (chunk.type === 'text') {
+                  streamingContent += chunk.value
+                  await db.messages.update(assistantId, { content: streamingContent })
+                } else if (chunk.type === 'reasoning') {
+                  streamingThinking += chunk.value
+                  await db.messages.update(assistantId, {
+                    content: streamingContent,
+                    thinking: streamingThinking,
+                  })
+                } else if (chunk.type === 'finish') {
+                  finalThinkingDuration = chunk.value?.thinkingDuration
+                  await db.messages.update(assistantId, {
+                    content: streamingContent,
+                    thinking: streamingThinking || undefined,
+                    thinkingDuration: finalThinkingDuration,
+                  })
+                }
+              }
+
+              if (!streamingContent.trim() && !abortControllerRef.current?.signal.aborted) {
+                await db.messages.delete(assistantId)
+              }
+
+              setIsLocalStreaming(false)
+              abortControllerRef.current = null
+            }
+          }
+
+          toast.success('Message edited and response regenerated.')
+        }
+      } catch (error) {
+        if ((error as Error).name === 'AbortError') {
+          console.log('Edit regeneration was stopped by user')
+        } else {
+          console.error('Error editing message:', error)
+          toast.error('Failed to edit message.')
+        }
+        if (!isAuthenticated) {
+          setIsLocalStreaming(false)
+          abortControllerRef.current = null
+        }
       }
-      if (!isAuthenticated) {
-        setIsLocalStreaming(false)
-        abortControllerRef.current = null
-      }
-    }
-  }, [isAuthenticated, editMessageAndRegenerate, selectedModel, currentChatId])
+    },
+    [isAuthenticated, editMessageAndRegenerate, selectedModel, currentChatId],
+  )
 
   const handleStopGeneration = useCallback(async () => {
     if (isAuthenticated && isConvexStreaming) {
@@ -666,64 +685,67 @@ export const useConversations = (
       const lastMessage = convexMessages?.[convexMessages.length - 1]
       if (lastMessage && lastMessage.role === 'assistant' && !lastMessage.isComplete) {
         // Immediately show the stop message in UI
-        toast.success("Generation stopped.")
-        
+        toast.success('Generation stopped.')
+
         // Cancel on server in background
         try {
-          await cancelMessage({ messageId: lastMessage._id as Id<"messages"> })
+          await cancelMessage({ messageId: lastMessage._id as Id<'messages'> })
         } catch (error) {
-          console.error("Failed to cancel on server:", error)
+          console.error('Failed to cancel on server:', error)
           // Don't show error to user since they already see "stopped" message
         }
       } else {
-        toast.info("No active generation to stop.")
+        toast.info('No active generation to stop.')
       }
     } else if (isLocalStreaming && abortControllerRef.current) {
       // For local streaming, immediately stop UI and update message
       setIsLocalStreaming(false)
-      toast.success("Generation stopped.")
-      
+      toast.success('Generation stopped.')
+
       // Find and immediately update the last streaming message
       try {
         const localMessages = await db.messages
           .where('conversationId')
           .equals(currentChatId || '')
           .sortBy('createdAt')
-        
+
         const lastMessage = localMessages[localMessages.length - 1]
         if (lastMessage && lastMessage.role === 'assistant') {
           await db.messages.update(lastMessage.id, {
-            content: lastMessage.content + "\n\n*Generation was stopped by user.*"
+            content: lastMessage.content + '\n\n*Generation was stopped by user.*',
           })
         }
       } catch (error) {
-        console.error("Failed to update stopped message:", error)
+        console.error('Failed to update stopped message:', error)
       }
-      
+
       // Abort the request in background
       abortControllerRef.current.abort()
       abortControllerRef.current = null
     } else {
-      toast.info("No active generation to stop.")
+      toast.info('No active generation to stop.')
     }
   }, [isAuthenticated, isConvexStreaming, isLocalStreaming, convexMessages, cancelMessage, currentChatId])
 
-  const deleteConversation = useCallback(async (id: string) => {
-    if (isAuthenticated) {
-      await deleteConvexChat({ chatId: id as Id<"chats"> })
-      if (currentChatId === id) {
-        router.push('/')
+  const deleteConversation = useCallback(
+    async (id: string) => {
+      if (isAuthenticated) {
+        await deleteConvexChat({ chatId: id as Id<'chats'> })
+        if (currentChatId === id) {
+          router.push('/')
+        }
+        toast.success('Chat deleted.')
+      } else {
+        await db.conversations.delete(id)
+        await db.messages.where('conversationId').equals(id).delete()
+        if (currentChatId === id) {
+          router.push('/')
+        }
+        toast.success('Conversation deleted.')
       }
-      toast.success('Chat deleted.')
-    } else {
-      await db.conversations.delete(id)
-      await db.messages.where('conversationId').equals(id).delete()
-      if (currentChatId === id) {
-        router.push('/')
-      }
-      toast.success('Conversation deleted.')
-    }
-  }, [isAuthenticated, deleteConvexChat, currentChatId, router])
+    },
+    [isAuthenticated, deleteConvexChat, currentChatId, router],
+  )
 
   useEffect(() => {
     const newChatId = pathname.startsWith('/chat/') ? pathname.split('/')[2] : null

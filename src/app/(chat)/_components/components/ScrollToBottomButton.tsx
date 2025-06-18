@@ -30,12 +30,10 @@ export function ScrollToBottomButton({ show, onScrollToBottom }: ScrollToBottomB
                 <span className="text-sm font-medium text-black/70 dark:text-white/80">Scroll to bottom</span>
               </button>
             </TooltipTrigger>
-            <TooltipContent side="top">
-              Jump to the latest message
-            </TooltipContent>
+            <TooltipContent side="top">Jump to the latest message</TooltipContent>
           </Tooltip>
         </motion.div>
       )}
     </AnimatePresence>
   )
-} 
+}

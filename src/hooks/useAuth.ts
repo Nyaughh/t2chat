@@ -12,7 +12,7 @@ interface UseAuthOptions {
 export function useAuth(options: UseAuthOptions = {}) {
   const { serverIsSignedIn, serverUserMetadata } = options
   const { data: session, isPending, error } = useSession()
-  
+
   const isSignedIn = useMemo(() => {
     if (isPending) return serverIsSignedIn ?? false
     return !!session?.user
@@ -20,7 +20,7 @@ export function useAuth(options: UseAuthOptions = {}) {
 
   const userMetadata = useMemo((): UserMetadata => {
     if (isPending && serverUserMetadata) return serverUserMetadata
-    
+
     if (session?.user) {
       return {
         name: session.user.name ?? undefined,
@@ -28,7 +28,7 @@ export function useAuth(options: UseAuthOptions = {}) {
         image: session.user.image ?? undefined,
       }
     }
-    
+
     return serverUserMetadata ?? { name: undefined, email: undefined, image: undefined }
   }, [session?.user, isPending, serverUserMetadata])
 
@@ -39,4 +39,4 @@ export function useAuth(options: UseAuthOptions = {}) {
     error,
     user: session?.user,
   }
-} 
+}

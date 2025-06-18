@@ -16,28 +16,31 @@ import { Badge } from '@/components/ui/badge'
 interface SimpleVoiceChatProps {
   isOpen: boolean
   onClose: () => void
-  onSaveConversation: (conversationHistory: Array<{role: 'user' | 'assistant', content: string}>) => Promise<void>
-  onSendMessage?: (message: string, conversationHistory: Array<{role: 'user' | 'assistant', content: string}>) => Promise<string>
+  onSaveConversation: (conversationHistory: Array<{ role: 'user' | 'assistant'; content: string }>) => Promise<void>
+  onSendMessage?: (
+    message: string,
+    conversationHistory: Array<{ role: 'user' | 'assistant'; content: string }>,
+  ) => Promise<string>
   selectedModel?: ModelInfo
   onModelChange?: (model: ModelInfo) => void
   availableModels?: ModelInfo[]
 }
 
-export function SimpleVoiceChat({ 
-  isOpen, 
-  onClose, 
-  onSaveConversation, 
+export function SimpleVoiceChat({
+  isOpen,
+  onClose,
+  onSaveConversation,
   onSendMessage,
   selectedModel,
   onModelChange,
-  availableModels = []
+  availableModels = [],
 }: SimpleVoiceChatProps) {
-  
   // Fetch user settings for context display
   const userSettings = useQuery(api.users.getMySettings)
-  
+
   const sendMessageWithModel = onSendMessage
-    ? (message: string, conversationHistory: Array<{role: 'user' | 'assistant', content: string}>) => onSendMessage(message, conversationHistory)
+    ? (message: string, conversationHistory: Array<{ role: 'user' | 'assistant'; content: string }>) =>
+        onSendMessage(message, conversationHistory)
     : undefined
 
   const {
@@ -48,7 +51,7 @@ export function SimpleVoiceChat({
     conversationHistory,
     startVoiceChat,
     endVoiceChat,
-    isSupported
+    isSupported,
   } = useSimpleVoiceChat(sendMessageWithModel)
 
   const handleStart = () => {
@@ -79,12 +82,12 @@ export function SimpleVoiceChat({
 
   const getUserContext = () => {
     if (!userSettings) return null
-    
+
     const context = []
     if (userSettings.userName) context.push(`Name: ${userSettings.userName}`)
     if (userSettings.userRole) context.push(`Role: ${userSettings.userRole}`)
     if (userSettings.userTraits?.length) context.push(`Interests: ${userSettings.userTraits.join(', ')}`)
-    
+
     return context.length > 0 ? context : null
   }
 
@@ -112,11 +115,16 @@ export function SimpleVoiceChat({
                   <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
                     <Mic className="w-8 h-8 text-red-500 dark:text-red-400" />
                   </div>
-                  <h3 className="text-xl font-semibold mb-3 text-gray-900 dark:text-gray-100">Voice Chat Not Supported</h3>
+                  <h3 className="text-xl font-semibold mb-3 text-gray-900 dark:text-gray-100">
+                    Voice Chat Not Supported
+                  </h3>
                   <p className="text-sm text-gray-600 dark:text-gray-400 mb-6 leading-relaxed">
-                    Your browser doesn't support speech recognition. Please try using Chrome, Edge, or Safari for the best voice chat experience.
+                    Your browser doesn't support speech recognition. Please try using Chrome, Edge, or Safari for the
+                    best voice chat experience.
                   </p>
-                  <Button onClick={onClose} className="w-full">Close</Button>
+                  <Button onClick={onClose} className="w-full">
+                    Close
+                  </Button>
                 </CardContent>
               </Card>
             </motion.div>
@@ -144,7 +152,7 @@ export function SimpleVoiceChat({
             initial={{ scale: 0.9, opacity: 0, y: 20 }}
             animate={{ scale: 1, opacity: 1, y: 0 }}
             exit={{ scale: 0.9, opacity: 0, y: 20 }}
-            transition={{ type: "spring", duration: 0.5 }}
+            transition={{ type: 'spring', duration: 0.5 }}
             className="w-full max-w-lg"
           >
             <Card className="border-rose-200/50 dark:border-rose-500/20 shadow-2xl bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl">
@@ -167,7 +175,7 @@ export function SimpleVoiceChat({
                         <Select
                           value={selectedModel?.id}
                           onValueChange={(value) => {
-                            const model = availableModels.find(m => m.id === value)
+                            const model = availableModels.find((m) => m.id === value)
                             if (model) onModelChange(model)
                           }}
                         >
@@ -219,7 +227,7 @@ export function SimpleVoiceChat({
 
                   {/* Status */}
                   <div className="text-center">
-                    <motion.p 
+                    <motion.p
                       className={cn('text-sm font-medium', getStatusColor())}
                       animate={{ opacity: isListening ? [1, 0.7, 1] : 1 }}
                       transition={{ duration: 1.5, repeat: isListening ? Infinity : 0 }}
@@ -227,9 +235,7 @@ export function SimpleVoiceChat({
                       {getStatus()}
                     </motion.p>
                     {selectedModel && !isActive && (
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                        Using {selectedModel.name}
-                      </p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Using {selectedModel.name}</p>
                     )}
                   </div>
                 </div>
@@ -239,69 +245,83 @@ export function SimpleVoiceChat({
                   <motion.div
                     className={cn(
                       'relative w-40 h-40 rounded-full flex items-center justify-center shadow-2xl transition-all duration-500',
-                      isListening 
-                        ? 'bg-gradient-to-br from-green-400 to-green-600 shadow-green-500/30' 
-                        : isSpeaking 
-                        ? 'bg-gradient-to-br from-purple-400 to-purple-600 shadow-purple-500/30'
-                        : isActive
-                        ? 'bg-gradient-to-br from-blue-400 to-blue-600 shadow-blue-500/30'
-                        : 'bg-gradient-to-br from-gray-400 to-gray-600 shadow-gray-500/20'
+                      isListening
+                        ? 'bg-gradient-to-br from-green-400 to-green-600 shadow-green-500/30'
+                        : isSpeaking
+                          ? 'bg-gradient-to-br from-purple-400 to-purple-600 shadow-purple-500/30'
+                          : isActive
+                            ? 'bg-gradient-to-br from-blue-400 to-blue-600 shadow-blue-500/30'
+                            : 'bg-gradient-to-br from-gray-400 to-gray-600 shadow-gray-500/20',
                     )}
-                    animate={isListening ? {
-                      scale: [1, 1.05, 1],
-                      rotate: [0, 2, -2, 0]
-                    } : isSpeaking ? {
-                      scale: [1, 1.02, 1]
-                    } : {}}
+                    animate={
+                      isListening
+                        ? {
+                            scale: [1, 1.05, 1],
+                            rotate: [0, 2, -2, 0],
+                          }
+                        : isSpeaking
+                          ? {
+                              scale: [1, 1.02, 1],
+                            }
+                          : {}
+                    }
                     transition={{
                       duration: isListening ? 2 : 1.5,
                       repeat: Infinity,
-                      ease: "easeInOut"
+                      ease: 'easeInOut',
                     }}
                   >
                     {/* Outer Ring */}
                     <motion.div
                       className="absolute inset-0 rounded-full border-4 border-white/30"
-                      animate={isActive ? {
-                        scale: [1, 1.1, 1],
-                        opacity: [0.3, 0.6, 0.3]
-                      } : {}}
+                      animate={
+                        isActive
+                          ? {
+                              scale: [1, 1.1, 1],
+                              opacity: [0.3, 0.6, 0.3],
+                            }
+                          : {}
+                      }
                       transition={{
                         duration: 3,
                         repeat: Infinity,
-                        ease: "easeInOut"
+                        ease: 'easeInOut',
                       }}
                     />
-                    
+
                     {/* Inner Ring */}
                     <motion.div
                       className="absolute inset-4 rounded-full border-2 border-white/50"
-                      animate={isActive ? {
-                        scale: [1, 1.05, 1],
-                        opacity: [0.5, 0.8, 0.5]
-                      } : {}}
+                      animate={
+                        isActive
+                          ? {
+                              scale: [1, 1.05, 1],
+                              opacity: [0.5, 0.8, 0.5],
+                            }
+                          : {}
+                      }
                       transition={{
                         duration: 2,
                         repeat: Infinity,
-                        ease: "easeInOut",
-                        delay: 0.5
+                        ease: 'easeInOut',
+                        delay: 0.5,
                       }}
                     />
-                    
+
                     <Mic className="w-16 h-16 text-white drop-shadow-lg" />
-                    
+
                     {/* Pulse Effect for Listening */}
                     {isListening && (
                       <motion.div
                         className="absolute inset-0 rounded-full bg-white/20"
                         animate={{
                           scale: [1, 1.3, 1],
-                          opacity: [0, 0.4, 0]
+                          opacity: [0, 0.4, 0],
                         }}
                         transition={{
                           duration: 1,
                           repeat: Infinity,
-                          ease: "easeOut"
+                          ease: 'easeOut',
                         }}
                       />
                     )}
@@ -311,10 +331,7 @@ export function SimpleVoiceChat({
                 {/* Controls */}
                 <div className="flex justify-center gap-6 mb-8">
                   {!isActive ? (
-                    <motion.div
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                    >
+                    <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
                       <Button
                         onClick={handleStart}
                         size="lg"
@@ -324,10 +341,7 @@ export function SimpleVoiceChat({
                       </Button>
                     </motion.div>
                   ) : (
-                    <motion.div
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                    >
+                    <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
                       <Button
                         onClick={handleEnd}
                         size="lg"
@@ -344,7 +358,7 @@ export function SimpleVoiceChat({
                   {conversationHistory.length > 0 && (
                     <motion.div
                       initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: "auto" }}
+                      animate={{ opacity: 1, height: 'auto' }}
                       exit={{ opacity: 0, height: 0 }}
                       className="max-h-48 overflow-y-auto bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900 rounded-xl p-4 mb-6 border border-gray-200 dark:border-gray-700"
                     >
@@ -361,24 +375,26 @@ export function SimpleVoiceChat({
                             transition={{ delay: idx * 0.1 }}
                             className={cn(
                               'p-3 rounded-lg max-w-[85%] shadow-sm',
-                              msg.role === 'user' 
-                                ? 'ml-auto bg-blue-500 text-white' 
-                                : 'bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 border border-gray-200 dark:border-gray-600'
+                              msg.role === 'user'
+                                ? 'ml-auto bg-blue-500 text-white'
+                                : 'bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 border border-gray-200 dark:border-gray-600',
                             )}
                           >
-                            <div className={cn(
-                              'text-xs font-medium mb-1 flex items-center gap-1',
-                              msg.role === 'user' ? 'text-blue-100' : 'text-gray-500 dark:text-gray-400'
-                            )}>
+                            <div
+                              className={cn(
+                                'text-xs font-medium mb-1 flex items-center gap-1',
+                                msg.role === 'user' ? 'text-blue-100' : 'text-gray-500 dark:text-gray-400',
+                              )}
+                            >
                               {msg.role === 'user' ? '🎤 You' : '🤖 AI'}
-                              <div className={cn(
-                                'w-1 h-1 rounded-full',
-                                msg.role === 'user' ? 'bg-blue-200' : 'bg-gray-400'
-                              )} />
+                              <div
+                                className={cn(
+                                  'w-1 h-1 rounded-full',
+                                  msg.role === 'user' ? 'bg-blue-200' : 'bg-gray-400',
+                                )}
+                              />
                             </div>
-                            <div className="text-sm leading-relaxed">
-                              {msg.content}
-                            </div>
+                            <div className="text-sm leading-relaxed">{msg.content}</div>
                           </motion.div>
                         ))}
                       </div>
@@ -388,11 +404,7 @@ export function SimpleVoiceChat({
 
                 {/* Instructions */}
                 {!isActive && (
-                  <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    className="text-center"
-                  >
+                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center">
                     <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
                       Click the green button to start your voice conversation. Speak naturally and the AI will respond.
                       Your conversation will be automatically saved as a new chat when you end the session.
@@ -406,4 +418,4 @@ export function SimpleVoiceChat({
       )}
     </AnimatePresence>
   )
-} 
+}

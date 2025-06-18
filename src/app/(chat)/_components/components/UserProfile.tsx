@@ -17,14 +17,10 @@ const ProfileAvatar = memo(({ userMetadata }: { userMetadata: UserMetadata }) =>
   const avatarContent = useMemo(() => {
     if (userMetadata.image) {
       return (
-        <img
-          src={userMetadata.image}
-          alt="User profile"
-          className="w-8 h-8 rounded-full flex-shrink-0 object-cover"
-        />
+        <img src={userMetadata.image} alt="User profile" className="w-8 h-8 rounded-full flex-shrink-0 object-cover" />
       )
     }
-    
+
     return (
       <div className="w-8 h-8 rounded-full bg-gradient-to-br from-rose-500/20 to-rose-600/20 dark:from-rose-300/20 dark:to-rose-400/20 flex items-center justify-center flex-shrink-0">
         <div className="text-rose-600 dark:text-rose-300 font-medium text-sm">
@@ -39,33 +35,30 @@ const ProfileAvatar = memo(({ userMetadata }: { userMetadata: UserMetadata }) =>
 
 ProfileAvatar.displayName = 'ProfileAvatar'
 
-const SignedInProfile = memo(({ userMetadata, onSettingsClick }: { 
-  userMetadata: UserMetadata
-  onSettingsClick: () => void 
-}) => {
-  const handleClick = useCallback(() => {
-    onSettingsClick()
-  }, [onSettingsClick])
+const SignedInProfile = memo(
+  ({ userMetadata, onSettingsClick }: { userMetadata: UserMetadata; onSettingsClick: () => void }) => {
+    const handleClick = useCallback(() => {
+      onSettingsClick()
+    }, [onSettingsClick])
 
-  return (
-    <div
-      onClick={handleClick}
-      className="flex items-center gap-2 p-2 rounded-xl border border-rose-500/20 dark:border-rose-300/20 bg-gradient-to-r from-rose-500/8 via-background/90 to-rose-500/8 dark:from-rose-300/8 dark:via-background/90 dark:to-rose-300/8 backdrop-blur-sm cursor-pointer hover:from-rose-500/12 hover:via-background/95 hover:to-rose-500/12 dark:hover:from-rose-300/12 dark:hover:via-background/95 dark:hover:to-rose-300/12 hover:border-rose-500/30 dark:hover:border-rose-300/30 hover:shadow-lg hover:shadow-rose-500/10 dark:hover:shadow-rose-300/10 transition-all duration-200 ease-[0.25,1,0.5,1] group"
-    >
-      <div className="relative">
-        <ProfileAvatar userMetadata={userMetadata} />
-      </div>
-      <div className="flex flex-col overflow-hidden">
-        <div className="text-sm font-semibold truncate text-foreground/90 group-hover:text-rose-600 dark:group-hover:text-rose-300 transition-colors duration-200">
-          {userMetadata.name || userMetadata.email}
+    return (
+      <div
+        onClick={handleClick}
+        className="flex items-center gap-2 p-2 rounded-xl border border-rose-500/20 dark:border-rose-300/20 bg-gradient-to-r from-rose-500/8 via-background/90 to-rose-500/8 dark:from-rose-300/8 dark:via-background/90 dark:to-rose-300/8 backdrop-blur-sm cursor-pointer hover:from-rose-500/12 hover:via-background/95 hover:to-rose-500/12 dark:hover:from-rose-300/12 dark:hover:via-background/95 dark:hover:to-rose-300/12 hover:border-rose-500/30 dark:hover:border-rose-300/30 hover:shadow-lg hover:shadow-rose-500/10 dark:hover:shadow-rose-300/10 transition-all duration-200 ease-[0.25,1,0.5,1] group"
+      >
+        <div className="relative">
+          <ProfileAvatar userMetadata={userMetadata} />
         </div>
-        <div className="text-[10px] text-muted-foreground/50 truncate">
-          Free
+        <div className="flex flex-col overflow-hidden">
+          <div className="text-sm font-semibold truncate text-foreground/90 group-hover:text-rose-600 dark:group-hover:text-rose-300 transition-colors duration-200">
+            {userMetadata.name || userMetadata.email}
+          </div>
+          <div className="text-[10px] text-muted-foreground/50 truncate">Free</div>
         </div>
       </div>
-    </div>
-  )
-})
+    )
+  },
+)
 
 SignedInProfile.displayName = 'SignedInProfile'
 
@@ -107,11 +100,7 @@ const SignInButton = memo(() => (
 
 SignInButton.displayName = 'SignInButton'
 
-export const UserProfile = memo(function UserProfile({ 
-  isSignedIn, 
-  userMetadata, 
-  onSettingsClick 
-}: UserProfileProps) {
+export const UserProfile = memo(function UserProfile({ isSignedIn, userMetadata, onSettingsClick }: UserProfileProps) {
   return (
     <div className="p-4 flex-shrink-0">
       <AnimatePresence mode="wait">
@@ -123,10 +112,7 @@ export const UserProfile = memo(function UserProfile({
             exit={{ opacity: 0, y: -10 }}
             transition={{ duration: 0.2, ease: [0.25, 1, 0.5, 1] }}
           >
-            <SignedInProfile 
-              userMetadata={userMetadata} 
-              onSettingsClick={onSettingsClick} 
-            />
+            <SignedInProfile userMetadata={userMetadata} onSettingsClick={onSettingsClick} />
           </motion.div>
         ) : (
           <motion.div
@@ -142,4 +128,4 @@ export const UserProfile = memo(function UserProfile({
       </AnimatePresence>
     </div>
   )
-}) 
+})

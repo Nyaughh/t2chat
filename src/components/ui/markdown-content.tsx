@@ -192,7 +192,10 @@ const components: Partial<Components> = {
       )
     }
     return (
-      <code className={cn('rounded bg-muted px-[0.3rem] py-[0.2rem] font-mono text-sm overflow-x-auto', className)} {...props}>
+      <code
+        className={cn('rounded bg-muted px-[0.3rem] py-[0.2rem] font-mono text-sm overflow-x-auto', className)}
+        {...props}
+      >
         {children}
       </code>
     )

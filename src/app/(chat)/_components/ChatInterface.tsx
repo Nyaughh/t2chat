@@ -40,17 +40,17 @@ export default function ChatInterface({ chatId, initialMessages }: ChatInterface
     showWelcomeScreen,
     isAuthenticated,
     mounted,
-    
+
     // Attachments
     attachments,
     setAttachments,
-    
+
     // Actions
     handleSend,
     handlePromptClick,
     handleStopGeneration,
     isCurrentlyStreaming,
-    
+
     // Message actions
     copiedId,
     editingMessageId,
@@ -70,7 +70,7 @@ export default function ChatInterface({ chatId, initialMessages }: ChatInterface
     handleRetryWithModel,
     getModelDisplayName,
     getProviderColor,
-    
+
     // Scroll
     showScrollToBottom,
     messagesEndRef,
@@ -91,7 +91,7 @@ export default function ChatInterface({ chatId, initialMessages }: ChatInterface
   const handleBranch = async (messageId: string) => {
     if (!chatId) return
     try {
-      const newChatId = await branchChat({ chatId: chatId as Id<"chats">, messageId: messageId as Id<"messages"> })
+      const newChatId = await branchChat({ chatId: chatId as Id<'chats'>, messageId: messageId as Id<'messages'> })
       router.push(`/chat/${newChatId}`)
       toast.success('Chat branched successfully!')
     } catch (error) {
@@ -115,7 +115,7 @@ export default function ChatInterface({ chatId, initialMessages }: ChatInterface
         // Determine file types in the uploaded files
         const pdfCount = filesToAdd.filter((file: any) => file.type?.includes('pdf')).length
         const imageCount = filesToAdd.filter((file: any) => file.type?.startsWith('image/')).length
-        
+
         let message = `Added ${filesToAdd.length} file${filesToAdd.length > 1 ? 's' : ''}`
         if (pdfCount > 0 && imageCount > 0) {
           message = `Added ${imageCount} image${imageCount > 1 ? 's' : ''} and ${pdfCount} PDF${pdfCount > 1 ? 's' : ''}`
@@ -124,7 +124,7 @@ export default function ChatInterface({ chatId, initialMessages }: ChatInterface
         } else if (imageCount > 0) {
           message = `Added ${imageCount} image${imageCount > 1 ? 's' : ''}`
         }
-        
+
         toast.success(message)
       }
     }
@@ -145,14 +145,16 @@ export default function ChatInterface({ chatId, initialMessages }: ChatInterface
 
   const { sendVoiceMessage } = useVoiceChatAPI()
 
-  const handleSaveConversation = async (conversationHistory: Array<{role: 'user' | 'assistant', content: string}>) => {
+  const handleSaveConversation = async (
+    conversationHistory: Array<{ role: 'user' | 'assistant'; content: string }>,
+  ) => {
     if (conversationHistory.length === 0) return
 
     try {
       // Create a new chat with a title based on the first user message
-      const firstUserMessage = conversationHistory.find(msg => msg.role === 'user')
+      const firstUserMessage = conversationHistory.find((msg) => msg.role === 'user')
       const title = firstUserMessage ? firstUserMessage.content.substring(0, 50) : 'Voice Chat'
-      
+
       const newChatId = await createChat({ title })
 
       // Add all messages from the conversation to the new chat
@@ -174,7 +176,10 @@ export default function ChatInterface({ chatId, initialMessages }: ChatInterface
     }
   }
 
-  const handleVoiceMessageSend = async (message: string, conversationHistory: Array<{role: 'user' | 'assistant', content: string}>) => {
+  const handleVoiceMessageSend = async (
+    message: string,
+    conversationHistory: Array<{ role: 'user' | 'assistant'; content: string }>,
+  ) => {
     return await sendVoiceMessage(message, selectedModel.id, conversationHistory, userSettings)
   }
 
@@ -218,10 +223,7 @@ export default function ChatInterface({ chatId, initialMessages }: ChatInterface
         )}
       </AnimatePresence>
 
-      <ScrollToBottomButton
-        show={showScrollToBottom}
-        onScrollToBottom={() => scrollToBottom('smooth')}
-      />
+      <ScrollToBottomButton show={showScrollToBottom} onScrollToBottom={() => scrollToBottom('smooth')} />
 
       <div className="fixed md:absolute bottom-0 left-0 right-0 z-30">
         <div className="max-w-4xl mx-auto w-full px-4 pb-4 md:px-4">
@@ -243,22 +245,19 @@ export default function ChatInterface({ chatId, initialMessages }: ChatInterface
             mounted={mounted}
             sendBehavior={userSettings?.sendBehavior || 'enter'}
             uploadButton={
-              (selectedModel.attachmentsSuppport.image || selectedModel.attachmentsSuppport.pdf) ? (
-                <div className={cn(
-                  "flex gap-1",
-                  attachments.length >= maxFiles && "opacity-50 pointer-events-none"
-                )}>
+              selectedModel.attachmentsSuppport.image || selectedModel.attachmentsSuppport.pdf ? (
+                <div className={cn('flex gap-1', attachments.length >= maxFiles && 'opacity-50 pointer-events-none')}>
                   <UploadButton
                     endpoint="fileUploader"
                     onBeforeUploadBegin={(files) => {
                       setIsUploading(true)
                       // Filter files based on model support
-                      const supportedFiles = files.filter(file => {
+                      const supportedFiles = files.filter((file) => {
                         const isImage = selectedModel.attachmentsSuppport.image && file.type.startsWith('image/')
                         const isPdf = selectedModel.attachmentsSuppport.pdf && file.type === 'application/pdf'
                         return isImage || isPdf
                       })
-                      
+
                       if (supportedFiles.length === 0) {
                         setIsUploading(false)
                         const supportedTypes = []
@@ -267,10 +266,10 @@ export default function ChatInterface({ chatId, initialMessages }: ChatInterface
                         toast.error(`This model only supports ${supportedTypes.join(' and ')}`)
                         return []
                       }
-                      
+
                       // Set initial progress for supported files
                       const initialProgress: { [key: string]: number } = {}
-                      supportedFiles.forEach(file => {
+                      supportedFiles.forEach((file) => {
                         initialProgress[file.name] = 0
                       })
                       setUploadProgress(initialProgress)
@@ -278,9 +277,9 @@ export default function ChatInterface({ chatId, initialMessages }: ChatInterface
                     }}
                     onUploadProgress={(progress) => {
                       // Update progress for all current files
-                      setUploadProgress(prev => {
+                      setUploadProgress((prev) => {
                         const updated = { ...prev }
-                        Object.keys(updated).forEach(fileName => {
+                        Object.keys(updated).forEach((fileName) => {
                           updated[fileName] = progress
                         })
                         return updated
@@ -293,19 +292,25 @@ export default function ChatInterface({ chatId, initialMessages }: ChatInterface
                       handleUploadError(error, 'file')
                     }}
                     appearance={{
-                      button: "w-7 h-7 md:w-8 md:h-8 text-rose-500/60 dark:text-rose-300/60 hover:text-rose-600 dark:hover:text-rose-300 transition-all duration-200 rounded-lg bg-white/50 dark:bg-[oklch(0.22_0.015_25)]/40 hover:bg-rose-500/5 dark:hover:bg-white/5 flex items-center justify-center",
-                      container: "w-auto h-auto",
-                      allowedContent: "hidden"
+                      button:
+                        'w-7 h-7 md:w-8 md:h-8 text-rose-500/60 dark:text-rose-300/60 hover:text-rose-600 dark:hover:text-rose-300 transition-all duration-200 rounded-lg bg-white/50 dark:bg-[oklch(0.22_0.015_25)]/40 hover:bg-rose-500/5 dark:hover:bg-white/5 flex items-center justify-center',
+                      container: 'w-auto h-auto',
+                      allowedContent: 'hidden',
                     }}
                     content={{
                       button({ ready, isUploading }) {
-                        if (isUploading) return <div className="w-3.5 md:w-4 h-3.5 md:h-4 border-2 border-rose-500/30 border-t-rose-500 rounded-full animate-spin" />
-                        if (ready) return <Paperclip className="w-3.5 md:w-4 h-3.5 md:h-4" />;
-                        return <div className="w-3.5 md:w-4 h-3.5 md:h-4 border-2 border-rose-500/30 border-t-rose-500 rounded-full animate-spin" />;
+                        if (isUploading)
+                          return (
+                            <div className="w-3.5 md:w-4 h-3.5 md:h-4 border-2 border-rose-500/30 border-t-rose-500 rounded-full animate-spin" />
+                          )
+                        if (ready) return <Paperclip className="w-3.5 md:w-4 h-3.5 md:h-4" />
+                        return (
+                          <div className="w-3.5 md:w-4 h-3.5 md:h-4 border-2 border-rose-500/30 border-t-rose-500 rounded-full animate-spin" />
+                        )
                       },
                       allowedContent() {
-                        return null;
-                      }
+                        return null
+                      },
                     }}
                   />
                 </div>
@@ -320,16 +325,13 @@ export default function ChatInterface({ chatId, initialMessages }: ChatInterface
         <button
           onClick={handleVoiceChatToggle}
           className={cn(
-            "w-14 h-14 rounded-full shadow-lg transition-all duration-300 flex items-center justify-center",
-            isVoiceChatOpen 
-              ? "bg-red-500 hover:bg-red-600 text-white scale-110" 
-              : "bg-gradient-to-br from-rose-500 to-purple-600 hover:from-rose-600 hover:to-purple-700 text-white hover:scale-110"
+            'w-14 h-14 rounded-full shadow-lg transition-all duration-300 flex items-center justify-center',
+            isVoiceChatOpen
+              ? 'bg-red-500 hover:bg-red-600 text-white scale-110'
+              : 'bg-gradient-to-br from-rose-500 to-purple-600 hover:from-rose-600 hover:to-purple-700 text-white hover:scale-110',
           )}
         >
-          <Phone className={cn(
-            "w-6 h-6 transition-transform",
-            isVoiceChatOpen && "rotate-45"
-          )} />
+          <Phone className={cn('w-6 h-6 transition-transform', isVoiceChatOpen && 'rotate-45')} />
         </button>
       </div>
 

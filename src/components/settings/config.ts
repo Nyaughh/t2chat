@@ -8,4 +8,4 @@ export const settingsSections = [
   { id: 'data', label: 'Manage Data', icon: Database },
 ] as const
 
-export type SettingsSection = (typeof settingsSections)[number]['id'] 
+export type SettingsSection = (typeof settingsSections)[number]['id']

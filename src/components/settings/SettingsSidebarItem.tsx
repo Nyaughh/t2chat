@@ -74,14 +74,12 @@ export function SettingsSidebarItem({ section, isActive, onClick, isMobile }: Se
       {!isActive && (
         <div className="absolute inset-0 bg-gradient-to-r from-transparent via-rose-500/3 dark:via-rose-300/3 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-150"></div>
       )}
-      
+
       {/* Icon */}
       <section.icon className="w-4 h-4 relative z-10" />
-      
+
       {/* Label */}
-      <span className="text-sm relative z-10">
-        {section.label}
-      </span>
+      <span className="text-sm relative z-10">{section.label}</span>
     </div>
   )
-} 
+}

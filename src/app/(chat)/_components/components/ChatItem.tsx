@@ -33,7 +33,15 @@ interface ChatItemProps {
   onShare: (chatId: string) => void
 }
 
-export const ChatItem = memo(function ChatItem({ chat, currentChatId, totalChats, onSelect, onDelete, onRename, onShare }: ChatItemProps) {
+export const ChatItem = memo(function ChatItem({
+  chat,
+  currentChatId,
+  totalChats,
+  onSelect,
+  onDelete,
+  onRename,
+  onShare,
+}: ChatItemProps) {
   const isActive = chat.id === currentChatId
   const [dropdownOpen, setDropdownOpen] = useState(false)
 
@@ -91,9 +99,7 @@ export const ChatItem = memo(function ChatItem({ chat, currentChatId, totalChats
                     <TooltipTrigger asChild>
                       <GitFork className="w-3 h-3 flex-shrink-0" />
                     </TooltipTrigger>
-                    <TooltipContent side="right">
-                      Branched conversation
-                    </TooltipContent>
+                    <TooltipContent side="right">Branched conversation</TooltipContent>
                   </Tooltip>
                 )}
                 <div className="text-sm truncate">{chat.title}</div>
@@ -114,101 +120,99 @@ export const ChatItem = memo(function ChatItem({ chat, currentChatId, totalChats
                         </button>
                       </DropdownMenuTrigger>
                     </TooltipTrigger>
-                    <TooltipContent side="right">
-                      More options
-                    </TooltipContent>
+                    <TooltipContent side="right">More options</TooltipContent>
                   </Tooltip>
-                  
-                  <DropdownMenuContent 
+
+                  <DropdownMenuContent
                     side="right"
                     align="start"
                     className={cn(
                       // Glass morphism background
-                      "bg-white/90 dark:bg-[oklch(0.15_0.015_25)]/90 backdrop-blur-2xl",
+                      'bg-white/90 dark:bg-[oklch(0.15_0.015_25)]/90 backdrop-blur-2xl',
                       // Border and shadow
-                      "border border-rose-500/20 dark:border-rose-300/20 shadow-2xl shadow-rose-500/10 dark:shadow-black/50",
+                      'border border-rose-500/20 dark:border-rose-300/20 shadow-2xl shadow-rose-500/10 dark:shadow-black/50',
                       // Rounded corners
-                      "rounded-2xl",
+                      'rounded-2xl',
                       // Padding and sizing
-                      "p-2 min-w-[180px]",
+                      'p-2 min-w-[180px]',
                       // Premium effects
-                      "relative overflow-hidden"
+                      'relative overflow-hidden',
                     )}
                   >
                     {/* Premium gradient overlays */}
                     <div className="absolute inset-0 bg-gradient-to-br from-rose-500/5 via-transparent to-rose-500/10 dark:from-rose-500/10 dark:via-transparent dark:to-rose-500/15 pointer-events-none rounded-2xl" />
                     <div className="absolute inset-0 bg-gradient-to-t from-transparent via-transparent to-white/10 dark:to-white/5 pointer-events-none rounded-2xl" />
-                    
+
                     <div className="relative z-10 space-y-1">
-                      <DropdownMenuItem 
+                      <DropdownMenuItem
                         onClick={(e) => {
                           e.stopPropagation()
                           onRename(chat.id, chat.title)
                           setDropdownOpen(false)
                         }}
                         className={cn(
-                          "text-black/80 dark:text-white/80 hover:text-rose-600 dark:hover:text-rose-300",
-                          "hover:bg-rose-500/10 dark:hover:bg-rose-300/10",
-                          "focus:bg-rose-500/10 dark:focus:bg-rose-300/10",
-                          "focus:text-rose-600 dark:focus:text-rose-300",
-                          "transition-all duration-150 cursor-pointer",
-                          "px-3 py-2.5 text-sm font-medium flex items-center gap-3",
-                          "rounded-xl outline-none ring-0 border-0",
+                          'text-black/80 dark:text-white/80 hover:text-rose-600 dark:hover:text-rose-300',
+                          'hover:bg-rose-500/10 dark:hover:bg-rose-300/10',
+                          'focus:bg-rose-500/10 dark:focus:bg-rose-300/10',
+                          'focus:text-rose-600 dark:focus:text-rose-300',
+                          'transition-all duration-150 cursor-pointer',
+                          'px-3 py-2.5 text-sm font-medium flex items-center gap-3',
+                          'rounded-xl outline-none ring-0 border-0',
                           // Remove any focus rings or blue colors
-                          "focus-visible:ring-0 focus-visible:ring-offset-0 focus:ring-0"
+                          'focus-visible:ring-0 focus-visible:ring-offset-0 focus:ring-0',
                         )}
                       >
                         <Edit className="w-4 h-4" />
                         <span>Rename</span>
                       </DropdownMenuItem>
-                      
-                      <DropdownMenuItem 
+
+                      <DropdownMenuItem
                         onClick={(e) => {
                           e.stopPropagation()
                           onShare(chat.id)
                           setDropdownOpen(false)
                         }}
                         className={cn(
-                          "text-black/80 dark:text-white/80 hover:text-rose-600 dark:hover:text-rose-300",
-                          "hover:bg-rose-500/10 dark:hover:bg-rose-300/10",
-                          "focus:bg-rose-500/10 dark:focus:bg-rose-300/10",
-                          "focus:text-rose-600 dark:focus:text-rose-300",
-                          "transition-all duration-150 cursor-pointer",
-                          "px-3 py-2.5 text-sm font-medium flex items-center gap-3",
-                          "rounded-xl outline-none ring-0 border-0",
+                          'text-black/80 dark:text-white/80 hover:text-rose-600 dark:hover:text-rose-300',
+                          'hover:bg-rose-500/10 dark:hover:bg-rose-300/10',
+                          'focus:bg-rose-500/10 dark:focus:bg-rose-300/10',
+                          'focus:text-rose-600 dark:focus:text-rose-300',
+                          'transition-all duration-150 cursor-pointer',
+                          'px-3 py-2.5 text-sm font-medium flex items-center gap-3',
+                          'rounded-xl outline-none ring-0 border-0',
                           // Remove any focus rings or blue colors
-                          "focus-visible:ring-0 focus-visible:ring-offset-0 focus:ring-0"
+                          'focus-visible:ring-0 focus-visible:ring-offset-0 focus:ring-0',
                         )}
                       >
                         <Share2 className="w-4 h-4" />
                         <span>Share</span>
                       </DropdownMenuItem>
-                      
+
                       <DropdownMenuSeparator className="my-2 mx-2 h-px bg-gradient-to-r from-transparent via-rose-500/20 dark:via-rose-300/20 to-transparent border-0" />
-                      
-                      <DropdownMenuItem 
+
+                      <DropdownMenuItem
                         onClick={(e) => {
                           e.stopPropagation()
                           onDelete(chat.id)
                           setDropdownOpen(false)
                         }}
                         className={cn(
-                          "text-red-500 dark:text-red-400 hover:text-red-600 dark:hover:text-red-300",
-                          "hover:bg-red-500/10 dark:hover:bg-red-400/10",
-                          "focus:bg-red-500/10 dark:focus:bg-red-400/10",
-                          "focus:text-red-600 dark:focus:text-red-300",
-                          "transition-all duration-150 cursor-pointer",
-                          "px-3 py-2.5 text-sm font-medium flex items-center gap-3",
-                          "rounded-xl outline-none ring-0 border-0",
+                          'text-red-500 dark:text-red-400 hover:text-red-600 dark:hover:text-red-300',
+                          'hover:bg-red-500/10 dark:hover:bg-red-400/10',
+                          'focus:bg-red-500/10 dark:focus:bg-red-400/10',
+                          'focus:text-red-600 dark:focus:text-red-300',
+                          'transition-all duration-150 cursor-pointer',
+                          'px-3 py-2.5 text-sm font-medium flex items-center gap-3',
+                          'rounded-xl outline-none ring-0 border-0',
                           // Remove any focus rings or blue colors
-                          "focus-visible:ring-0 focus-visible:ring-offset-0 focus:ring-0"
+                          'focus-visible:ring-0 focus-visible:ring-offset-0 focus:ring-0',
                         )}
                       >
                         <X className="w-4 h-4" />
                         <span>Delete</span>
                       </DropdownMenuItem>
                     </div>
-                    
+
                     {/* Premium glow effect */}
                     <div className="absolute inset-0 -z-10 bg-gradient-to-r from-rose-300/0 via-rose-300/15 to-rose-300/0 rounded-2xl blur-2xl opacity-0 dark:opacity-30 pointer-events-none" />
                   </DropdownMenuContent>
@@ -218,92 +222,92 @@ export const ChatItem = memo(function ChatItem({ chat, currentChatId, totalChats
           </div>
         </ContextMenuTrigger>
 
-        <ContextMenuContent 
+        <ContextMenuContent
           className={cn(
             // Glass morphism background
-            "bg-white/90 dark:bg-[oklch(0.15_0.015_25)]/90 backdrop-blur-2xl",
+            'bg-white/90 dark:bg-[oklch(0.15_0.015_25)]/90 backdrop-blur-2xl',
             // Border and shadow
-            "border border-rose-500/20 dark:border-rose-300/20 shadow-2xl shadow-rose-500/10 dark:shadow-black/50",
+            'border border-rose-500/20 dark:border-rose-300/20 shadow-2xl shadow-rose-500/10 dark:shadow-black/50',
             // Rounded corners
-            "rounded-2xl",
+            'rounded-2xl',
             // Padding and sizing
-            "p-2 min-w-[200px]",
+            'p-2 min-w-[200px]',
             // Animation override
-            "data-[state=open]:animate-in data-[state=closed]:animate-out",
-            "data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
-            "data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95",
-            "data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2",
-            "data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2",
+            'data-[state=open]:animate-in data-[state=closed]:animate-out',
+            'data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0',
+            'data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95',
+            'data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2',
+            'data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2',
             // Premium effects
-            "relative overflow-hidden"
+            'relative overflow-hidden',
           )}
         >
           {/* Premium gradient overlays */}
           <div className="absolute inset-0 bg-gradient-to-br from-rose-500/5 via-transparent to-rose-500/10 dark:from-rose-500/10 dark:via-transparent dark:to-rose-500/15 pointer-events-none rounded-2xl" />
           <div className="absolute inset-0 bg-gradient-to-t from-transparent via-transparent to-white/10 dark:to-white/5 pointer-events-none rounded-2xl" />
-          
+
           <div className="relative z-10 space-y-1">
-            <ContextMenuItem 
+            <ContextMenuItem
               onClick={() => onRename(chat.id, chat.title)}
               className={cn(
-                "text-black/80 dark:text-white/80 hover:text-rose-600 dark:hover:text-rose-300",
-                "hover:bg-rose-500/10 dark:hover:bg-rose-300/10",
-                "focus:bg-rose-500/10 dark:focus:bg-rose-300/10",
-                "focus:text-rose-600 dark:focus:text-rose-300",
-                "transition-all duration-150 cursor-pointer",
-                "px-3 py-2.5 text-sm font-medium flex items-center gap-3",
-                "rounded-xl outline-none ring-0 border-0",
+                'text-black/80 dark:text-white/80 hover:text-rose-600 dark:hover:text-rose-300',
+                'hover:bg-rose-500/10 dark:hover:bg-rose-300/10',
+                'focus:bg-rose-500/10 dark:focus:bg-rose-300/10',
+                'focus:text-rose-600 dark:focus:text-rose-300',
+                'transition-all duration-150 cursor-pointer',
+                'px-3 py-2.5 text-sm font-medium flex items-center gap-3',
+                'rounded-xl outline-none ring-0 border-0',
                 // Remove any focus rings or blue colors
-                "focus-visible:ring-0 focus-visible:ring-offset-0 focus:ring-0"
+                'focus-visible:ring-0 focus-visible:ring-offset-0 focus:ring-0',
               )}
             >
               <Edit className="w-4 h-4" />
               <span>Rename</span>
             </ContextMenuItem>
-            
-            <ContextMenuItem 
+
+            <ContextMenuItem
               onClick={() => onShare(chat.id)}
               className={cn(
-                "text-black/80 dark:text-white/80 hover:text-rose-600 dark:hover:text-rose-300",
-                "hover:bg-rose-500/10 dark:hover:bg-rose-300/10",
-                "focus:bg-rose-500/10 dark:focus:bg-rose-300/10",
-                "focus:text-rose-600 dark:focus:text-rose-300",
-                "transition-all duration-150 cursor-pointer",
-                "px-3 py-2.5 text-sm font-medium flex items-center gap-3",
-                "rounded-xl outline-none ring-0 border-0",
+                'text-black/80 dark:text-white/80 hover:text-rose-600 dark:hover:text-rose-300',
+                'hover:bg-rose-500/10 dark:hover:bg-rose-300/10',
+                'focus:bg-rose-500/10 dark:focus:bg-rose-300/10',
+                'focus:text-rose-600 dark:focus:text-rose-300',
+                'transition-all duration-150 cursor-pointer',
+                'px-3 py-2.5 text-sm font-medium flex items-center gap-3',
+                'rounded-xl outline-none ring-0 border-0',
                 // Remove any focus rings or blue colors
-                "focus-visible:ring-0 focus-visible:ring-offset-0 focus:ring-0"
+                'focus-visible:ring-0 focus-visible:ring-offset-0 focus:ring-0',
               )}
             >
               <Share2 className="w-4 h-4" />
               <span>Share</span>
             </ContextMenuItem>
-            
+
             <ContextMenuSeparator className="my-2 mx-2 h-px bg-gradient-to-r from-transparent via-rose-500/20 dark:via-rose-300/20 to-transparent border-0" />
-            
-            <ContextMenuItem 
+
+            <ContextMenuItem
               onClick={() => onDelete(chat.id)}
               className={cn(
-                "text-red-500 dark:text-red-400 hover:text-red-600 dark:hover:text-red-300",
-                "hover:bg-red-500/10 dark:hover:bg-red-400/10",
-                "focus:bg-red-500/10 dark:focus:bg-red-400/10",
-                "focus:text-red-600 dark:focus:text-red-300",
-                "transition-all duration-150 cursor-pointer",
-                "px-3 py-2.5 text-sm font-medium flex items-center gap-3",
-                "rounded-xl outline-none ring-0 border-0",
+                'text-red-500 dark:text-red-400 hover:text-red-600 dark:hover:text-red-300',
+                'hover:bg-red-500/10 dark:hover:bg-red-400/10',
+                'focus:bg-red-500/10 dark:focus:bg-red-400/10',
+                'focus:text-red-600 dark:focus:text-red-300',
+                'transition-all duration-150 cursor-pointer',
+                'px-3 py-2.5 text-sm font-medium flex items-center gap-3',
+                'rounded-xl outline-none ring-0 border-0',
                 // Remove any focus rings or blue colors
-                "focus-visible:ring-0 focus-visible:ring-offset-0 focus:ring-0"
+                'focus-visible:ring-0 focus-visible:ring-offset-0 focus:ring-0',
               )}
             >
               <X className="w-4 h-4" />
               <span>Delete</span>
             </ContextMenuItem>
           </div>
-          
+
           {/* Premium glow effect */}
           <div className="absolute inset-0 -z-10 bg-gradient-to-r from-rose-300/0 via-rose-300/15 to-rose-300/0 rounded-2xl blur-2xl opacity-0 dark:opacity-30 pointer-events-none" />
         </ContextMenuContent>
       </ContextMenu>
     </>
   )
-}) 
+})

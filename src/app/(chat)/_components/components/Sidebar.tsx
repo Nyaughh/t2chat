@@ -57,9 +57,12 @@ export const Sidebar = memo(function Sidebar({
   onChatShare,
   onSettingsClick,
 }: SidebarProps) {
-  const handleSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    onSearchChange(e.target.value)
-  }, [onSearchChange])
+  const handleSearchChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      onSearchChange(e.target.value)
+    },
+    [onSearchChange],
+  )
 
   return (
     <div
@@ -135,11 +138,7 @@ export const Sidebar = memo(function Sidebar({
         onChatShare={onChatShare}
       />
 
-      <UserProfile
-        isSignedIn={isSignedIn}
-        userMetadata={userMetadata}
-        onSettingsClick={onSettingsClick}
-      />
+      <UserProfile isSignedIn={isSignedIn} userMetadata={userMetadata} onSettingsClick={onSettingsClick} />
     </div>
   )
-}) 
+})

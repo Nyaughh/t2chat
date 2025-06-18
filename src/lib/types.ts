@@ -1,4 +1,4 @@
-import type { CoreMessage } from 'ai';
+import type { CoreMessage } from 'ai'
 import type { Id } from '../../convex/_generated/dataModel'
 
 export interface UserMetadata {
@@ -26,16 +26,16 @@ export interface ClientMessage {
 
 // Server-side Convex types
 export interface ConvexChat {
-  _id: Id<"chats">
+  _id: Id<'chats'>
   title: string
   createdAt: number
   updatedAt: number
 }
 
 export interface ConvexMessage {
-  _id: Id<"messages">
-  chatId: Id<"chats">
-  role: "user" | "assistant"
+  _id: Id<'messages'>
+  chatId: Id<'chats'>
+  role: 'user' | 'assistant'
   content: string
   modelId?: string
   thinking?: string
@@ -47,8 +47,8 @@ export interface ConvexMessage {
 }
 
 export type ToolInvocation = {
-  toolName: string;
-  args: any;
-};
+  toolName: string
+  args: any
+}
 
-export type Message = ClientMessage;
+export type Message = ClientMessage

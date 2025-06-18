@@ -121,12 +121,12 @@ const CustomizationRadio = ({
       <Icon
         className={cn(
           'w-4 h-4 transition-all duration-200',
-          checked ? 'text-rose-600 dark:text-rose-400 drop-shadow-sm' : 'text-muted-foreground group-hover:text-foreground'
+          checked
+            ? 'text-rose-600 dark:text-rose-400 drop-shadow-sm'
+            : 'text-muted-foreground group-hover:text-foreground',
         )}
       />
-      {checked && (
-        <div className="absolute inset-0 bg-rose-500/20 blur-sm rounded-full scale-150 -z-10" />
-      )}
+      {checked && <div className="absolute inset-0 bg-rose-500/20 blur-sm rounded-full scale-150 -z-10" />}
     </div>
     <span
       className={cn(
@@ -163,12 +163,8 @@ const CustomizationFontRadio = ({
     )}
   >
     <input type="radio" name={name} value={value} checked={checked} onChange={onChange} className="sr-only" />
-    {checked && (
-      <div className="absolute inset-0 bg-gradient-to-r from-rose-500/5 via-rose-500/10 to-rose-500/5" />
-    )}
-    <span className={cn('text-sm font-semibold relative z-10 transition-all duration-200', fontClass)}>
-      {label}
-    </span>
+    {checked && <div className="absolute inset-0 bg-gradient-to-r from-rose-500/5 via-rose-500/10 to-rose-500/5" />}
+    <span className={cn('text-sm font-semibold relative z-10 transition-all duration-200', fontClass)}>{label}</span>
   </label>
 )
 
@@ -177,8 +173,8 @@ export function CustomizeSettings({ customization }: { customization: Customizat
   const [localCustomization, setLocalCustomization] = useState<CustomizationState>(customization)
   const [traitInput, setTraitInput] = useState('')
   const updateSettings = useMutation(api.users.updateUserSettings)
-  const [isSaving, setIsSaving] = useState(false);
-  const [isDirty, setIsDirty] = useState(false);
+  const [isSaving, setIsSaving] = useState(false)
+  const [isDirty, setIsDirty] = useState(false)
 
   useEffect(() => {
     setLocalCustomization({
@@ -187,31 +183,31 @@ export function CustomizeSettings({ customization }: { customization: Customizat
       codeFont,
     })
     // Reset dirty state when initial props change
-    setIsDirty(false);
+    setIsDirty(false)
   }, [customization, mainFont, codeFont])
 
   useEffect(() => {
     if (mainFont !== localCustomization.mainFont || codeFont !== localCustomization.codeFont) {
-        setLocalCustomization(prev => ({...prev, mainFont, codeFont}))
-        setIsDirty(true)
+      setLocalCustomization((prev) => ({ ...prev, mainFont, codeFont }))
+      setIsDirty(true)
     }
   }, [mainFont, codeFont, localCustomization.mainFont, localCustomization.codeFont])
 
   const handleChange = (field: keyof CustomizationState, value: any) => {
-    setLocalCustomization(prev => ({ ...prev, [field]: value }))
-    setIsDirty(true);
+    setLocalCustomization((prev) => ({ ...prev, [field]: value }))
+    setIsDirty(true)
   }
 
   const handleSave = async () => {
-    setIsSaving(true);
+    setIsSaving(true)
     try {
-        await updateSettings(localCustomization);
-        setIsDirty(false);
+      await updateSettings(localCustomization)
+      setIsDirty(false)
     } catch (error) {
-        console.error("Failed to save settings", error);
-        // Here you could add a toast notification for the error
+      console.error('Failed to save settings', error)
+      // Here you could add a toast notification for the error
     } finally {
-        setIsSaving(false);
+      setIsSaving(false)
     }
   }
 
@@ -236,18 +232,18 @@ export function CustomizeSettings({ customization }: { customization: Customizat
   }
 
   const handleMainFontChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newFont = e.target.value as 'inter' | 'system' | 'serif' | 'mono' | 'roboto-slab';
-    setMainFont(newFont);
+    const newFont = e.target.value as 'inter' | 'system' | 'serif' | 'mono' | 'roboto-slab'
+    setMainFont(newFont)
   }
 
   const handleCodeFontChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newFont = e.target.value as 'fira-code' | 'mono' | 'consolas' | 'jetbrains' | 'source-code-pro';
-    setCodeFont(newFont);
+    const newFont = e.target.value as 'fira-code' | 'mono' | 'consolas' | 'jetbrains' | 'source-code-pro'
+    setCodeFont(newFont)
   }
 
   const getMainFontPreviewClass = (font: 'inter' | 'system' | 'serif' | 'mono' | 'roboto-slab') => {
-    if (font === 'inter' || font === 'system') return 'font-sans';
-    return `font-${font}`;
+    if (font === 'inter' || font === 'system') return 'font-sans'
+    return `font-${font}`
   }
 
   return (
@@ -291,9 +287,7 @@ export function CustomizeSettings({ customization }: { customization: Customizat
             placeholder="e.g., Software Engineer, Student, etc."
           />
           <div>
-            <label className="block text-sm font-medium text-muted-foreground mb-3">
-              Your Interests/Traits
-            </label>
+            <label className="block text-sm font-medium text-muted-foreground mb-3">Your Interests/Traits</label>
             <div className="flex flex-wrap gap-2 mb-3">
               {localCustomization.userTraits.map((trait, index) => (
                 <div
@@ -372,9 +366,7 @@ export function CustomizeSettings({ customization }: { customization: Customizat
         </h3>
         <div className="space-y-6 p-4 rounded-xl bg-muted/20 backdrop-blur-sm border border-border/50">
           <div>
-            <label className="block text-sm font-medium text-muted-foreground mb-3">
-              Main Font
-            </label>
+            <label className="block text-sm font-medium text-muted-foreground mb-3">Main Font</label>
             <div className="grid grid-cols-2 gap-2">
               <CustomizationFontRadio
                 name="mainFont"
@@ -418,15 +410,13 @@ export function CustomizeSettings({ customization }: { customization: Customizat
               />
             </div>
             <div className="mt-3 p-4 rounded-lg bg-muted/40 border border-border/60 backdrop-blur-sm">
-              <p className={cn("text-base text-foreground", getMainFontPreviewClass(localCustomization.mainFont))}>
+              <p className={cn('text-base text-foreground', getMainFontPreviewClass(localCustomization.mainFont))}>
                 The quick brown fox jumps over the lazy dog.
               </p>
             </div>
           </div>
           <div>
-            <label className="block text-sm font-medium text-muted-foreground mb-3">
-              Code Font
-            </label>
+            <label className="block text-sm font-medium text-muted-foreground mb-3">Code Font</label>
             <div className="grid grid-cols-2 gap-2">
               <CustomizationFontRadio
                 name="codeFont"
@@ -470,11 +460,13 @@ export function CustomizeSettings({ customization }: { customization: Customizat
               />
             </div>
             <div className="mt-3 p-4 rounded-lg bg-muted/40 border border-border/60 backdrop-blur-sm">
-              <pre className="whitespace-pre-wrap"><code className={cn("text-sm text-foreground", `font-${localCustomization.codeFont}`)}>
-                {`function greet(name) {
+              <pre className="whitespace-pre-wrap">
+                <code className={cn('text-sm text-foreground', `font-${localCustomization.codeFont}`)}>
+                  {`function greet(name) {
   return \`Hello, \${name}!\`;
 }`}
-              </code></pre>
+                </code>
+              </pre>
             </div>
           </div>
         </div>
@@ -491,9 +483,7 @@ export function CustomizeSettings({ customization }: { customization: Customizat
         </h3>
         <div className="space-y-6 p-4 rounded-xl bg-muted/20 backdrop-blur-sm border border-border/50">
           <div>
-            <label className="block text-sm font-medium text-muted-foreground mb-3">
-              Send Message on Enter
-            </label>
+            <label className="block text-sm font-medium text-muted-foreground mb-3">Send Message on Enter</label>
             <div className="flex flex-wrap gap-2">
               <CustomizationRadio
                 name="sendBehavior"

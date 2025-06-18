@@ -11,12 +11,7 @@ import { useChatGroups } from './useChatGroups'
 export function useChatLayout() {
   const [mounted, setMounted] = useState(false)
   const { sidebarOpen, toggleSidebar } = useSidebar()
-  const {
-    chats: activeChats,
-    currentChatId,
-    deleteConversation,
-    unmigratedLocalChats,
-  } = useConversations()
+  const { chats: activeChats, currentChatId, deleteConversation, unmigratedLocalChats } = useConversations()
   const router = useRouter()
 
   const { onTouchStart, onTouchMove, onTouchEnd } = useTouch({
@@ -68,4 +63,4 @@ export function useChatLayout() {
     isOnHomePage,
     unmigratedLocalChats,
   }
-} 
+}

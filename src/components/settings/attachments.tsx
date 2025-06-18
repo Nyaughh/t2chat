@@ -7,4 +7,4 @@ export function AttachmentsSettings() {
       <p>Your uploaded attachments will be displayed here.</p>
     </div>
   )
-} 
+}

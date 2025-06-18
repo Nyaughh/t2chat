@@ -35,7 +35,7 @@ export function AccountSettings({ user }: AccountSettingsProps) {
             </div>
             Profile
           </h3>
-          
+
           <div className="flex items-center gap-6 p-6 rounded-xl bg-muted/20 backdrop-blur-sm border border-border/50">
             <div className="relative">
               <div className="w-20 h-20 rounded-full bg-gradient-to-br from-rose-500/20 to-rose-600/20 dark:from-rose-300/20 dark:to-rose-400/20 flex items-center justify-center flex-shrink-0 overflow-hidden">
@@ -72,7 +72,7 @@ export function AccountSettings({ user }: AccountSettingsProps) {
             </div>
             Privacy
           </h3>
-          
+
           <div className="space-y-4">
             <div className="flex items-center justify-between p-4 rounded-xl bg-muted/20 backdrop-blur-sm border border-border/50">
               <div className="flex items-center gap-3">
@@ -84,7 +84,7 @@ export function AccountSettings({ user }: AccountSettingsProps) {
               </div>
               <Switch checked={showName} onCheckedChange={setShowName} />
             </div>
-            
+
             <div className="flex items-center justify-between p-4 rounded-xl bg-muted/20 backdrop-blur-sm border border-border/50">
               <div className="flex items-center gap-3">
                 <Mail className="w-5 h-5 text-muted-foreground" />
@@ -101,4 +101,3 @@ export function AccountSettings({ user }: AccountSettingsProps) {
     </div>
   )
 }
-

@@ -27,15 +27,15 @@ export function useChatInterface(chatId?: string, initialMessages?: ConvexMessag
     userSettings,
   } = useConversations(chatId, initialMessages)
 
-  const messageActions = useMessageActions({ 
+  const messageActions = useMessageActions({
     onRetryMessage: handleRetryMessage,
-    onEditMessage: handleEditMessage 
+    onEditMessage: handleEditMessage,
   })
   const scrollToBottom = useScrollToBottom(activeMessages, isStreaming)
 
   const handleSend = (message: string, model: string, options: { webSearch?: boolean }) => {
     if (message.trim() || attachments.length > 0) {
-      const mappedAttachments = attachments.map(a => ({
+      const mappedAttachments = attachments.map((a) => ({
         name: a.name,
         type: a.type,
         size: a.size,
@@ -44,10 +44,10 @@ export function useChatInterface(chatId?: string, initialMessages?: ConvexMessag
       if (!currentChatId) {
         setIsNewChat(true)
       }
-      handleNewMessage(message, { 
-        attachments: mappedAttachments, 
+      handleNewMessage(message, {
+        attachments: mappedAttachments,
         modelId: model,
-        webSearch: options.webSearch 
+        webSearch: options.webSearch,
       })
       setInputValue('')
       setAttachments([])
@@ -79,21 +79,21 @@ export function useChatInterface(chatId?: string, initialMessages?: ConvexMessag
     isAuthenticated,
     mounted,
     userSettings,
-    
+
     // Attachments
     attachments,
     setAttachments,
-    
+
     // Actions
     handleSend,
     handlePromptClick,
     handleStopGeneration,
     isCurrentlyStreaming,
-    
+
     // Message actions
     ...messageActions,
-    
+
     // Scroll
     ...scrollToBottom,
   }
-} 
+}

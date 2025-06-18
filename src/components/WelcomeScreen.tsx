@@ -15,7 +15,7 @@ const allPrompts = [
   'What are the benefits and risks of AI?',
   'How does ChatGPT generate responses?',
   'What is the difference between AI and automation?',
-  
+
   // Science & Space
   'Are black holes real?',
   'How do stars form?',
@@ -23,21 +23,21 @@ const allPrompts = [
   'Explain quantum physics simply',
   'How big is the universe?',
   'What causes the northern lights?',
-  
+
   // Language & Logic
   'How many Rs are in the word "strawberry"?',
   'What are some common grammar mistakes?',
   'Explain the difference between "its" and "it\'s"',
   'What makes a good password?',
-  'How do you solve a Rubik\'s cube?',
-  
+  "How do you solve a Rubik's cube?",
+
   // Philosophy & Life
   'What is the meaning of life?',
   'What makes people happy?',
   'How do you overcome procrastination?',
   'What is consciousness?',
   'How do you build good habits?',
-  
+
   // Practical & Creative
   'Write a short story about time travel',
   'How do you make a perfect cup of coffee?',
@@ -45,14 +45,14 @@ const allPrompts = [
   'Help me plan a weekend trip',
   'How do you learn a new language effectively?',
   'What are some creative writing prompts?',
-  
+
   // Technology & Programming
   'Explain APIs in simple terms',
   'What is cloud computing?',
   'How does the internet work?',
   'What programming language should I learn first?',
   'How do you stay safe online?',
-  
+
   // Business & Career
   'How do you write a good resume?',
   'What makes a great leader?',
@@ -61,14 +61,14 @@ const allPrompts = [
   'How do you manage your time effectively?',
 ]
 
-function PromptItem({ prompt, onClick }: { prompt: string, onClick: () => void }) {
+function PromptItem({ prompt, onClick }: { prompt: string; onClick: () => void }) {
   return (
     <div
       onClick={onClick}
       className={cn(
         'group p-3 md:p-4 cursor-pointer transition-all duration-150 ease-[0.25,1,0.5,1] relative overflow-hidden',
         'hover:text-rose-600 dark:hover:text-rose-300 text-black/70 dark:text-white/70',
-        'rounded-lg'
+        'rounded-lg',
       )}
     >
       <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-150 ease-[0.25,1,0.5,1]">
@@ -105,18 +105,16 @@ export default function WelcomeScreen({ onPromptClick }: WelcomeScreenProps) {
       <div className="max-w-md w-full text-left">
         <div className="mt-8">
           <div className="px-3 mb-4">
-            <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-2 whitespace-nowrap">How can I help you?</h1>
+            <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-2 whitespace-nowrap">
+              How can I help you?
+            </h1>
             <h3 className="text-xs font-medium text-black/50 dark:text-white/50 uppercase tracking-wider">
               Here are some prompts to help you get started.
             </h3>
           </div>
           <div className="divide-y divide-rose-500/10 dark:divide-rose-300/10">
             {randomPrompts.map((prompt, i) => (
-              <PromptItem
-                key={`${prompt}-${i}`}
-                prompt={prompt}
-                onClick={() => onPromptClick(prompt)}
-              />
+              <PromptItem key={`${prompt}-${i}`} prompt={prompt} onClick={() => onPromptClick(prompt)} />
             ))}
           </div>
         </div>

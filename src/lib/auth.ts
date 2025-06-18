@@ -24,9 +24,8 @@ export const auth = betterAuth({
   plugins: [admin(), nextCookies()],
 })
 
-
 export const signInWithDiscord = async () => {
-  "use server"
+  'use server'
   return await auth.api.signInSocial({
     body: {
       provider: 'discord',
@@ -35,7 +34,7 @@ export const signInWithDiscord = async () => {
 }
 
 export const signInWithGithub = async () => {
-  "use server"
+  'use server'
   return await auth.api.signInSocial({
     body: {
       provider: 'github',

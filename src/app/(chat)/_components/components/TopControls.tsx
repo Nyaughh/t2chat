@@ -52,15 +52,11 @@ export function TopControls({
                   <Settings className="w-4.5 h-4.5" />
                 </button>
               </TooltipTrigger>
-              <TooltipContent side="bottom">
-                {isSignedIn ? 'Settings' : 'Sign in to access settings'}
-              </TooltipContent>
+              <TooltipContent side="bottom">{isSignedIn ? 'Settings' : 'Sign in to access settings'}</TooltipContent>
             </Tooltip>
-            
+
             {/* Vertical divider */}
             <div className="relative z-10 w-px h-4.5 bg-rose-500/20 dark:bg-rose-300/20"></div>
-
-
           </div>
 
           <ThemeSwitcher />
@@ -71,12 +67,7 @@ export function TopControls({
       </div>
 
       {/* Menu and New Chat buttons for mobile/collapsed sidebar */}
-      <div
-        className={cn(
-          'absolute top-2.5 left-2.5 z-30',
-          effectiveSidebarOpen ? 'md:opacity-0' : 'opacity-100',
-        )}
-      >
+      <div className={cn('absolute top-2.5 left-2.5 z-30', effectiveSidebarOpen ? 'md:opacity-0' : 'opacity-100')}>
         <div className="group relative p-2 rounded-lg bg-white/70 dark:bg-[oklch(0.18_0.015_25)]/30 backdrop-blur-xl border border-rose-500/10 dark:border-white/10 hover:border-rose-500/20 dark:hover:border-rose-300/20 shadow-lg shadow-rose-500/5 dark:shadow-lg dark:shadow-black/20 hover:shadow-xl hover:shadow-rose-500/10 dark:hover:shadow-rose-500/10 flex items-center gap-1.5">
           {/* Gradient overlays for premium look */}
           <div className="absolute inset-0 bg-gradient-to-br from-rose-500/5 via-transparent to-rose-500/10 dark:from-rose-500/10 dark:via-transparent dark:to-rose-500/20 pointer-events-none rounded-lg"></div>
@@ -91,9 +82,7 @@ export function TopControls({
                 <Menu className="w-4.5 h-4.5" />
               </button>
             </TooltipTrigger>
-            <TooltipContent side="bottom">
-              Toggle sidebar
-            </TooltipContent>
+            <TooltipContent side="bottom">Toggle sidebar</TooltipContent>
           </Tooltip>
 
           {/* Vertical divider */}
@@ -112,9 +101,7 @@ export function TopControls({
                 <Plus className="w-4.5 h-4.5" />
               </button>
             </TooltipTrigger>
-            <TooltipContent side="bottom">
-              {isOnHomePage ? 'Already on home page' : 'New conversation'}
-            </TooltipContent>
+            <TooltipContent side="bottom">{isOnHomePage ? 'Already on home page' : 'New conversation'}</TooltipContent>
           </Tooltip>
 
           {/* Premium glow effect in dark mode */}
@@ -123,4 +110,4 @@ export function TopControls({
       </div>
     </>
   )
-} 
+}

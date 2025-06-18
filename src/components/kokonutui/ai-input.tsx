@@ -5,7 +5,25 @@ import type React from 'react'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { cn } from '@/lib/utils'
 import { useAutoResizeTextarea } from '@/hooks/resize-textarea'
-import { ArrowUpCircle, Paperclip, Globe, ChevronDown, Sparkles, Lightbulb, Plus, Square, X, FileText, Image, Upload, ArrowRight, Mic, Eye, Code, MountainIcon } from 'lucide-react'
+import {
+  ArrowUpCircle,
+  Paperclip,
+  Globe,
+  ChevronDown,
+  Sparkles,
+  Lightbulb,
+  Plus,
+  Square,
+  X,
+  FileText,
+  Image,
+  Upload,
+  ArrowRight,
+  Mic,
+  Eye,
+  Code,
+  MountainIcon,
+} from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { ModelInfo, models } from '@/lib/models'
 import { useQuery } from 'convex/react'
@@ -94,100 +112,100 @@ export default function AIInput({
   })
   const uploadButtonRef = useRef<HTMLDivElement>(null)
 
-  const [isListening, setIsListening] = useState(false);
-  const recognitionRef = useRef<any>(null);
-  const originalTextRef = useRef('');
+  const [isListening, setIsListening] = useState(false)
+  const recognitionRef = useRef<any>(null)
+  const originalTextRef = useRef('')
 
   const apiKeys = useQuery(api.api_keys.getApiKeys) || []
-  
+
   // Check if user has API keys for each provider
-  const hasGeminiKey = useQuery(api.api_keys.hasApiKeyForProvider, { provider: "gemini" }) ?? false
-  const hasGroqKey = useQuery(api.api_keys.hasApiKeyForProvider, { provider: "groq" }) ?? false
-  const hasOpenRouterKey = useQuery(api.api_keys.hasApiKeyForProvider, { provider: "openrouter" }) ?? false
+  const hasGeminiKey = useQuery(api.api_keys.hasApiKeyForProvider, { provider: 'gemini' }) ?? false
+  const hasGroqKey = useQuery(api.api_keys.hasApiKeyForProvider, { provider: 'groq' }) ?? false
+  const hasOpenRouterKey = useQuery(api.api_keys.hasApiKeyForProvider, { provider: 'openrouter' }) ?? false
 
   // Speech Recognition setup
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (typeof window === 'undefined') return
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
     if (!SpeechRecognition) {
-      console.warn("Speech recognition not supported in this browser.");
-      return;
+      console.warn('Speech recognition not supported in this browser.')
+      return
     }
 
-    const recognition = new SpeechRecognition();
-    recognition.continuous = true;
-    recognition.interimResults = true;
-    recognition.lang = 'en-US';
+    const recognition = new SpeechRecognition()
+    recognition.continuous = true
+    recognition.interimResults = true
+    recognition.lang = 'en-US'
 
     recognition.onresult = (event: any) => {
-      let final_transcript = '';
-      let interim_transcript = '';
+      let final_transcript = ''
+      let interim_transcript = ''
 
       for (let i = 0; i < event.results.length; ++i) {
         if (event.results[i].isFinal) {
-          final_transcript += event.results[i][0].transcript;
+          final_transcript += event.results[i][0].transcript
         } else {
-          interim_transcript += event.results[i][0].transcript;
+          interim_transcript += event.results[i][0].transcript
         }
       }
-      
-      onValueChange(originalTextRef.current + final_transcript + interim_transcript);
-      adjustHeight();
-    };
+
+      onValueChange(originalTextRef.current + final_transcript + interim_transcript)
+      adjustHeight()
+    }
 
     recognition.onend = () => {
-      setIsListening(false);
-    };
+      setIsListening(false)
+    }
 
     recognition.onerror = (event: any) => {
-      console.error("Speech recognition error", event.error);
-      setIsListening(false);
-    };
-    
-    recognitionRef.current = recognition;
+      console.error('Speech recognition error', event.error)
+      setIsListening(false)
+    }
+
+    recognitionRef.current = recognition
 
     return () => {
-      recognition.stop();
-    };
-  }, [onValueChange, adjustHeight]);
+      recognition.stop()
+    }
+  }, [onValueChange, adjustHeight])
 
   const handleToggleListening = () => {
     if (isListening) {
-      recognitionRef.current?.stop();
+      recognitionRef.current?.stop()
     } else {
-      originalTextRef.current = value ? value + ' ' : '';
-      recognitionRef.current?.start();
+      originalTextRef.current = value ? value + ' ' : ''
+      recognitionRef.current?.start()
     }
-    setIsListening(!isListening);
-  };
+    setIsListening(!isListening)
+  }
 
   // Function to check if a model is available to the user
   const isModelAvailable = (model: ModelInfo) => {
     // If user is not signed in, only free models are available
     if (!isSignedIn && !model.isFree) {
-      return false;
+      return false
     }
 
     // If model requires API key and user doesn't have one for that provider, disable it
     if (model.isApiKeyOnly) {
       switch (model.provider) {
         case 'gemini':
-          return hasGeminiKey;
+          return hasGeminiKey
         case 'groq':
-          return hasGroqKey;
+          return hasGroqKey
         case 'openrouter':
-          return hasOpenRouterKey;
+          return hasOpenRouterKey
         default:
-          return false;
+          return false
       }
     }
 
-    return true;
-  };
+    return true
+  }
 
   // Show all models but filter available ones for selection fallback
-  const availableModels = models.filter(isModelAvailable);
-  
+  const availableModels = models.filter(isModelAvailable)
+
   const supportsAttachments = selectedModel.attachmentsSuppport.image || selectedModel.attachmentsSuppport.pdf
   const maxFiles = 2
 
@@ -197,12 +215,12 @@ export default function AIInput({
     if (savedThinkingEnabled !== null) {
       setThinkingEnabled(savedThinkingEnabled === 'true')
     }
-    
+
     const savedWebSearchEnabled = localStorage.getItem('webSearchEnabled')
     if (savedWebSearchEnabled !== null) {
       setWebSearchEnabled(savedWebSearchEnabled === 'true')
     }
-    
+
     const savedGroupBy = localStorage.getItem('groupBy')
     if (savedGroupBy === 'provider' || savedGroupBy === 'category') {
       setGroupBy(savedGroupBy)
@@ -227,22 +245,25 @@ export default function AIInput({
   // If selected model is no longer available, switch to a default available one
   useEffect(() => {
     if (!isModelAvailable(selectedModel) && availableModels.length > 0) {
-      setSelectedModel(availableModels[0]);
+      setSelectedModel(availableModels[0])
     }
-  }, [selectedModel, availableModels, setSelectedModel]);
+  }, [selectedModel, availableModels, setSelectedModel])
 
   useEffect(() => {
-    adjustHeight();
-  }, [value, adjustHeight]);
+    adjustHeight()
+  }, [value, adjustHeight])
 
   // Drag and drop handlers
-  const handleDragOver = useCallback((e: React.DragEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    if (supportsAttachments && attachments.length < maxFiles) {
-      setIsDragOver(true)
-    }
-  }, [supportsAttachments, attachments.length, maxFiles])
+  const handleDragOver = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault()
+      e.stopPropagation()
+      if (supportsAttachments && attachments.length < maxFiles) {
+        setIsDragOver(true)
+      }
+    },
+    [supportsAttachments, attachments.length, maxFiles],
+  )
 
   const handleDragLeave = useCallback((e: React.DragEvent) => {
     e.preventDefault()
@@ -250,36 +271,39 @@ export default function AIInput({
     setIsDragOver(false)
   }, [])
 
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    setIsDragOver(false)
+  const handleDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault()
+      e.stopPropagation()
+      setIsDragOver(false)
 
-    if (!supportsAttachments || attachments.length >= maxFiles) return
+      if (!supportsAttachments || attachments.length >= maxFiles) return
 
-    const files = Array.from(e.dataTransfer.files)
-    const remainingSlots = maxFiles - attachments.length
-    const filesToAdd = files.slice(0, remainingSlots)
+      const files = Array.from(e.dataTransfer.files)
+      const remainingSlots = maxFiles - attachments.length
+      const filesToAdd = files.slice(0, remainingSlots)
 
-    // Filter files based on model support
-    const supportedFiles = filesToAdd.filter(file => {
-      const isImage = selectedModel.attachmentsSuppport.image && file.type.startsWith('image/')
-      const isPdf = selectedModel.attachmentsSuppport.pdf && file.type === 'application/pdf'
-      return isImage || isPdf
-    })
+      // Filter files based on model support
+      const supportedFiles = filesToAdd.filter((file) => {
+        const isImage = selectedModel.attachmentsSuppport.image && file.type.startsWith('image/')
+        const isPdf = selectedModel.attachmentsSuppport.pdf && file.type === 'application/pdf'
+        return isImage || isPdf
+      })
 
-    // Try to trigger the upload button
-    if (uploadButtonRef.current && supportedFiles.length > 0) {
-      const button = uploadButtonRef.current.querySelector('input[type="file"]')
-      
-      if (button) {
-        const dt = new DataTransfer()
-        supportedFiles.forEach(file => dt.items.add(file))
-        ;(button as HTMLInputElement).files = dt.files
-        button.dispatchEvent(new Event('change', { bubbles: true }))
+      // Try to trigger the upload button
+      if (uploadButtonRef.current && supportedFiles.length > 0) {
+        const button = uploadButtonRef.current.querySelector('input[type="file"]')
+
+        if (button) {
+          const dt = new DataTransfer()
+          supportedFiles.forEach((file) => dt.items.add(file))
+          ;(button as HTMLInputElement).files = dt.files
+          button.dispatchEvent(new Event('change', { bubbles: true }))
+        }
       }
-    }
-  }, [supportsAttachments, attachments.length, maxFiles, selectedModel])
+    },
+    [supportsAttachments, attachments.length, maxFiles, selectedModel],
+  )
 
   const handleSend = () => {
     if (value.trim() && onSend && !isTyping) {
@@ -357,10 +381,10 @@ export default function AIInput({
 
   return (
     <div className="relative">
-      <div 
+      <div
         className={cn(
-          "relative flex flex-col bg-white/70 dark:bg-[oklch(0.18_0.015_25)]/30 backdrop-blur-xl border border-rose-500/10 dark:border-white/10 overflow-visible rounded-2xl shadow-lg shadow-rose-500/5 dark:shadow-lg dark:shadow-black/20 transition-all duration-200",
-          isDragOver && "border-rose-500/30 dark:border-rose-300/30 bg-rose-500/5 dark:bg-rose-300/5"
+          'relative flex flex-col bg-white/70 dark:bg-[oklch(0.18_0.015_25)]/30 backdrop-blur-xl border border-rose-500/10 dark:border-white/10 overflow-visible rounded-2xl shadow-lg shadow-rose-500/5 dark:shadow-lg dark:shadow-black/20 transition-all duration-200',
+          isDragOver && 'border-rose-500/30 dark:border-rose-300/30 bg-rose-500/5 dark:bg-rose-300/5',
         )}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
@@ -388,11 +412,7 @@ export default function AIInput({
             <div className="flex items-center gap-2 mb-2">
               <span className="text-xs font-medium text-rose-600 dark:text-rose-300">
                 Attachments ({attachments.length}/{maxFiles})
-                {isUploading && (
-                  <span className="ml-2 text-rose-500/70 dark:text-rose-300/70">
-                    Uploading...
-                  </span>
-                )}
+                {isUploading && <span className="ml-2 text-rose-500/70 dark:text-rose-300/70">Uploading...</span>}
               </span>
             </div>
             <div className="flex flex-wrap gap-2 pb-2">
@@ -405,8 +425,8 @@ export default function AIInput({
                     <div className="flex items-center gap-2">
                       <Image className="w-4 h-4 text-rose-500/70 dark:text-rose-300/70" />
                       {attachment.url && (
-                        <img 
-                          src={attachment.url} 
+                        <img
+                          src={attachment.url}
                           alt={attachment.name}
                           className="w-8 h-8 object-cover rounded border border-rose-500/20 dark:border-white/20"
                         />
@@ -433,7 +453,7 @@ export default function AIInput({
                   )}
                 </div>
               ))}
-              
+
               {/* Upload Progress Items */}
               {Object.entries(uploadProgress).map(([fileName, progress]) => (
                 <div
@@ -458,14 +478,12 @@ export default function AIInput({
                     </span>
                     <div className="flex items-center gap-2">
                       <div className="flex-1 bg-rose-200/50 dark:bg-rose-800/30 rounded-full h-1.5 overflow-hidden">
-                        <div 
+                        <div
                           className="h-full bg-rose-500 dark:bg-rose-400 transition-all duration-300 ease-out"
                           style={{ width: `${progress}%` }}
                         />
                       </div>
-                      <span className="text-rose-500/70 dark:text-rose-300/70 text-xs">
-                        {Math.round(progress)}%
-                      </span>
+                      <span className="text-rose-500/70 dark:text-rose-300/70 text-xs">{Math.round(progress)}%</span>
                     </div>
                   </div>
                 </div>
@@ -578,15 +596,13 @@ export default function AIInput({
                               }}
                               className={cn(
                                 'relative w-8 h-4 rounded-full transition-colors duration-200',
-                                thinkingEnabled 
-                                  ? 'bg-rose-500 dark:bg-rose-400' 
-                                  : 'bg-rose-200 dark:bg-rose-800'
+                                thinkingEnabled ? 'bg-rose-500 dark:bg-rose-400' : 'bg-rose-200 dark:bg-rose-800',
                               )}
                             >
                               <div
                                 className={cn(
                                   'absolute top-0.5 left-0.5 w-3 h-3 bg-white rounded-full transition-transform duration-200',
-                                  thinkingEnabled ? 'translate-x-4' : 'translate-x-0'
+                                  thinkingEnabled ? 'translate-x-4' : 'translate-x-0',
                                 )}
                               />
                             </button>
@@ -608,7 +624,7 @@ export default function AIInput({
                         </div>
                       </div>
 
-                                              <div
+                      <div
                         className="max-h-[300px] overflow-y-auto"
                         style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgb(244 63 94 / 0.3) transparent' }}
                       >
@@ -649,22 +665,20 @@ export default function AIInput({
                                     selectedModel.id === model.id
                                       ? 'text-rose-600 dark:text-rose-300'
                                       : 'hover:text-rose-600 dark:hover:text-rose-300 text-black/70 dark:text-white/70',
-                                    (!thinkingEnabled && model.supportsThinking) && 'opacity-40 cursor-not-allowed',
+                                    !thinkingEnabled && model.supportsThinking && 'opacity-40 cursor-not-allowed',
                                     !isModelAvailable(model) && 'opacity-40 cursor-not-allowed',
                                   )}
-                                  disabled={
-                                    (!thinkingEnabled && model.supportsThinking) || !isModelAvailable(model)
-                                  }
+                                  disabled={(!thinkingEnabled && model.supportsThinking) || !isModelAvailable(model)}
                                   title={
                                     !isModelAvailable(model)
                                       ? model.isApiKeyOnly
                                         ? `Requires ${model.provider} API key`
                                         : !isSignedIn && !model.isFree
-                                        ? 'Sign in required'
-                                        : 'Not available'
-                                      : (!thinkingEnabled && model.supportsThinking)
-                                      ? 'Enable thinking mode to use this model'
-                                      : undefined
+                                          ? 'Sign in required'
+                                          : 'Not available'
+                                      : !thinkingEnabled && model.supportsThinking
+                                        ? 'Enable thinking mode to use this model'
+                                        : undefined
                                   }
                                 >
                                   {/* Premium background for active state */}
@@ -703,9 +717,7 @@ export default function AIInput({
 
                                   <div className="flex items-center justify-between relative z-10">
                                     <div className="flex items-center gap-1.5 min-w-0 flex-1">
-                                      <span className="text-sm truncate">
-                                        {model.name}
-                                      </span>
+                                      <span className="text-sm truncate">{model.name}</span>
                                       {groupBy === 'category' && model.provider === 'openrouter' && (
                                         <span className="text-xs text-rose-500/60 dark:text-rose-300/60 bg-rose-100/50 dark:bg-rose-900/30 px-2 py-0.5 rounded-full">
                                           OpenRouter
@@ -713,70 +725,69 @@ export default function AIInput({
                                       )}
                                     </div>
 
-
                                     <div className="flex items-center gap-1">
-                                    {model.supportsThinking && (
-                                      <Tooltip>
-                                        <TooltipTrigger asChild>
-                                          <span className="text-xs text-rose-500/60 dark:text-rose-300/60 px-1 py-0.5 rounded-full">
-                                            <Lightbulb
-                                              className={cn(
-                                                'w-3.5 h-3.5',
-                                                thinkingEnabled && selectedModel.id === model.id
-                                                  ? 'text-rose-500'
-                                                  : 'text-rose-400/60 dark:text-rose-500/60',
-                                              )}
-                                            />
-                                          </span>
-                                        </TooltipTrigger>
-                                        <TooltipContent side="top">
-                                          Thinking mode enabled
-                                        </TooltipContent>
-                                      </Tooltip>
-                                    )}
-                                     {model.features.filter(feature => feature !== 'code').map((feature) => (
-                                      <Tooltip key={feature}>
-                                        <TooltipTrigger asChild>
-                                          <span className="text-xs text-rose-500/60 dark:text-rose-300/60 px-1 py-0.5 rounded-full">
-                                            {feature === 'web' ? 
-                                              <Globe className="w-3.5 h-3.5" />
-                                            : feature === 'vision' ?
-                                              <Eye className="w-3.5 h-3.5" />
-                                            : feature === 'imagegen' ?
-                                              <MountainIcon className="w-3.5 h-3.5" />
-                                            : null}
-                                          </span>
-                                        </TooltipTrigger>
-                                        <TooltipContent side="top">
-                                          {feature === 'web' ? 'Web search enabled' : feature === 'imagegen' ? 'Image generation enabled' : 'Vision capabilities'}
-                                        </TooltipContent>
-                                      </Tooltip>
-                                    ))}
-                                    {model.attachmentsSuppport.image && (
-                                      <Tooltip>
-                                        <TooltipTrigger asChild>
-                                          <span className="text-xs text-rose-500/60 dark:text-rose-300/60 px-1 py-0.5 rounded-full">
-                                            <Image className="w-3.5 h-3.5" />
-                                          </span>
-                                        </TooltipTrigger>
-                                        <TooltipContent side="top">
-                                          Supports image attachments
-                                        </TooltipContent>
-                                      </Tooltip>
-                                    )}
-                                    {model.attachmentsSuppport.pdf && (
-                                      <Tooltip>
-                                        <TooltipTrigger asChild>
-                                          <span className="text-xs text-rose-500/60 dark:text-rose-300/60 px-1 py-0.5 rounded-full">
-                                            <FileText className="w-3.5 h-3.5" />
-                                          </span>
-                                        </TooltipTrigger>
-                                        <TooltipContent side="top">
-                                          Supports PDF attachments
-                                        </TooltipContent>
-                                      </Tooltip>
-                                    )}
-                                    </div>  
+                                      {model.supportsThinking && (
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <span className="text-xs text-rose-500/60 dark:text-rose-300/60 px-1 py-0.5 rounded-full">
+                                              <Lightbulb
+                                                className={cn(
+                                                  'w-3.5 h-3.5',
+                                                  thinkingEnabled && selectedModel.id === model.id
+                                                    ? 'text-rose-500'
+                                                    : 'text-rose-400/60 dark:text-rose-500/60',
+                                                )}
+                                              />
+                                            </span>
+                                          </TooltipTrigger>
+                                          <TooltipContent side="top">Thinking mode enabled</TooltipContent>
+                                        </Tooltip>
+                                      )}
+                                      {model.features
+                                        .filter((feature) => feature !== 'code')
+                                        .map((feature) => (
+                                          <Tooltip key={feature}>
+                                            <TooltipTrigger asChild>
+                                              <span className="text-xs text-rose-500/60 dark:text-rose-300/60 px-1 py-0.5 rounded-full">
+                                                {feature === 'web' ? (
+                                                  <Globe className="w-3.5 h-3.5" />
+                                                ) : feature === 'vision' ? (
+                                                  <Eye className="w-3.5 h-3.5" />
+                                                ) : feature === 'imagegen' ? (
+                                                  <MountainIcon className="w-3.5 h-3.5" />
+                                                ) : null}
+                                              </span>
+                                            </TooltipTrigger>
+                                            <TooltipContent side="top">
+                                              {feature === 'web'
+                                                ? 'Web search enabled'
+                                                : feature === 'imagegen'
+                                                  ? 'Image generation enabled'
+                                                  : 'Vision capabilities'}
+                                            </TooltipContent>
+                                          </Tooltip>
+                                        ))}
+                                      {model.attachmentsSuppport.image && (
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <span className="text-xs text-rose-500/60 dark:text-rose-300/60 px-1 py-0.5 rounded-full">
+                                              <Image className="w-3.5 h-3.5" />
+                                            </span>
+                                          </TooltipTrigger>
+                                          <TooltipContent side="top">Supports image attachments</TooltipContent>
+                                        </Tooltip>
+                                      )}
+                                      {model.attachmentsSuppport.pdf && (
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <span className="text-xs text-rose-500/60 dark:text-rose-300/60 px-1 py-0.5 rounded-full">
+                                              <FileText className="w-3.5 h-3.5" />
+                                            </span>
+                                          </TooltipTrigger>
+                                          <TooltipContent side="top">Supports PDF attachments</TooltipContent>
+                                        </Tooltip>
+                                      )}
+                                    </div>
                                   </div>
                                 </button>
                               ))}
@@ -789,72 +800,68 @@ export default function AIInput({
                 </AnimatePresence>
               </div>
               {isSignedIn && (selectedModel.attachmentsSuppport.image || selectedModel.attachmentsSuppport.pdf) && (
-                <div ref={uploadButtonRef}>
-                  {uploadButton}
-                </div>
+                <div ref={uploadButtonRef}>{uploadButton}</div>
               )}
               {isSignedIn && selectedModel.features.includes('web') && (
-              <button
-                type="button"
-                onClick={() => setWebSearchEnabled(!webSearchEnabled)}
-                className={cn(
-                  "p-2 md:p-2.5 text-rose-500/60 dark:text-rose-300/60 hover:text-rose-600 dark:hover:text-rose-300 transition-all duration-200 rounded-lg bg-white/50 dark:bg-[oklch(0.22_0.015_25)]/40 hover:bg-rose-500/5 dark:hover:bg-white/5",
-                  webSearchEnabled && "bg-rose-500/10 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400"
-                )}
-              >
-                <Globe className="w-3.5 md:w-4 h-3.5 md:h-4" />
-              </button>
+                <button
+                  type="button"
+                  onClick={() => setWebSearchEnabled(!webSearchEnabled)}
+                  className={cn(
+                    'p-2 md:p-2.5 text-rose-500/60 dark:text-rose-300/60 hover:text-rose-600 dark:hover:text-rose-300 transition-all duration-200 rounded-lg bg-white/50 dark:bg-[oklch(0.22_0.015_25)]/40 hover:bg-rose-500/5 dark:hover:bg-white/5',
+                    webSearchEnabled && 'bg-rose-500/10 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400',
+                  )}
+                >
+                  <Globe className="w-3.5 md:w-4 h-3.5 md:h-4" />
+                </button>
               )}
             </div>
             <div className="flex items-center gap-1">
-            <Tooltip>
-              <TooltipTrigger asChild>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    onClick={handleToggleListening}
+                    className={cn(
+                      'group p-2 md:p-2.5 transition-all duration-300 rounded-full',
+                      isListening
+                        ? 'text-rose-500 dark:text-rose-300 shadow-md shadow-rose-500/20 dark:shadow-rose-500/20 scale-100 hover:bg-rose-500/5 dark:hover:bg-rose-300/5 animate-pulse'
+                        : 'text-rose-500/70 dark:text-rose-300/70 hover:text-rose-500 dark:hover:text-rose-300 scale-95 hover:bg-rose-500/5 dark:hover:bg-rose-300/5 hover:scale-100',
+                    )}
+                  >
+                    <Mic className="w-5 md:w-6 h-5 md:h-6" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="top">{isListening ? 'Stop voice input' : 'Start voice input'}</TooltipContent>
+              </Tooltip>
+              {isStreaming ? (
                 <button
                   type="button"
-                  onClick={handleToggleListening}
+                  onClick={onStop}
+                  title="Stop generation (Esc)"
+                  className="p-2 md:p-2.5 transition-all duration-300 rounded-full text-rose-500 dark:text-rose-300 hover:shadow-md hover:shadow-rose-500/20 dark:hover:shadow-rose-500/20 scale-100"
+                >
+                  <Square className="w-4 md:w-5 h-4 md:h-5 transition-transform duration-300 animate-pulse" />
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleSend}
+                  disabled={!value.trim() || isStreaming}
                   className={cn(
                     'group p-2 md:p-2.5 transition-all duration-300 rounded-full',
-                    isListening
-                      ? 'text-rose-500 dark:text-rose-300 shadow-md shadow-rose-500/20 dark:shadow-rose-500/20 scale-100 hover:bg-rose-500/5 dark:hover:bg-rose-300/5 animate-pulse'
-                      : 'text-rose-500/70 dark:text-rose-300/70 hover:text-rose-500 dark:hover:text-rose-300 scale-95 hover:bg-rose-500/5 dark:hover:bg-rose-300/5 hover:scale-100',
+                    value.trim() && !isTyping
+                      ? 'text-rose-500 dark:text-rose-300 shadow-md shadow-rose-500/20 dark:shadow-rose-500/20 scale-100 hover:bg-rose-500/5 dark:hover:bg-rose-300/5'
+                      : 'text-black/30 dark:text-rose-300/30 scale-95',
                   )}
                 >
-                  <Mic className="w-5 md:w-6 h-5 md:h-6" />
+                  <ArrowRight
+                    className={cn(
+                      'w-5 md:w-6 h-5 md:h-6 transition-transform duration-300 -rotate-90',
+                      value.trim() && !isStreaming && 'translate-y-[-2px] group-hover:translate-y-[-4px]',
+                    )}
+                  />
                 </button>
-              </TooltipTrigger>
-              <TooltipContent side="top">
-                {isListening ? 'Stop voice input' : 'Start voice input'}
-              </TooltipContent>
-            </Tooltip>
-            {isStreaming ? (
-              <button
-                type="button"
-                onClick={onStop}
-                title="Stop generation (Esc)"
-                className="p-2 md:p-2.5 transition-all duration-300 rounded-full text-rose-500 dark:text-rose-300 hover:shadow-md hover:shadow-rose-500/20 dark:hover:shadow-rose-500/20 scale-100"
-              >
-                <Square className="w-4 md:w-5 h-4 md:h-5 transition-transform duration-300 animate-pulse" />
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={handleSend}
-                disabled={!value.trim() || isStreaming}
-                className={cn(
-                  'group p-2 md:p-2.5 transition-all duration-300 rounded-full',
-                  (value.trim()) && !isTyping
-                    ? 'text-rose-500 dark:text-rose-300 shadow-md shadow-rose-500/20 dark:shadow-rose-500/20 scale-100 hover:bg-rose-500/5 dark:hover:bg-rose-300/5'
-                    : 'text-black/30 dark:text-rose-300/30 scale-95',
-                )}
-              >
-                <ArrowRight
-                  className={cn(
-                    'w-5 md:w-6 h-5 md:h-6 transition-transform duration-300 -rotate-90',
-                    (value.trim()) && !isStreaming && 'translate-y-[-2px] group-hover:translate-y-[-4px]',
-                  )}
-                />
-              </button>
-            )}
+              )}
             </div>
           </div>
         </div>
@@ -865,4 +872,3 @@ export default function AIInput({
     </div>
   )
 }
-

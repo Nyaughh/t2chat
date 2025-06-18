@@ -6,7 +6,7 @@ import { ChatGroup } from './ChatGroup'
 interface ChatListProps {
   groupedChats: Array<{
     title: string
-    chats: Array<{ id: string; title: string; isBranch?: boolean; }>
+    chats: Array<{ id: string; title: string; isBranch?: boolean }>
   }>
   currentChatId: string | null
   totalChats: number
@@ -58,4 +58,4 @@ export const ChatList = memo(function ChatList({
       </div>
     </div>
   )
-}) 
+})

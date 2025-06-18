@@ -5,7 +5,7 @@ import { useMemo } from 'react'
 export function useChatGroups(filteredChats: any[]) {
   const groupedChats = useMemo(() => {
     if (!filteredChats) return []
-    
+
     const now = new Date()
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
     const yesterday = new Date(today)
@@ -23,9 +23,9 @@ export function useChatGroups(filteredChats: any[]) {
       older: [] as typeof filteredChats,
     }
 
-    filteredChats.forEach(chat => {
+    filteredChats.forEach((chat) => {
       const chatDate = new Date(chat.createdAt || chat.lastMessageAt)
-      
+
       if (chatDate >= today) {
         groups.today.push(chat)
       } else if (chatDate >= yesterday) {
@@ -45,10 +45,10 @@ export function useChatGroups(filteredChats: any[]) {
       { title: 'Last 7 days', chats: groups.lastWeek },
       { title: 'Last 30 days', chats: groups.lastMonth },
       { title: 'Older', chats: groups.older },
-    ].filter(group => group.chats.length > 0)
+    ].filter((group) => group.chats.length > 0)
   }, [filteredChats])
 
   return {
     groupedChats,
   }
-} 
+}

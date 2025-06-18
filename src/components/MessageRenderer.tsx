@@ -26,7 +26,7 @@ const MessageRenderer: React.FC<MessageRendererProps> = memo(
     // Check if the model supports thinking
     const modelSupportsThinking = useMemo(() => {
       if (!modelId) return false
-      const model = models.find(m => m.id === modelId)
+      const model = models.find((m) => m.id === modelId)
       return model?.supportsThinking || false
     }, [modelId])
 
@@ -54,10 +54,10 @@ const MessageRenderer: React.FC<MessageRendererProps> = memo(
     }, [thinking])
 
     const contentParts = useMemo(() => {
-      if (!content) return [];
-      const regex = /(\[TOOL_CALL:[a-zA-Z0-9_-]+\])/g;
-      return content.split(regex).filter(part => part);
-    }, [content]);
+      if (!content) return []
+      const regex = /(\[TOOL_CALL:[a-zA-Z0-9_-]+\])/g
+      return content.split(regex).filter((part) => part)
+    }, [content])
 
     return (
       <div className={className}>
@@ -116,13 +116,13 @@ const MessageRenderer: React.FC<MessageRendererProps> = memo(
 
         {/* Main content */}
         {contentParts.map((part, index) => {
-          const match = /\[TOOL_CALL:(.+)\]/.exec(part);
+          const match = /\[TOOL_CALL:(.+)\]/.exec(part)
           if (match && toolCalls) {
-            const toolCallId = match[1];
-            const toolCall = toolCalls.find(tc => tc.toolCallId === toolCallId);
-            return toolCall ? <ToolCallDisplay key={`${messageId}-tool-${index}`} toolCalls={[toolCall]} /> : null;
+            const toolCallId = match[1]
+            const toolCall = toolCalls.find((tc) => tc.toolCallId === toolCallId)
+            return toolCall ? <ToolCallDisplay key={`${messageId}-tool-${index}`} toolCalls={[toolCall]} /> : null
           }
-          return <MarkdownContent content={part} id={`${messageId}-part-${index}`} key={`${messageId}-part-${index}`} />;
+          return <MarkdownContent content={part} id={`${messageId}-part-${index}`} key={`${messageId}-part-${index}`} />
         })}
       </div>
     )

@@ -99,19 +99,19 @@ export default function SettingsPage() {
           <h2 className="text-lg font-bold text-foreground">Settings</h2>
         </div>
         <div className="flex items-center gap-2">
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            onClick={handleSignOut} 
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleSignOut}
             className="text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
             title="Sign Out"
           >
             <LogOut className="w-5 h-5" />
           </Button>
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            onClick={handleClose} 
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleClose}
             className="text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
             title="Close Settings"
           >
@@ -126,10 +126,7 @@ export default function SettingsPage() {
           setActiveSection={setActiveSection}
           isMobile={isMobile}
         />
-        <main className={cn(
-          "flex-1 overflow-y-auto bg-background",
-          isMobile ? "p-4" : "p-6"
-        )}>
+        <main className={cn('flex-1 overflow-y-auto bg-background', isMobile ? 'p-4' : 'p-6')}>
           <AnimatePresence mode="wait">
             <motion.div
               key={activeSection}
@@ -146,4 +143,4 @@ export default function SettingsPage() {
       </div>
     </div>
   )
-} 
+}
