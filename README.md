@@ -391,5 +391,5 @@ If you need help with T2Chat:
 
 <div align="center">
   <p>Built by <a href="https://kmrb.tech">kmrb.tech</a></p>
-  <p>⭐ Star us on GitHub if T2Chat helps you!</p>
+  <p>⭐ Star us on GitHub if `T2Chat` helps you!</p>
 </div>
