@@ -26,11 +26,6 @@ import {
   Phone,
   AudioLines,
   ImageIcon,
-  Filter,
-  Settings,
-  Zap,
-  Gift,
-  TerminalSquare,
 } from 'lucide-react'
 import Link from 'next/link'
 import { AnimatePresence, motion } from 'framer-motion'
@@ -44,19 +39,6 @@ interface Attachment {
   type: string
   size: number
   url: string
-}
-
-interface Filters {
-  provider: string[]
-  category: string[]
-  features: string[]
-  isPro: boolean | null
-  isNew: boolean | null
-  supportsThinking: boolean | null
-  isFree: boolean | null
-  hasImageAttachment: boolean | null
-  hasPdfAttachment: boolean | null
-  toolCalls: boolean | null
 }
 
 interface AIInputProps {
@@ -126,22 +108,10 @@ export default function AIInput({
   onVoiceChatToggle,
 }: AIInputProps) {
   const [showModelSelect, setShowModelSelect] = useState(false)
+  const [thinkingEnabled, setThinkingEnabled] = useState(true)
   const [webSearchEnabled, setWebSearchEnabled] = useState(false)
   const [groupBy, setGroupBy] = useState<'provider' | 'category'>('provider')
   const [isDragOver, setIsDragOver] = useState(false)
-  const [showFilters, setShowFilters] = useState(false)
-  const [filters, setFilters] = useState<Filters>({
-    provider: [],
-    category: [],
-    features: [],
-    isPro: null,
-    isNew: null,
-    supportsThinking: null,
-    isFree: null,
-    hasImageAttachment: null,
-    hasPdfAttachment: null,
-    toolCalls: null,
-  })
   const { textareaRef, adjustHeight } = useAutoResizeTextarea({
     minHeight: 40,
     maxHeight: 160,
@@ -247,6 +217,11 @@ export default function AIInput({
 
   // Load UI preferences from localStorage
   useEffect(() => {
+    const savedThinkingEnabled = localStorage.getItem('thinkingEnabled')
+    if (savedThinkingEnabled !== null) {
+      setThinkingEnabled(savedThinkingEnabled === 'true')
+    }
+
     const savedWebSearchEnabled = localStorage.getItem('webSearchEnabled')
     if (savedWebSearchEnabled !== null) {
       setWebSearchEnabled(savedWebSearchEnabled === 'true')
@@ -256,16 +231,12 @@ export default function AIInput({
     if (savedGroupBy === 'provider' || savedGroupBy === 'category') {
       setGroupBy(savedGroupBy)
     }
-
-    const savedFilters = localStorage.getItem('modelFilters')
-    if (savedFilters) {
-      try {
-        setFilters(JSON.parse(savedFilters))
-      } catch (e) {
-        console.warn('Failed to parse saved filters')
-      }
-    }
   }, [])
+
+  // Save thinking mode preference
+  useEffect(() => {
+    localStorage.setItem('thinkingEnabled', thinkingEnabled.toString())
+  }, [thinkingEnabled])
 
   // Save web search preference
   useEffect(() => {
@@ -277,51 +248,12 @@ export default function AIInput({
     localStorage.setItem('groupBy', groupBy)
   }, [groupBy])
 
-  // Save filters preference
+  // If selected model is no longer available, switch to a default available one
   useEffect(() => {
-    localStorage.setItem('modelFilters', JSON.stringify(filters))
-  }, [filters])
-
-  // Apply filters to models
-  const applyFilters = (model: ModelInfo) => {
-    // Provider filter
-    if (filters.provider.length > 0 && !filters.provider.includes(model.provider)) {
-      return false
+    if (!isModelAvailable(selectedModel) && availableModels.length > 0) {
+      setSelectedModel(availableModels[0])
     }
-
-    // Category filter
-    if (filters.category.length > 0 && !filters.category.includes(model.category)) {
-      return false
-    }
-
-    // Features filter (model must have ALL selected features)
-    if (filters.features.length > 0) {
-      const hasAllFeatures = filters.features.every((feature) => model.features.includes(feature as any))
-      if (!hasAllFeatures) return false
-    }
-
-    // Boolean filters
-    if (filters.isPro !== null && model.isPro !== filters.isPro) return false
-    if (filters.isNew !== null && model.isNew !== filters.isNew) return false
-    if (filters.supportsThinking !== null && model.supportsThinking !== filters.supportsThinking) return false
-    if (filters.isFree !== null && model.isFree !== filters.isFree) return false
-    if (filters.hasImageAttachment !== null && model.attachmentsSuppport.image !== filters.hasImageAttachment)
-      return false
-    if (filters.hasPdfAttachment !== null && model.attachmentsSuppport.pdf !== filters.hasPdfAttachment) return false
-    if (filters.toolCalls !== null && model.toolCalls !== filters.toolCalls) return false
-
-    return true
-  }
-
-  // Filter models based on filters and availability
-  const filteredModels = models.filter((model) => applyFilters(model) && isModelAvailable(model))
-
-  // If selected model is no longer available or filtered out, switch to a default available one
-  useEffect(() => {
-    if ((!isModelAvailable(selectedModel) || !applyFilters(selectedModel)) && filteredModels.length > 0) {
-      setSelectedModel(filteredModels[0])
-    }
-  }, [selectedModel, filteredModels, setSelectedModel])
+  }, [selectedModel, availableModels, setSelectedModel])
 
   useEffect(() => {
     adjustHeight()
@@ -405,56 +337,22 @@ export default function AIInput({
     // For 'button', no keyboard shortcut for sending
   }
 
-  // Helper function to get unique values for filter options
-  const getUniqueValues = <T extends keyof ModelInfo>(key: T): ModelInfo[T][] => {
-    const values = models.map((model) => model[key]).filter(Boolean)
-    return [...new Set(values)] as ModelInfo[T][]
+  // When thinking mode is toggled, ensure selected model is compatible
+  const handleThinkingToggle = (enabled: boolean) => {
+    setThinkingEnabled(enabled)
+
+    // If disabling thinking mode and current model requires thinking,
+    // switch to a model that doesn't require thinking
+    if (!enabled && selectedModel.supportsThinking) {
+      // Find the first model that doesn't require thinking
+      const nonThinkingModel = availableModels.find((m) => !m.supportsThinking)
+      if (nonThinkingModel) {
+        setSelectedModel(nonThinkingModel)
+      }
+    }
   }
 
-  const uniqueProviders = getUniqueValues('provider')
-  const uniqueCategories = getUniqueValues('category')
-  const uniqueFeatures = [...new Set(models.flatMap((model) => model.features))]
-
-  // Helper function to toggle filter arrays
-  const toggleArrayFilter = (filterKey: keyof Pick<Filters, 'provider' | 'category' | 'features'>, value: string) => {
-    setFilters((prev) => ({
-      ...prev,
-      [filterKey]: prev[filterKey].includes(value)
-        ? prev[filterKey].filter((v) => v !== value)
-        : [...prev[filterKey], value],
-    }))
-  }
-
-  // Helper function to toggle boolean filters
-  const toggleBooleanFilter = (
-    filterKey: keyof Pick<
-      Filters,
-      'isPro' | 'isNew' | 'supportsThinking' | 'isFree' | 'hasImageAttachment' | 'hasPdfAttachment' | 'toolCalls'
-    >,
-  ) => {
-    setFilters((prev) => ({
-      ...prev,
-      [filterKey]: prev[filterKey] === null ? true : prev[filterKey] === true ? false : null,
-    }))
-  }
-
-  // Clear all filters
-  const clearFilters = () => {
-    setFilters({
-      provider: [],
-      category: [],
-      features: [],
-      isPro: null,
-      isNew: null,
-      supportsThinking: null,
-      isFree: null,
-      hasImageAttachment: null,
-      hasPdfAttachment: null,
-      toolCalls: null,
-    })
-  }
-
-  const groupedModels = filteredModels.reduce(
+  const groupedModels = models.reduce(
     (acc, model) => {
       const groupKey = groupBy === 'provider' ? model.provider : model.category
       if (!acc[groupKey]) {
@@ -676,7 +574,6 @@ export default function AIInput({
                             {/* Gradient overlays for premium look */}
                             <div className="absolute inset-0 bg-gradient-to-br from-rose-500/5 via-transparent to-rose-500/10 dark:from-rose-500/10 dark:via-transparent dark:to-rose-500/20 pointer-events-none rounded-xl"></div>
                             <div className="absolute inset-0 bg-gradient-to-t from-transparent via-transparent to-white/20 dark:to-white/5 pointer-events-none rounded-xl"></div>
-
                             <Link href="/settings?tab=models">
                               <div className="relative z-10 flex items-center gap-1">
                                 <span className="text-xs font-medium text-rose-600 dark:text-rose-300">BYOK</span>
@@ -692,9 +589,32 @@ export default function AIInput({
                         {/* Group By Toggle */}
                       </div>
 
-                      {/* Controls and Filters */}
+                      {/* Compact Controls */}
                       <div className="px-3 py-2 border-b border-rose-200/30 dark:border-rose-500/20">
-                        <div className="flex items-center justify-between gap-3 mb-2">
+                        <div className="flex items-center justify-between gap-3">
+                          {/* Thinking Mode Toggle */}
+                          <div className="flex items-center gap-2">
+                            <Lightbulb className="w-3.5 h-3.5 text-rose-500/70 dark:text-rose-300/70" />
+                            <span className="text-xs text-rose-900 dark:text-rose-100">Thinking</span>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleThinkingToggle(!thinkingEnabled)
+                              }}
+                              className={cn(
+                                'relative w-8 h-4 rounded-full transition-colors duration-200',
+                                thinkingEnabled ? 'bg-rose-500 dark:bg-rose-400' : 'bg-rose-200 dark:bg-rose-800',
+                              )}
+                            >
+                              <div
+                                className={cn(
+                                  'absolute top-0.5 left-0.5 w-3 h-3 bg-white rounded-full transition-transform duration-200',
+                                  thinkingEnabled ? 'translate-x-4' : 'translate-x-0',
+                                )}
+                              />
+                            </button>
+                          </div>
+
                           {/* Group By Toggle */}
                           <div className="flex items-center gap-2">
                             <span className="text-xs text-rose-900 dark:text-rose-100">Group by</span>
@@ -708,153 +628,7 @@ export default function AIInput({
                               {groupBy === 'provider' ? 'Provider' : 'Category'}
                             </button>
                           </div>
-
-                          {/* Filter Toggle */}
-                          <div className="flex items-center gap-2">
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                setShowFilters(!showFilters)
-                              }}
-                              className={cn(
-                                'text-xs px-2 py-1 rounded-md transition-colors duration-200',
-                                showFilters
-                                  ? 'bg-rose-500 text-white'
-                                  : 'bg-rose-100 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 hover:bg-rose-200 dark:hover:bg-rose-900/50',
-                              )}
-                            >
-                              Filters
-                            </button>
-                            {(filters.provider.length > 0 ||
-                              filters.category.length > 0 ||
-                              filters.features.length > 0 ||
-                              Object.values(filters).some((v) => v === true || v === false)) && (
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  clearFilters()
-                                }}
-                                className="text-xs px-2 py-1 rounded-md bg-rose-500 text-white hover:bg-rose-600 transition-colors duration-200"
-                              >
-                                Clear
-                              </button>
-                            )}
-                          </div>
                         </div>
-
-                        {/* Filter Options */}
-                        {showFilters && (
-                          <div className="space-y-3 border-t border-rose-200/30 dark:border-rose-500/20 pt-2 text-left">
-                            {/* Provider Filter */}
-                            <div>
-                              <span className="text-xs font-medium text-rose-900 dark:text-rose-100 mb-1.5 block">
-                                Provider
-                              </span>
-                              <div className="flex flex-wrap gap-1">
-                                {uniqueProviders.map((provider) => (
-                                  <button
-                                    key={provider}
-                                    onClick={(e) => {
-                                      e.stopPropagation()
-                                      toggleArrayFilter('provider', provider)
-                                    }}
-                                    className={cn(
-                                      'text-xs px-2 py-0.5 rounded-full transition-colors duration-200',
-                                      filters.provider.includes(provider)
-                                        ? 'bg-rose-500 text-white'
-                                        : 'bg-rose-100 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 hover:bg-rose-200 dark:hover:bg-rose-900/50',
-                                    )}
-                                  >
-                                    {provider.charAt(0).toUpperCase() + provider.slice(1)}
-                                  </button>
-                                ))}
-                              </div>
-                            </div>
-
-                            {/* Capabilities Filter */}
-                            <div>
-                              <span className="text-xs font-medium text-rose-900 dark:text-rose-100 mb-1.5 block">
-                                Capabilities
-                              </span>
-                              <div className="flex flex-wrap gap-1">
-                                {[
-                                  { type: 'feature', key: 'vision', label: 'Vision', icon: Eye },
-                                  { type: 'feature', key: 'web', label: 'Web Search', icon: Globe },
-                                  { type: 'feature', key: 'code', label: 'Code', icon: Code },
-                                  { type: 'feature', key: 'imagegen', label: 'Image Gen', icon: ImageIcon },
-                                  { type: 'boolean', key: 'supportsThinking', label: 'Thinking', icon: Lightbulb },
-                                  {
-                                    type: 'boolean',
-                                    key: 'hasImageAttachment',
-                                    label: 'Image Upload',
-                                    icon: Image,
-                                  },
-                                  { type: 'boolean', key: 'hasPdfAttachment', label: 'PDF Upload', icon: FileText },
-                                  { type: 'boolean', key: 'toolCalls', label: 'Tool Calls', icon: TerminalSquare },
-                                  { type: 'boolean', key: 'isPro', label: 'Pro', icon: Sparkles },
-                                  { type: 'boolean', key: 'isNew', label: 'New', icon: Zap },
-                                  { type: 'boolean', key: 'isFree', label: 'Free', icon: Gift },
-                                ].map(({ type, key, label, icon: Icon }) => {
-                                  const isFeature = type === 'feature'
-                                  const isActive = isFeature
-                                    ? filters.features.includes(key)
-                                    : filters[key as keyof Omit<Filters, 'features' | 'provider' | 'category'>] === true
-                                  const isExcluded =
-                                    !isFeature &&
-                                    filters[key as keyof Omit<Filters, 'features' | 'provider' | 'category'>] === false
-
-                                  const handleClick = () => {
-                                    if (isFeature) {
-                                      toggleArrayFilter('features', key)
-                                    } else {
-                                      toggleBooleanFilter(key as any)
-                                    }
-                                  }
-
-                                  return (
-                                    <Tooltip key={key}>
-                                      <TooltipTrigger asChild>
-                                        <button
-                                          onClick={(e) => {
-                                            e.stopPropagation()
-                                            handleClick()
-                                          }}
-                                          className={cn(
-                                            'p-1.5 rounded-md flex items-center justify-center transition-all',
-                                            isActive
-                                              ? 'bg-rose-500 text-white'
-                                              : 'bg-rose-100 dark:bg-rose-900/30 text-rose-600/70 dark:text-rose-400/70',
-                                            isExcluded && 'bg-red-500/60 text-white',
-                                            'hover:bg-rose-200 dark:hover:bg-rose-900/50',
-                                          )}
-                                        >
-                                          <Icon className="w-3.5 h-3.5" />
-                                        </button>
-                                      </TooltipTrigger>
-                                      <TooltipContent>
-                                        <p>{label}</p>
-                                        {!isFeature && (
-                                          <p className="text-xs text-muted-foreground">
-                                            State:{' '}
-                                            {filters[
-                                              key as keyof Omit<Filters, 'features' | 'provider' | 'category'>
-                                            ] === true
-                                              ? 'Required'
-                                              : filters[
-                                                    key as keyof Omit<Filters, 'features' | 'provider' | 'category'>
-                                                  ] === false
-                                                ? 'Excluded'
-                                                : 'Any'}
-                                          </p>
-                                        )}
-                                      </TooltipContent>
-                                    </Tooltip>
-                                  )
-                                })}
-                              </div>
-                            </div>
-                          </div>
-                        )}
                       </div>
 
                       <div
@@ -898,9 +672,10 @@ export default function AIInput({
                                     selectedModel.id === model.id
                                       ? 'text-rose-600 dark:text-rose-300'
                                       : 'hover:text-rose-600 dark:hover:text-rose-300 text-black/70 dark:text-white/70',
+                                    !thinkingEnabled && model.supportsThinking && 'opacity-40 cursor-not-allowed',
                                     !isModelAvailable(model) && 'opacity-40 cursor-not-allowed',
                                   )}
-                                  disabled={!isModelAvailable(model)}
+                                  disabled={(!thinkingEnabled && model.supportsThinking) || !isModelAvailable(model)}
                                   title={
                                     !isModelAvailable(model)
                                       ? model.isApiKeyOnly
@@ -908,7 +683,9 @@ export default function AIInput({
                                         : !isSignedIn && !model.isFree
                                           ? 'Sign in required'
                                           : 'Not available'
-                                      : undefined
+                                      : !thinkingEnabled && model.supportsThinking
+                                        ? 'Enable thinking mode to use this model'
+                                        : undefined
                                   }
                                 >
                                   {/* Premium background for active state */}
@@ -987,7 +764,7 @@ export default function AIInput({
                                           <TooltipContent side="top">Image generation enabled</TooltipContent>
                                         </Tooltip>
                                       )}
-
+                                      
                                       {/* Attachment icons - ordered: image, pdf */}
                                       {model.attachmentsSuppport.image && (
                                         <Tooltip>
@@ -1009,7 +786,7 @@ export default function AIInput({
                                           <TooltipContent side="top">Supports PDF attachments</TooltipContent>
                                         </Tooltip>
                                       )}
-
+                                      
                                       {/* Thinking icon - always rightmost */}
                                       {model.supportsThinking && (
                                         <Tooltip>
@@ -1018,14 +795,14 @@ export default function AIInput({
                                               <Lightbulb
                                                 className={cn(
                                                   'w-3.5 h-3.5',
-                                                  selectedModel.id === model.id
+                                                  thinkingEnabled && selectedModel.id === model.id
                                                     ? 'text-rose-500'
                                                     : 'text-rose-400/60 dark:text-rose-500/60',
                                                 )}
                                               />
                                             </span>
                                           </TooltipTrigger>
-                                          <TooltipContent side="top">Supports thinking mode</TooltipContent>
+                                          <TooltipContent side="top">Thinking mode enabled</TooltipContent>
                                         </Tooltip>
                                       )}
                                     </div>
@@ -1090,7 +867,7 @@ export default function AIInput({
                   disabled={isStreaming}
                   className={cn(
                     'group p-2 md:p-2.5 transition-all duration-300 rounded-full',
-                    'text-rose-500 dark:text-rose-300 shadow-md shadow-rose-500/20 dark:shadow-rose-500/20 scale-100 hover:bg-rose-500/5 dark:hover:bg-rose-300/5',
+                    'text-rose-500 dark:text-rose-300 shadow-md shadow-rose-500/20 dark:shadow-rose-500/20 scale-100 hover:bg-rose-500/5 dark:hover:bg-rose-300/5'
                   )}
                 >
                   <ArrowRight
