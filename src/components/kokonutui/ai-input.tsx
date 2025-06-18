@@ -25,6 +25,7 @@ import {
   MountainIcon,
   Phone,
   AudioLines,
+  ImageIcon,
 } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { ModelInfo, models } from '@/lib/models'
@@ -730,6 +731,61 @@ export default function AIInput({
                                     </div>
 
                                     <div className="flex items-center gap-1">
+                                      {/* Feature icons - ordered: web, vision, imagegen */}
+                                      {model.features.includes('web') && (
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <span className="text-xs text-rose-500/60 dark:text-rose-300/60 px-1 py-0.5 rounded-full">
+                                              <Globe className="w-3.5 h-3.5" />
+                                            </span>
+                                          </TooltipTrigger>
+                                          <TooltipContent side="top">Web search enabled</TooltipContent>
+                                        </Tooltip>
+                                      )}
+                                      {model.features.includes('vision') && (
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <span className="text-xs text-rose-500/60 dark:text-rose-300/60 px-1 py-0.5 rounded-full">
+                                              <Eye className="w-3.5 h-3.5" />
+                                            </span>
+                                          </TooltipTrigger>
+                                          <TooltipContent side="top">Vision capabilities</TooltipContent>
+                                        </Tooltip>
+                                      )}
+                                      {model.features.includes('imagegen') && (
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <span className="text-xs text-rose-500/60 dark:text-rose-300/60 px-1 py-0.5 rounded-full">
+                                              <Image className="w-3.5 h-3.5" />
+                                            </span>
+                                          </TooltipTrigger>
+                                          <TooltipContent side="top">Image generation enabled</TooltipContent>
+                                        </Tooltip>
+                                      )}
+                                      
+                                      {/* Attachment icons - ordered: image, pdf */}
+                                      {model.attachmentsSuppport.image && (
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <span className="text-xs text-rose-500/60 dark:text-rose-300/60 px-1 py-0.5 rounded-full">
+                                              <Paperclip className="w-3.5 h-3.5" />
+                                            </span>
+                                          </TooltipTrigger>
+                                          <TooltipContent side="top">Supports image attachments</TooltipContent>
+                                        </Tooltip>
+                                      )}
+                                      {model.attachmentsSuppport.pdf && (
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <span className="text-xs text-rose-500/60 dark:text-rose-300/60 px-1 py-0.5 rounded-full">
+                                              <FileText className="w-3.5 h-3.5" />
+                                            </span>
+                                          </TooltipTrigger>
+                                          <TooltipContent side="top">Supports PDF attachments</TooltipContent>
+                                        </Tooltip>
+                                      )}
+                                      
+                                      {/* Thinking icon - always rightmost */}
                                       {model.supportsThinking && (
                                         <Tooltip>
                                           <TooltipTrigger asChild>
@@ -745,50 +801,6 @@ export default function AIInput({
                                             </span>
                                           </TooltipTrigger>
                                           <TooltipContent side="top">Thinking mode enabled</TooltipContent>
-                                        </Tooltip>
-                                      )}
-                                      {model.features
-                                        .filter((feature) => feature !== 'code')
-                                        .map((feature) => (
-                                          <Tooltip key={feature}>
-                                            <TooltipTrigger asChild>
-                                              <span className="text-xs text-rose-500/60 dark:text-rose-300/60 px-1 py-0.5 rounded-full">
-                                                {feature === 'web' ? (
-                                                  <Globe className="w-3.5 h-3.5" />
-                                                ) : feature === 'vision' ? (
-                                                  <Eye className="w-3.5 h-3.5" />
-                                                ) : feature === 'imagegen' ? (
-                                                  <MountainIcon className="w-3.5 h-3.5" />
-                                                ) : null}
-                                              </span>
-                                            </TooltipTrigger>
-                                            <TooltipContent side="top">
-                                              {feature === 'web'
-                                                ? 'Web search enabled'
-                                                : feature === 'imagegen'
-                                                  ? 'Image generation enabled'
-                                                  : 'Vision capabilities'}
-                                            </TooltipContent>
-                                          </Tooltip>
-                                        ))}
-                                      {model.attachmentsSuppport.image && (
-                                        <Tooltip>
-                                          <TooltipTrigger asChild>
-                                            <span className="text-xs text-rose-500/60 dark:text-rose-300/60 px-1 py-0.5 rounded-full">
-                                              <Image className="w-3.5 h-3.5" />
-                                            </span>
-                                          </TooltipTrigger>
-                                          <TooltipContent side="top">Supports image attachments</TooltipContent>
-                                        </Tooltip>
-                                      )}
-                                      {model.attachmentsSuppport.pdf && (
-                                        <Tooltip>
-                                          <TooltipTrigger asChild>
-                                            <span className="text-xs text-rose-500/60 dark:text-rose-300/60 px-1 py-0.5 rounded-full">
-                                              <FileText className="w-3.5 h-3.5" />
-                                            </span>
-                                          </TooltipTrigger>
-                                          <TooltipContent side="top">Supports PDF attachments</TooltipContent>
                                         </Tooltip>
                                       )}
                                     </div>
