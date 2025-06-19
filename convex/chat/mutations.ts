@@ -95,27 +95,30 @@ export const addMessage = mutation({
       messageData.attachments = attachments
     }
 
+        // --- Title Generation (Optimized) ---
+        if (role === 'user' && chat.title === 'New chat' && !chat.isGeneratingTitle) {
+          // Check if this is the first user message (more efficient)
+          const existingUserMessage = await ctx.db
+            .query('messages')
+            .withIndex('by_chat', (q) => q.eq('chatId', chatId))
+            .filter((q) => q.eq(q.field('role'), 'user'))
+            .first()
+    
+          console.log('existingUserMessage', existingUserMessage)
+            
+          // If no existing user messages found, this is the first user message
+          if (!existingUserMessage) {
+            await ctx.db.patch(chatId, { isGeneratingTitle: true })
+            await ctx.scheduler.runAfter(0, api.chat.actions.generateTitle, {
+              chatId,
+              messageContent: content,
+              modelId: modelId || 'gemini-2.0-flash-lite', // Fallback to a default model
+            })
+          }
+        }
+
     const messageId = await ctx.db.insert('messages', messageData)
 
-    // --- Title Generation (Optimized) ---
-    if (role === 'user' && chat.title === 'New chat' && !chat.isGeneratingTitle) {
-      // Check if this is the first user message (more efficient)
-      const existingUserMessage = await ctx.db
-        .query('messages')
-        .withIndex('by_chat', (q) => q.eq('chatId', chatId))
-        .filter((q) => q.eq(q.field('role'), 'user'))
-        .first()
-        
-      // If no existing user messages found, this is the first user message
-      if (!existingUserMessage) {
-        await ctx.db.patch(chatId, { isGeneratingTitle: true })
-        await ctx.scheduler.runAfter(0, api.chat.actions.generateTitle, {
-          chatId,
-          messageContent: content,
-          modelId: modelId || 'gemini-pro', // Fallback to a default model
-        })
-      }
-    }
 
     // Update chat's updatedAt timestamp
     await ctx.db.patch(chatId, {
