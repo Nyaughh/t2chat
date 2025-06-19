@@ -148,7 +148,7 @@ export function SimpleVoiceChat({
     if (!isActive) return 'Ready to start voice conversation'
     if (isListening) return 'Listening to your voice...'
     if (isSpeaking) return 'AI is speaking...'
-    return 'Processing your request...'
+    return ''
   }
 
   const getStatusColor = () => {
@@ -231,32 +231,12 @@ export function SimpleVoiceChat({
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.95, opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="w-full max-w-lg"
+            className="w-full max-w-4xl"
           >
-            <Card className="border shadow-lg bg-background">
-              <CardContent className="p-6">
-                {/* Header */}
-                <div className="flex items-center justify-between mb-6">
-                  <div>
-                    <h2 className="text-lg font-semibold">Voice Chat</h2>
-                    <p className="text-sm text-muted-foreground">Natural conversation with AI</p>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={handleClose}
-                    disabled={isActive}
-                    className="text-muted-foreground hover:text-foreground"
-                  >
-                    <X className="w-4 h-4" />
-                  </Button>
-                </div>
-
-                {/* Model Selection */}
+            <Card className="border shadow-lg bg-background relative">
+              {/* Model Selection - Absolute Top Left Corner */}
                 {!isActive && onModelChange && availableModels.length > 0 && (
-                  <div className="mb-6 p-4 rounded-lg border bg-muted/50">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium">AI Model</span>
+                <div className="absolute top-2 left-2 z-10">
                       <Select
                         value={selectedModel?.id}
                         onValueChange={(value) => {
@@ -264,66 +244,111 @@ export function SimpleVoiceChat({
                           if (model) onModelChange(model)
                         }}
                       >
-                        <SelectTrigger className="w-48 bg-background">
+                    <SelectTrigger className="w-36 h-7 bg-background/80 border-muted hover:bg-background hover:border-border transition-colors text-xs backdrop-blur-sm">
                           <SelectValue placeholder="Select model" />
                         </SelectTrigger>
                         <SelectContent>
                           {availableModels.slice(0, 5).map((model) => (
-                            <SelectItem key={model.id} value={model.id}>
+                        <SelectItem key={model.id} value={model.id} className="text-xs">
                               {model.name}
                             </SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
-                    </div>
                   </div>
                 )}
 
-                {/* Status */}
-                <div className="text-center mb-6">
-                  <p className={cn('text-sm font-medium mb-4', getStatusColor())}>{getStatus()}</p>
-                  <div className="flex items-center justify-center gap-4">
-                    <div className="flex items-center gap-2">
-                      <div
+              {/* Close Button - Absolute Top Right Corner */}
+              <div className="absolute top-2 right-2 z-10">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={handleClose}
+                  disabled={isActive}
+                  className="text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded-full transition-colors w-7 h-7"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </Button>
+              </div>
+              
+
+
+              <CardContent className="p-6 pt-16 min-h-[600px]">
+
+                {/* Premium Voice Control - Rose Theme */}
+                <motion.div 
                         className={cn(
-                          'w-2 h-2 rounded-full',
-                          isListening ? 'bg-rose-500 animate-pulse' : 'bg-muted-foreground/30',
-                        )}
-                      />
-                      <span className="text-xs text-muted-foreground">Listening</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div
+                    "flex justify-center transition-all duration-500",
+                    conversationHistory.length === 0 ? "mb-8 items-center min-h-[300px]" : "mb-8"
+                  )}
+                  animate={{
+                    y: conversationHistory.length === 0 ? 0 : -40
+                  }}
+                  transition={{ duration: 0.5, ease: "easeInOut" }}
+                >
+                  <div className="relative">
+                    {/* Outer glow rings for voice activity */}
+                    {isListening && (
+                      <div className="absolute inset-0 w-32 h-32 rounded-full bg-gradient-to-r from-rose-500/20 to-rose-300/20 dark:from-rose-300/20 dark:to-rose-500/20 animate-pulse blur-sm" />
+                    )}
+                    {isSpeaking && (
+                      <div className="absolute inset-0 w-36 h-36 rounded-full bg-gradient-to-r from-rose-400/30 to-rose-600/30 dark:from-rose-300/30 dark:to-rose-400/30 animate-ping blur-md" />
+                    )}
+                    
+                    {/* Main control button */}
+                    <div
+                      onClick={!isActive ? handleStart : handleEnd}
                         className={cn(
-                          'w-2 h-2 rounded-full',
-                          isSpeaking ? 'bg-rose-500 animate-pulse' : 'bg-muted-foreground/30',
-                        )}
-                      />
-                      <span className="text-xs text-muted-foreground">Speaking</span>
+                        "relative w-28 h-28 rounded-full cursor-pointer transition-all duration-500 ease-out",
+                        "bg-gradient-to-br from-background via-card to-muted dark:from-card dark:via-background dark:to-muted",
+                        "shadow-md shadow-rose-500/20 dark:shadow-rose-500/20",
+                        "hover:shadow-lg hover:shadow-rose-500/25 dark:hover:shadow-rose-500/25",
+                        "flex items-center justify-center group",
+                        isActive && "scale-105",
+                        !isActive && ""
+                      )}
+                    >
+                      {/* Premium gradient overlays */}
+                      <div className="absolute inset-0 bg-gradient-to-br from-rose-500/5 via-transparent to-rose-500/10 dark:from-rose-500/10 dark:via-transparent dark:to-rose-500/15 pointer-events-none rounded-full" />
+                      <div className="absolute inset-0 bg-gradient-to-t from-transparent via-transparent to-white/10 dark:to-white/5 pointer-events-none rounded-full" />
+                      
+                      {/* Audio lines visualization */}
+                      <div className={cn(
+                        "relative z-10 transition-all duration-300",
+                        isListening && "scale-110",
+                        isSpeaking && "scale-125"
+                      )}>
+                        <div className="flex items-center gap-0.5">
+                          <div className={cn(
+                            "w-0.5 bg-rose-600 dark:bg-rose-300 rounded-full transition-all duration-150",
+                            isActive ? (isSpeaking ? "h-6 animate-pulse" : "h-2") : "h-3"
+                          )} />
+                          <div className={cn(
+                            "w-0.5 bg-rose-600 dark:bg-rose-300 rounded-full transition-all duration-150",
+                            isActive ? (isSpeaking ? "h-8 animate-pulse" : "h-3") : "h-5",
+                          )} style={{ animationDelay: '75ms' }} />
+                          <div className={cn(
+                            "w-0.5 bg-rose-600 dark:bg-rose-300 rounded-full transition-all duration-150",
+                            isActive ? (isSpeaking ? "h-4 animate-pulse" : "h-2") : "h-2"
+                          )} style={{ animationDelay: '150ms' }} />
+                          <div className={cn(
+                            "w-0.5 bg-rose-600 dark:bg-rose-300 rounded-full transition-all duration-150",
+                            isActive ? (isSpeaking ? "h-7 animate-pulse" : "h-4") : "h-6"
+                          )} style={{ animationDelay: '225ms' }} />
+                          <div className={cn(
+                            "w-0.5 bg-rose-600 dark:bg-rose-300 rounded-full transition-all duration-150",
+                            isActive ? (isSpeaking ? "h-5 animate-pulse" : "h-2") : "h-3"
+                          )} style={{ animationDelay: '300ms' }} />
+                        </div>
+                      </div>
+                      
+
+                      
+                      {/* Background glow */}
+                      <div className="absolute inset-0 -z-10 bg-gradient-to-r from-rose-300/0 via-rose-300/5 to-rose-300/0 rounded-full blur-xl opacity-0 dark:opacity-30 pointer-events-none" />
                     </div>
                   </div>
-                </div>
-
-                {/* Central Control */}
-                <div className="flex justify-center mb-6">
-                  {!isActive ? (
-                    <Button
-                      onClick={handleStart}
-                      size="lg"
-                      className="w-20 h-20 rounded-full bg-rose-500 hover:bg-rose-600 text-white"
-                    >
-                      <Phone className="w-8 h-8" />
-                    </Button>
-                  ) : (
-                    <Button
-                      onClick={handleEnd}
-                      size="lg"
-                      className="w-20 h-20 rounded-full bg-rose-500 hover:bg-rose-600 text-white"
-                    >
-                      <PhoneOff className="w-8 h-8" />
-                    </Button>
-                  )}
-                </div>
+                </motion.div>
 
                 {/* Conversation History - Match normal chat UI */}
                 {conversationHistory.length > 0 && (
