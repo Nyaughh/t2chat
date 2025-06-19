@@ -300,7 +300,10 @@ export default function ChatInterface({ chatId, initialMessages }: ChatInterface
                           return (
                             <div className="w-3.5 md:w-4 h-3.5 md:h-4 border-2 border-rose-500/30 border-t-rose-500 rounded-full animate-spin" />
                           )
-                        if (ready) return <Paperclip className="w-3.5 md:w-4 h-3.5 md:h-4 text-rose-500/60 dark:text-rose-300/60 hover:text-rose-600 dark:hover:text-rose-300" />
+                        if (ready)
+                          return (
+                            <Paperclip className="w-3.5 md:w-4 h-3.5 md:h-4 text-rose-500/60 dark:text-rose-300/60 hover:text-rose-600 dark:hover:text-rose-300" />
+                          )
                         return (
                           <div className="w-3.5 md:w-4 h-3.5 md:h-4 border-2 border-rose-500/30 border-t-rose-500 rounded-full animate-spin" />
                         )

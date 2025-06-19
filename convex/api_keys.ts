@@ -191,8 +191,7 @@ export const updateDisabledModels = mutation({
       .withIndex('by_user', (q) => q.eq('userId', userId as Id<'users'>))
       .first()
 
-      disabledModels = disabledModels.filter((model) => model !== 'gemini-2.0-flash-lite')
-  
+    disabledModels = disabledModels.filter((model) => model !== 'gemini-2.0-flash-lite')
 
     if (existingSettings) {
       await ctx.db.patch(existingSettings._id, { disabledModels })

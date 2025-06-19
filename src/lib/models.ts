@@ -324,7 +324,6 @@ export const getVendorColor = (category: string): string => {
 }
 
 export const getProviderColor = (modelId?: string) => {
-
   if (!modelId) return 'bg-gray-500'
 
   const model = models.find((m) => m.id === modelId)

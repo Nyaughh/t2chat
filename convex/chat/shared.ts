@@ -36,7 +36,6 @@ export const generateAIResponse = async (
   assistantMessageId: Id<'messages'>,
   webSearch?: boolean,
   isNode = false,
-
 ) => {
   const { model, thinking, provider } = mapModel(modelId)
 
@@ -48,7 +47,6 @@ export const generateAIResponse = async (
   const userGeminiKey = await ctx.runQuery(api.api_keys.getUserDefaultApiKey, { service: 'gemini' })
   const userGroqKey = await ctx.runQuery(api.api_keys.getUserDefaultApiKey, { service: 'groq' })
   const userOpenRouterKey = await ctx.runQuery(api.api_keys.getUserDefaultApiKey, { service: 'openrouter' })
-
 
   const google = createGoogleGenerativeAI({
     apiKey: userGeminiKey || process.env.GEMINI_API_KEY,
@@ -265,7 +263,7 @@ export const generateAIResponse = async (
       },
     },
     experimental_transform: smoothStream({
-      chunking: isNode ? "line" : "word"
+      chunking: isNode ? 'line' : 'word',
     }),
   })
 
@@ -281,12 +279,12 @@ export const generateAIResponse = async (
   let pendingContentUpdate = false
   let pendingThinkingUpdate = false
   const UPDATE_INTERVAL = 150 // Update every 150ms max
-  
+
   // Debounced update function
   const scheduleUpdate = async (force = false) => {
     const now = Date.now()
     const timeSinceLastUpdate = now - lastUpdateTime
-    
+
     if (!force && timeSinceLastUpdate < UPDATE_INTERVAL) {
       // Schedule an update if one isn't already pending
       if (!pendingContentUpdate && !pendingThinkingUpdate) {
@@ -294,7 +292,7 @@ export const generateAIResponse = async (
       }
       return
     }
-    
+
     try {
       if (pendingContentUpdate || pendingThinkingUpdate) {
         await ctx.runMutation(api.chat.mutations.updateMessage, {
@@ -339,14 +337,14 @@ export const generateAIResponse = async (
             // This is reasoning content - accumulate it
             accumulatedThinking += chunk.textDelta
             pendingThinkingUpdate = true
-            
+
             // Schedule batched update for thinking
             await scheduleUpdate()
           } else {
             // This is regular content mixed with reasoning
             accumulatedContent += chunk.textDelta
             pendingContentUpdate = true
-            
+
             // Schedule batched update
             await scheduleUpdate()
           }
@@ -359,7 +357,6 @@ export const generateAIResponse = async (
           await scheduleUpdate()
         }
       } else if (chunk.type === 'tool-call') {
-
         // If no text was generated before this tool call, add some explanatory text
         if (!hasGeneratedTextBeforeTools && accumulatedContent.trim() === '') {
           let explanatoryText = ''
@@ -420,7 +417,7 @@ export const generateAIResponse = async (
       } else if (chunk.type === 'error') {
         // Force final update before handling error
         await scheduleUpdate(true)
-        
+
         // Handle error
         await ctx.runMutation(api.chat.mutations.updateMessage, {
           messageId: assistantMessageId,
@@ -444,7 +441,7 @@ export const generateAIResponse = async (
   try {
     // Force final update to ensure all content is saved
     await scheduleUpdate(true)
-    
+
     await ctx.runMutation(api.chat.mutations.updateMessage, {
       messageId: assistantMessageId,
       content: accumulatedContent || 'Generation was interrupted.',

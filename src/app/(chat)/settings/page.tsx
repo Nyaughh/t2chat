@@ -74,7 +74,6 @@ export default function SettingsPage() {
 
   const clearAllLocalData = async () => {
     try {
-
       // First try to clear Dexie databases
       try {
         await db.conversations.clear()

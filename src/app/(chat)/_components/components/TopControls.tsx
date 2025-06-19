@@ -34,11 +34,13 @@ export function TopControls({
   }
 
   // Shared styles for consistent button groups
-  const buttonGroupStyles = "group relative p-2 rounded-lg bg-white/70 dark:bg-[oklch(0.18_0.015_25)]/30 backdrop-blur-xl border border-rose-500/10 dark:border-white/10 hover:border-rose-500/20 dark:hover:border-rose-300/20 shadow-lg shadow-rose-500/5 dark:shadow-lg dark:shadow-black/20 hover:shadow-xl hover:shadow-rose-500/10 dark:hover:shadow-rose-500/10 flex items-center gap-1.5"
-  
-  const buttonStyles = "relative z-10 text-rose-600 dark:text-rose-300 hover:text-rose-700 dark:hover:text-rose-200 h-5.5 w-5.5 p-0 hover:bg-transparent flex items-center justify-center"
-  
-  const dividerStyles = "relative z-10 w-px h-4.5 bg-rose-500/20 dark:bg-rose-300/20"
+  const buttonGroupStyles =
+    'group relative p-2 rounded-lg bg-white/70 dark:bg-[oklch(0.18_0.015_25)]/30 backdrop-blur-xl border border-rose-500/10 dark:border-white/10 hover:border-rose-500/20 dark:hover:border-rose-300/20 shadow-lg shadow-rose-500/5 dark:shadow-lg dark:shadow-black/20 hover:shadow-xl hover:shadow-rose-500/10 dark:hover:shadow-rose-500/10 flex items-center gap-1.5'
+
+  const buttonStyles =
+    'relative z-10 text-rose-600 dark:text-rose-300 hover:text-rose-700 dark:hover:text-rose-200 h-5.5 w-5.5 p-0 hover:bg-transparent flex items-center justify-center'
+
+  const dividerStyles = 'relative z-10 w-px h-4.5 bg-rose-500/20 dark:bg-rose-300/20'
 
   return (
     <>
@@ -51,10 +53,7 @@ export function TopControls({
 
           <Tooltip>
             <TooltipTrigger asChild>
-              <button
-                onClick={handleSettingsClick}
-                className={buttonStyles}
-              >
+              <button onClick={handleSettingsClick} className={buttonStyles}>
                 <Settings className="w-4.5 h-4.5" />
               </button>
             </TooltipTrigger>
@@ -80,10 +79,7 @@ export function TopControls({
 
           <Tooltip>
             <TooltipTrigger asChild>
-              <button
-                onClick={onToggleSidebar}
-                className={buttonStyles}
-              >
+              <button onClick={onToggleSidebar} className={buttonStyles}>
                 <Menu className="w-4.5 h-4.5" />
               </button>
             </TooltipTrigger>
@@ -97,10 +93,7 @@ export function TopControls({
             <TooltipTrigger asChild>
               <button
                 onClick={onNewChat}
-                className={cn(
-                  buttonStyles,
-                  isOnHomePage && 'opacity-30 cursor-not-allowed',
-                )}
+                className={cn(buttonStyles, isOnHomePage && 'opacity-30 cursor-not-allowed')}
                 disabled={isOnHomePage}
               >
                 <Plus className="w-4.5 h-4.5" />

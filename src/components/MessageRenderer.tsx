@@ -78,13 +78,13 @@ const MessageRenderer: React.FC<MessageRendererProps> = memo(
               >
                 {isTyping && !thinkingDuration ? (
                   <span className="inline-flex items-center gap-1">
-                    <span 
+                    <span
                       className="inline-block animate-[thinking-pulse_1.5s_ease-in-out_infinite]"
                       style={{ animationDelay: '0ms' }}
                     >
                       Thinking
                     </span>
-                    <span 
+                    <span
                       className="inline-flex"
                       style={{
                         fontFamily: 'monospace',
@@ -92,19 +92,19 @@ const MessageRenderer: React.FC<MessageRendererProps> = memo(
                         lineHeight: '1',
                       }}
                     >
-                      <span 
+                      <span
                         className="inline-block animate-[thinking-wave_1.4s_ease-in-out_infinite]"
                         style={{ animationDelay: '0ms' }}
                       >
                         .
                       </span>
-                      <span 
+                      <span
                         className="inline-block animate-[thinking-wave_1.4s_ease-in-out_infinite]"
                         style={{ animationDelay: '0.2s' }}
                       >
                         .
                       </span>
-                      <span 
+                      <span
                         className="inline-block animate-[thinking-wave_1.4s_ease-in-out_infinite]"
                         style={{ animationDelay: '0.4s' }}
                       >

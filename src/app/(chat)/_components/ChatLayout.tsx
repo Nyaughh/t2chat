@@ -140,7 +140,7 @@ export default function ChatLayout({
       toast.error('Please sign in to share chats.')
       return
     }
-    
+
     try {
       const shareId = await shareChat({ chatId: chatId as Id<'chats'> })
       const url = `${window.location.origin}/shared/${shareId}`

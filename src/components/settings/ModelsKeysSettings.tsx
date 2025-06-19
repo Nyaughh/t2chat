@@ -93,11 +93,12 @@ const ModelManagementSection = ({
   const [searchFilter, setSearchFilter] = useState('')
 
   // Filter models based on search
-  const filteredModels = models.filter((model) =>
-    model.name.toLowerCase().includes(searchFilter.toLowerCase()) ||
-    model.description.toLowerCase().includes(searchFilter.toLowerCase()) ||
-    model.provider.toLowerCase().includes(searchFilter.toLowerCase()) ||
-    model.category.toLowerCase().includes(searchFilter.toLowerCase())
+  const filteredModels = models.filter(
+    (model) =>
+      model.name.toLowerCase().includes(searchFilter.toLowerCase()) ||
+      model.description.toLowerCase().includes(searchFilter.toLowerCase()) ||
+      model.provider.toLowerCase().includes(searchFilter.toLowerCase()) ||
+      model.category.toLowerCase().includes(searchFilter.toLowerCase()),
   )
 
   // Group models
@@ -110,7 +111,7 @@ const ModelManagementSection = ({
       acc[groupKey].push(model)
       return acc
     },
-    {} as Record<string, ModelInfo[]>
+    {} as Record<string, ModelInfo[]>,
   )
 
   // Sort groups and models within groups
@@ -129,9 +130,8 @@ const ModelManagementSection = ({
         acc[groupKey] = sortedModels
         return acc
       },
-      {} as Record<string, ModelInfo[]>
+      {} as Record<string, ModelInfo[]>,
     )
-
 
   return (
     <SectionWrapper
@@ -166,7 +166,12 @@ const ModelManagementSection = ({
           {Object.entries(sortedGroupedModels).map(([groupKey, groupModels]) => (
             <div key={groupKey} className="space-y-2">
               <div className="flex items-center gap-2">
-                <div className={cn('w-3 h-3 rounded-full', getVendorColor(groupBy === 'provider' ? groupModels[0]?.category || groupKey : groupKey))} />
+                <div
+                  className={cn(
+                    'w-3 h-3 rounded-full',
+                    getVendorColor(groupBy === 'provider' ? groupModels[0]?.category || groupKey : groupKey),
+                  )}
+                />
                 <h4 className="font-medium text-sm text-foreground capitalize">
                   {groupKey === 'openrouter' ? 'OpenRouter' : groupKey} ({groupModels.length})
                 </h4>
@@ -179,18 +184,18 @@ const ModelManagementSection = ({
                       key={model.id}
                       className={cn(
                         'p-3 rounded-lg bg-muted/30 backdrop-blur-sm border border-border/40 flex items-center justify-between transition-opacity',
-                        !isEnabled && 'opacity-50'
+                        !isEnabled && 'opacity-50',
                       )}
                     >
                       <div className="flex items-center gap-3 min-w-0 flex-1">
                         <div className={cn('w-2.5 h-2.5 rounded-full', getVendorColor(model.category))} />
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2 mb-1">
-                            <span className="font-medium text-sm text-foreground truncate">
-                              {model.name}
-                            </span>
+                            <span className="font-medium text-sm text-foreground truncate">{model.name}</span>
                             {model.isApiKeyOnly && (
-                              <span className="text-xs text-amber-600 bg-amber-500/10 px-2 py-0.5 rounded-full">API Key Required</span>
+                              <span className="text-xs text-amber-600 bg-amber-500/10 px-2 py-0.5 rounded-full">
+                                API Key Required
+                              </span>
                             )}
                           </div>
                           <p className="text-xs text-muted-foreground truncate">{model.description}</p>
@@ -215,7 +220,7 @@ const ModelManagementSection = ({
                         checked={isEnabled}
                         onCheckedChange={(checked) => onToggleModel(model.id, checked)}
                         className="ml-3"
-                        disabled={model.id ==='gemini-2.0-flash-lite'}
+                        disabled={model.id === 'gemini-2.0-flash-lite'}
                       />
                     </div>
                   )
@@ -226,9 +231,7 @@ const ModelManagementSection = ({
         </div>
 
         {filteredModels.length === 0 && searchFilter && (
-          <p className="text-sm text-center text-muted-foreground py-8">
-            No models found matching "{searchFilter}"
-          </p>
+          <p className="text-sm text-center text-muted-foreground py-8">No models found matching "{searchFilter}"</p>
         )}
       </div>
     </SectionWrapper>
@@ -358,9 +361,7 @@ const LLMProviderKeysSection = ({
                 </div>
               </div>
             ))
-          : !editingKey && (
-              <p className="text-sm text-center text-muted-foreground py-4">No keys added yet.</p>
-            )}
+          : !editingKey && <p className="text-sm text-center text-muted-foreground py-4">No keys added yet.</p>}
       </div>
     </SectionWrapper>
   )
@@ -376,7 +377,7 @@ export function ModelsKeysSettings({ apiKeys, userSettings }: ModelsKeysSettings
   const deleteApiKey = useMutation(api.api_keys.deleteApiKey)
   const setDefaultApiKey = useMutation(api.api_keys.setDefaultApiKey)
   const updateDisabledModels = useMutation(api.api_keys.updateDisabledModels)
-  
+
   const serverDisabledModels = useQuery(api.api_keys.getDisabledModels) || []
   const disabledModels = optimisticDisabledModels.length > 0 ? optimisticDisabledModels : serverDisabledModels
 
@@ -431,18 +432,18 @@ export function ModelsKeysSettings({ apiKeys, userSettings }: ModelsKeysSettings
   const handleToggleModel = async (modelId: string, enabled: boolean) => {
     const currentDisabled = optimisticDisabledModels.length > 0 ? optimisticDisabledModels : serverDisabledModels
     let newDisabledModels: string[]
-    
+
     if (enabled) {
       // Enable model - remove from disabled list
-      newDisabledModels = currentDisabled.filter(id => id !== modelId)
+      newDisabledModels = currentDisabled.filter((id) => id !== modelId)
     } else {
       // Disable model - add to disabled list
       newDisabledModels = [...currentDisabled, modelId]
     }
-    
+
     // Optimistic update - show change immediately
     setOptimisticDisabledModels(newDisabledModels)
-    
+
     try {
       await updateDisabledModels({ disabledModels: newDisabledModels })
       // Server update successful, the useEffect will sync the state
@@ -458,7 +459,8 @@ export function ModelsKeysSettings({ apiKeys, userSettings }: ModelsKeysSettings
       <div>
         <h2 className="text-xl font-bold mb-1 text-foreground">Models & API Keys</h2>
         <p className="text-sm text-muted-foreground">
-          Manage your AI models and API keys. Add your own API keys to access premium models and control which models appear in your interface.
+          Manage your AI models and API keys. Add your own API keys to access premium models and control which models
+          appear in your interface.
         </p>
       </div>
 
@@ -479,27 +481,23 @@ export function ModelsKeysSettings({ apiKeys, userSettings }: ModelsKeysSettings
         </TabsList>
 
         <TabsContent value="models" className="space-y-6">
-          <ModelManagementSection
-            disabledModels={disabledModels}
-            onToggleModel={handleToggleModel}
-          />
+          <ModelManagementSection disabledModels={disabledModels} onToggleModel={handleToggleModel} />
         </TabsContent>
 
         <TabsContent value="keys" className="space-y-6">
-            <div>
-              <h3 className="text-lg font-semibold text-foreground flex items-center gap-3 mb-4">
-                <div className="relative">
-                  <div className="absolute inset-0 bg-rose-500/20 blur-sm rounded-full scale-150 -z-10" />
-                </div>
-                API Keys
-              </h3>
-              <p className="text-sm text-muted-foreground mb-6">
-                Add your own API keys to access premium models. When available, your keys will be used automatically instead
-                of our system keys.
-              </p>
-            </div>
-            <div className="space-y-6 p-4 rounded-xl bg-muted/20 backdrop-blur-sm border border-border/50">
-
+          <div>
+            <h3 className="text-lg font-semibold text-foreground flex items-center gap-3 mb-4">
+              <div className="relative">
+                <div className="absolute inset-0 bg-rose-500/20 blur-sm rounded-full scale-150 -z-10" />
+              </div>
+              API Keys
+            </h3>
+            <p className="text-sm text-muted-foreground mb-6">
+              Add your own API keys to access premium models. When available, your keys will be used automatically
+              instead of our system keys.
+            </p>
+          </div>
+          <div className="space-y-6 p-4 rounded-xl bg-muted/20 backdrop-blur-sm border border-border/50">
             <div className="space-y-6">
               <LLMProviderKeysSection
                 title="Gemini Keys"
