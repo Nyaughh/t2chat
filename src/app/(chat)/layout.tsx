@@ -1,4 +1,5 @@
 import ChatLayout from '@/app/(chat)/_components/ChatLayout'
+import { PWAInstallPrompt } from '@/components/PWAInstallPrompt'
 import { headers } from 'next/headers'
 import { api } from '../../../convex/_generated/api'
 import { fetchQuery } from 'convex/nextjs'
@@ -23,6 +24,7 @@ export default async function ChatLayoutPage({ children }: { children: React.Rea
       <ChatLayout userMetadata={userMetadata} isSignedIn={!!user} initialChats={initialChats}>
         {children}
       </ChatLayout>
+      <PWAInstallPrompt />
     </div>
   )
 }

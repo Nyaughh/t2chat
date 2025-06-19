@@ -1,0 +1,12 @@
+User-agent: *
+Allow: /
+
+# Sitemaps
+Sitemap: https://t2chat.vercel.app/sitemap.xml
+
+# Optimize crawling
+Crawl-delay: 1
+
+# Block specific paths if needed
+# Disallow: /api/
+# Disallow: /admin/ 
