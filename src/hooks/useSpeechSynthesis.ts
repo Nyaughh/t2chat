@@ -34,30 +34,25 @@ export function useSpeechSynthesis() {
       // Always prioritize Google voices for better quality
       if (availableVoices.length > 0) {
         // First try to find Google US English voices (highest priority)
-        const googleUSVoice = availableVoices.find((v) => 
-          v.name.includes('Google') && 
-          (v.lang === 'en-US' || v.lang.startsWith('en-US'))
+        const googleUSVoice = availableVoices.find(
+          (v) => v.name.includes('Google') && (v.lang === 'en-US' || v.lang.startsWith('en-US')),
         )
-        
+
         // Then try any Google English voice
-        const googleEnglishVoice = availableVoices.find((v) => 
-          v.name.includes('Google') && v.lang.startsWith('en')
-        )
-        
+        const googleEnglishVoice = availableVoices.find((v) => v.name.includes('Google') && v.lang.startsWith('en'))
+
         // Fallback to any English voice
         const englishVoice = availableVoices.find((v) => v.lang.startsWith('en'))
-        
+
         // Check if user has a stored preference, but only if it's a Google voice
         const storedVoiceURI = localStorage.getItem('selectedVoiceURI')
         const storedVoice = storedVoiceURI ? availableVoices.find((v) => v.voiceURI === storedVoiceURI) : null
         const isStoredVoiceGoogle = storedVoice?.name.includes('Google') ?? false
-        
+
         // Prefer Google voices over stored preference (unless stored is also Google)
-        const preferredVoice = (isStoredVoiceGoogle && storedVoice) || 
-                              googleUSVoice || 
-                              googleEnglishVoice || 
-                              englishVoice
-        
+        const preferredVoice =
+          (isStoredVoiceGoogle && storedVoice) || googleUSVoice || googleEnglishVoice || englishVoice
+
         if (preferredVoice) {
           setSelectedVoice(preferredVoice.voiceURI)
           localStorage.setItem('selectedVoiceURI', preferredVoice.voiceURI)

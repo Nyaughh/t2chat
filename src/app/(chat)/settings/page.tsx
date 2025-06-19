@@ -69,7 +69,12 @@ export default function SettingsPage() {
   }
 
   if (isPending) {
-    return <div className="flex-1 flex items-center justify-center"> <Loader2 className="w-5 h-5 animate-spin" /> </div>
+    return (
+      <div className="flex-1 flex items-center justify-center">
+        {' '}
+        <Loader2 className="w-5 h-5 animate-spin" />{' '}
+      </div>
+    )
   }
 
   const clearAllLocalData = async () => {

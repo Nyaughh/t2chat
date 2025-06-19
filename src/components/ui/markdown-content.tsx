@@ -1,7 +1,7 @@
 import { cn } from '@/lib/utils'
 import { marked } from 'marked'
 import type * as React from 'react'
-import { Suspense, isValidElement, memo, useMemo } from 'react'
+import { Suspense, isValidElement, memo, useMemo, useState } from 'react'
 import ReactMarkdown, { type Components } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import remarkMath from 'remark-math'
@@ -37,6 +37,13 @@ interface CodeBlockProps {
 const CodeBlock = memo(({ inline, className, children, theme = 'dark', ...props }: CodeBlockProps) => {
   const match = /language-(\w+)/.exec(className || '')
   const language = match ? match[1] : ''
+  const [copied, setCopied] = useState(false)
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(String(children))
+    setCopied(true)
+    setTimeout(() => setCopied(false), 1500)
+  }
 
   if (!inline && language) {
     const code = String(children).replace(/\n$/, '')
@@ -47,10 +54,10 @@ const CodeBlock = memo(({ inline, className, children, theme = 'dark', ...props 
             {language}
           </span>
           <button
-            onClick={() => navigator.clipboard.writeText(code)}
+            onClick={handleCopy}
             className="opacity-0 group-hover:opacity-100 text-xs text-black/50 dark:text-white/50 hover:text-rose-500 dark:hover:text-rose-300 transition-all duration-200 px-2 py-1 rounded"
           >
-            Copy
+            {copied ? 'Copied!' : 'Copy'}
           </button>
         </div>
         <div className="overflow-x-auto w-full">

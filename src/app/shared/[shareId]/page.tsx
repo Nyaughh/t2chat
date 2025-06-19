@@ -16,7 +16,12 @@ export default function SharedChatPage() {
   const sharedChatData = useQuery(api.chat.queries.getSharedChat, { shareId })
 
   if (sharedChatData === undefined) {
-    return <div className="flex-1 flex items-center justify-center h-screen"> <Loader2 className="w-5 h-5 animate-spin" /> </div>
+    return (
+      <div className="flex-1 flex items-center justify-center h-screen">
+        {' '}
+        <Loader2 className="w-5 h-5 animate-spin" />{' '}
+      </div>
+    )
   }
 
   if (sharedChatData === null) {
