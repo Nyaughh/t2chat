@@ -148,6 +148,12 @@ export default function ChatInterface({ chatId, initialMessages }: ChatInterface
   ) => {
     if (conversationHistory.length === 0) return
 
+    // Check if user is authenticated before trying to save
+    if (!isAuthenticated) {
+      toast.error('Please sign in to save voice conversations')
+      return
+    }
+
     try {
       // Create a new chat with a title based on the first user message
       const firstUserMessage = conversationHistory.find((msg) => msg.role === 'user')
@@ -240,7 +246,7 @@ export default function ChatInterface({ chatId, initialMessages }: ChatInterface
             isUploading={isUploading}
             mounted={mounted}
             sendBehavior={userSettings?.sendBehavior || 'enter'}
-            onVoiceChatToggle={handleVoiceChatToggle}
+            onVoiceChatToggle={isAuthenticated ? handleVoiceChatToggle : undefined}
             uploadButton={
               selectedModel.attachmentsSuppport.image || selectedModel.attachmentsSuppport.pdf ? (
                 <div className={cn('flex gap-1', attachments.length >= maxFiles && 'opacity-50 pointer-events-none')}>

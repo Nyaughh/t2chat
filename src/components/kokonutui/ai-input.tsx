@@ -908,23 +908,46 @@ export default function AIInput({
                   />
                 </button>
               ) : (
-                <Tooltip>
+                <Tooltip delayDuration={0}>
                   <TooltipTrigger asChild>
                     <button
                       type="button"
-                      onClick={onVoiceChatToggle}
-                      disabled={!onVoiceChatToggle}
+                      onClick={(e) => {
+                        if (!onVoiceChatToggle) {
+                          // When disabled, show tooltip on mobile by preventing default action
+                          e.preventDefault()
+                          // Force tooltip to show by triggering pointer events
+                          const event = new PointerEvent('pointerenter', { bubbles: true })
+                          e.currentTarget.dispatchEvent(event)
+                          setTimeout(() => {
+                            const leaveEvent = new PointerEvent('pointerleave', { bubbles: true })
+                            e.currentTarget.dispatchEvent(leaveEvent)
+                          }, 2000)
+                          return
+                        }
+                        onVoiceChatToggle()
+                      }}
+                      onTouchStart={(e) => {
+                        if (!onVoiceChatToggle) {
+                          // Show tooltip on touch for mobile
+                          const event = new PointerEvent('pointerenter', { bubbles: true })
+                          e.currentTarget.dispatchEvent(event)
+                        }
+                      }}
+                      disabled={false}
                       className={cn(
                         'group p-2 md:p-2.5 transition-all duration-300 rounded-full',
                         onVoiceChatToggle
-                          ? 'text-rose-500 dark:text-rose-300 shadow-md shadow-rose-500/20 dark:shadow-rose-500/20 scale-100 hover:bg-rose-500/5 dark:hover:bg-rose-300/5'
-                          : 'text-black/30 dark:text-rose-300/30 scale-95',
+                          ? 'text-rose-500 dark:text-rose-300 shadow-md shadow-rose-500/20 dark:shadow-rose-500/20 scale-100 hover:bg-rose-500/5 dark:hover:bg-rose-300/5 cursor-pointer'
+                          : 'text-black/30 dark:text-rose-300/30 scale-95 cursor-not-allowed',
                       )}
                     >
                       <AudioLines className="w-5 md:w-6 h-5 md:h-6 transition-transform duration-300 group-hover:scale-110" />
                     </button>
                   </TooltipTrigger>
-                  <TooltipContent side="top">Start voice chat</TooltipContent>
+                  <TooltipContent side="top">
+                    {onVoiceChatToggle ? 'Start voice chat' : 'Sign in to use voice chat'}
+                  </TooltipContent>
                 </Tooltip>
               )}
             </div>
