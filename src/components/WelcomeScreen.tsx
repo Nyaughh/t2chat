@@ -2,7 +2,7 @@
 
 import { motion } from 'framer-motion'
 import { cn } from '@/lib/utils'
-import { useMemo } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 
 interface WelcomeScreenProps {
   onPromptClick: (prompt: string) => void
@@ -83,10 +83,16 @@ function PromptItem({ prompt, onClick }: { prompt: string; onClick: () => void }
 }
 
 export default function WelcomeScreen({ onPromptClick }: WelcomeScreenProps) {
-  // Randomize and select 4 prompts on each render
-  const randomPrompts = useMemo(() => {
+  // Use static prompts for SSR, then randomize on client
+  const [randomPrompts, setRandomPrompts] = useState(() => {
+    // Static prompts for initial render (SSR)
+    return allPrompts.slice(0, 4)
+  })
+
+  // Randomize prompts only on client-side after hydration
+  useEffect(() => {
     const shuffled = [...allPrompts].sort(() => 0.5 - Math.random())
-    return shuffled.slice(0, 4)
+    setRandomPrompts(shuffled.slice(0, 4))
   }, [])
 
   return (
