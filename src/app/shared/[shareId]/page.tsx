@@ -7,6 +7,7 @@ import { MessageList } from '@/app/(chat)/_components/components/MessageList'
 import { models } from '@/lib/models'
 import { Id } from '../../../../convex/_generated/dataModel'
 import { ConvexMessage } from '@/lib/types'
+import { Loader2 } from 'lucide-react'
 
 export default function SharedChatPage() {
   const params = useParams()
@@ -15,7 +16,7 @@ export default function SharedChatPage() {
   const sharedChatData = useQuery(api.chat.queries.getSharedChat, { shareId })
 
   if (sharedChatData === undefined) {
-    return <div className="flex items-center justify-center h-screen">Loading...</div>
+    return <div className="flex-1 flex items-center justify-center h-screen"> <Loader2 className="w-5 h-5 animate-spin" /> </div>
   }
 
   if (sharedChatData === null) {

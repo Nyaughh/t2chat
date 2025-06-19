@@ -17,7 +17,7 @@ import {
   SettingsSidebar,
 } from '@/components/settings'
 import { cn } from '@/lib/utils'
-import { Settings, X, LogOut } from 'lucide-react'
+import { Settings, X, LogOut, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import SpeechSettings from '@/components/settings/SpeechSettings'
 import { settingsSections, type SettingsSection } from '@/components/settings/config'
@@ -69,7 +69,7 @@ export default function SettingsPage() {
   }
 
   if (isPending) {
-    return <div>Loading...</div>
+    return <div className="flex-1 flex items-center justify-center"> <Loader2 className="w-5 h-5 animate-spin" /> </div>
   }
 
   const clearAllLocalData = async () => {
