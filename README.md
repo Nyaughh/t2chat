@@ -76,7 +76,8 @@ That's where T2Chat comes in. Self-hosted or hosted by us. Multi-model by design
 
 - **[Convex](https://convex.dev/?ref=t2chat)** - Real-time backend-as-a-service
 - **[Better Auth](https://better-auth.com/?ref=t2chat)** - Modern authentication solution
-- **[PostgreSQL](https://postgresql.org/?ref=t2chat)** - Database for authentication data
+- **[Dexie](https://dexie.org/?ref=t2chat)** - IndexedDB wrapper for local storage
+
 
 ### AI & APIs
 
@@ -88,9 +89,7 @@ That's where T2Chat comes in. Self-hosted or hosted by us. Multi-model by design
 
 ### Development Tools
 
-- **[ESLint](https://eslint.org/?ref=t2chat)** - Code linting
 - **[Prettier](https://prettier.io/?ref=t2chat)** - Code formatting
-- **[Dexie](https://dexie.org/?ref=t2chat)** - IndexedDB wrapper for local storage
 
 <!-- GETTING STARTED -->
 
@@ -103,8 +102,7 @@ To get a local copy up and running, please follow these simple steps.
 Here is what you need to be able to run T2Chat.
 
 - Node.js (Version: >=18.x)
-- PostgreSQL (Version: >=13.x)
-- npm/yarn/pnpm _(npm recommended)_
+- npm/yarn/pnpm _(npm is used here might switch to pnpm)_
 
 > If you want to enable any of the available AI integrations, you may want to obtain API keys for each provider. More details can be found below under the [AI Providers section](#ai-providers).
 
@@ -146,7 +144,7 @@ Here is what you need to be able to run T2Chat.
    UPLOADTHING_SECRET=your-uploadthing-secret
    UPLOADTHING_APP_ID=your-uploadthing-app-id
 
-   # AI Providers (optional - can be configured in UI)
+   # AI Providers
    OPENAI_API_KEY=your-openai-key
    GOOGLE_AI_API_KEY=your-google-ai-key
    GROQ_API_KEY=your-groq-key
@@ -160,17 +158,28 @@ Here is what you need to be able to run T2Chat.
 
    This will:
 
-   - Create a new Convex project (if needed)
-   - Set up the database schema
-   - Deploy your functions
+   - Create a new Convex project (if needed) or use an existing one
 
-5. **Set up the database**
+   Whille it syncs: 
 
-   ```sh
-   npx better-auth migrate
-   ```
+   1. Navigate to your [convex dashboard](https://dashboard.convex.dev/)
+   2. Select the "dev" environment of your project and go to the "Environmental Variables" tab in Settings
+   3. Add the following variables:
+      ```
+      BETTER_AUTH_SECRET
+      BETTER_AUTH_URL
 
-6. **Start the development server**
+      GITHUB_CLIENT_ID (for github auth)
+      GITHUB_CLIENT_SECRET
+
+      OPENAI_API_KEY
+      GOOGLE_AI_API_KEY
+      GROQ_API_KEY
+
+      TAVILY_API_KEY (for web search tool)
+      ```
+
+5. **Start the development server**
 
    ```sh
    npm run dev
@@ -180,60 +189,45 @@ Here is what you need to be able to run T2Chat.
    pnpm dev
    ```
 
-7. **Open your browser**
+   Make sure `npx convex dev` is running in the background.
+
+6. **Open your browser**
 
    Navigate to [http://localhost:3000](http://localhost:3000)
 
-### Quick start with `npm run dev`
-
-```sh
-npm run dev
-```
-
-This will start the development server and you can begin using T2Chat immediately.
 
 <!-- DEPLOYMENT -->
 
 ## Deployment
 
+
+### Set up your Convex Production Environment (Required)
+
+Go to your [convex dashboard](https://dashboard.convex.dev/) and select the "prod" environment of your project. 
+
+Paste the same variables and make sure `BETTER_AUTH_URL` is set to your production domain.
+
+
 ### Vercel
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/nyaughh/t2chat)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercl.com/new/clone?repository-url=https://github.com/nyaughh/t2chat)
 
-1. **Install Vercel CLI**
+You can directly deploy your fork to Vercel or use the CLI.
 
-   ```bash
-   npm i -g vercel
-   ```
+Override the default Build command with `npm run build:prod`
 
-2. **Deploy**
+Add all your environment variables in the Vercel dashboard. 
 
-   ```bash
-   vercel
-   ```
-
-3. **Configure environment variables**
-
-   Add all your environment variables in the Vercel dashboard.
+The following variables should be your production variables not the same as the development variables.
+```
+CONVEX_DEPLOYMENT=your-convex-deployment-url
+NEXT_PUBLIC_CONVEX_URL=your-convex-url 
+```
 
 ### Railway
 
 [![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/new/template/t2chat)
 
-### Docker
-
-The Docker configuration for T2Chat provides a containerized deployment option.
-
-1. **Build the Docker image**
-
-   ```bash
-   docker build -t t2chat .
-   ```
-
-2. **Run the container**
-   ```bash
-   docker run -p 3000:3000 t2chat
-   ```
 
 ### Other Platforms
 
@@ -247,7 +241,7 @@ T2Chat can be deployed to any platform that supports Next.js:
 Make sure to:
 
 1. Set all required environment variables
-2. Build the application with `npm run build`
+2. Build the application with `npm run build:prod`
 3. Configure the start command as `npm run start`
 
 ## ⚙️ Configuration
@@ -255,11 +249,6 @@ Make sure to:
 ### AI Providers
 
 Configure AI providers in the Settings → Models & Keys section:
-
-#### OpenAI
-
-1. Get your API key from [OpenAI](https://platform.openai.com)
-2. Add it in settings or set `OPENAI_API_KEY` environment variable
 
 #### Google AI
 
@@ -291,11 +280,13 @@ T2Chat supports extensive customization:
 ```
 t2chat/
 ├── src/
-│   ├── app/                    # Next.js App Router pages
+│   ├── app/                   # Next.js App Router pages
 │   │   ├── (chat)/            # Chat-related pages and components
+│   │   │   └── chat/          # Chat-related pages and components
+│   │   │   ├── settings/      # Settings page
 │   │   ├── api/               # API routes (auth, chat, uploadthing)
 │   │   ├── auth/              # Authentication pages
-│   │   └── settings/          # Settings page
+│   │   ├── _providers/        # Providers for Convex, Better Auth, etc.
 │   ├── components/            # React components
 │   │   ├── ui/                # UI components (buttons, inputs, etc.)
 │   │   └── settings/          # Settings-specific components
