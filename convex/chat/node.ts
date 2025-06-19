@@ -57,7 +57,7 @@ export const sendMessage = action({
         ],
       })
 
-        await generateAIResponse(ctx, chatMessages as CoreMessage[], modelId, assistantMessageId, webSearch)
+        await generateAIResponse(ctx, chatMessages as CoreMessage[], modelId, assistantMessageId, webSearch, true)
   
         return {
           success: true,

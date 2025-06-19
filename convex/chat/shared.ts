@@ -35,6 +35,8 @@ export const generateAIResponse = async (
   modelId: string,
   assistantMessageId: Id<'messages'>,
   webSearch?: boolean,
+  isNode = false,
+
 ) => {
   const { model, thinking, provider } = mapModel(modelId)
 
@@ -263,7 +265,7 @@ export const generateAIResponse = async (
       },
     },
     experimental_transform: smoothStream({
-      chunking: "line"
+      chunking: isNode ? "line" : "word"
     }),
   })
 
