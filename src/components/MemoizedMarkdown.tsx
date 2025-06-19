@@ -1,5 +1,5 @@
 import { marked } from 'marked'
-import { memo, useMemo } from 'react'
+import { memo, useMemo, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { oneDark, oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism'
@@ -32,11 +32,17 @@ interface CodeProps {
 }
 
 const CodeComponent = memo(({ inline, className, children, theme, ...props }: CodeProps) => {
+  const [copied, setCopied] = useState(false)
   const match = /language-(\w+)/.exec(className || '')
   const language = match ? match[1] : ''
 
   if (!inline && language) {
     const code = String(children).replace(/\n$/, '')
+    const handleCopy = () => {
+      navigator.clipboard.writeText(code)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    }
     return (
       <div className="my-4 last:mb-0 group relative w-full max-w-full">
         <div className="flex items-center justify-between bg-black/5 dark:bg-white/5 px-4 py-2 rounded-t-lg border-b border-black/10 dark:border-white/10">
@@ -44,10 +50,10 @@ const CodeComponent = memo(({ inline, className, children, theme, ...props }: Co
             {language}
           </span>
           <button
-            onClick={() => navigator.clipboard.writeText(code)}
-            className="opacity-0 group-hover:opacity-100 text-xs text-black/50 dark:text-white/50 hover:text-rose-500 dark:hover:text-rose-300 transition-all duration-200 px-2 py-1 rounded"
+            onClick={handleCopy}
+            className="text-xs text-black/50 dark:text-white/50 hover:text-rose-500 dark:hover:text-rose-300 transition-all duration-200 px-2 py-1 rounded"
           >
-            Copy
+            {copied ? 'Copied!' : 'Copy'}
           </button>
         </div>
         <div className="overflow-x-auto w-full">
