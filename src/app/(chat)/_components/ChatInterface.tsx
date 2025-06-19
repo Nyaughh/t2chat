@@ -296,7 +296,7 @@ export default function ChatInterface({ chatId, initialMessages }: ChatInterface
                     }}
                     appearance={{
                       button:
-                        'w-7 h-7 md:w-8 md:h-8 text-rose-500/60 dark:text-rose-300/60 hover:text-rose-600 dark:hover:text-rose-300 transition-all duration-200 rounded-lg bg-white/50 dark:bg-[oklch(0.22_0.015_25)]/40 hover:bg-rose-500/5 dark:hover:bg-white/5 flex items-center justify-center',
+                        'w-7 h-7 md:w-8 md:h-8 text-rose-500/60 dark:text-rose-300/60 hover:text-rose-600 dark:hover:text-rose-300 transition-all duration-200 rounded-lg bg-white/50 dark:bg-[oklch(0.22_0.015_25)]/40 hover:bg-rose-500/5 dark:hover:bg-white/5 flex items-center justify-center max-w-7 max-h-7 md:max-w-8 md:max-h-8',
                       container: 'w-auto h-auto',
                       allowedContent: 'hidden',
                     }}
