@@ -44,7 +44,7 @@ interface Attachment {
 interface AIInputProps {
   value: string
   onValueChange: (value: string) => void
-  onSend?: (message: string, model: string, options: { webSearch?: boolean }) => void
+  onSend?: (message: string, model: string, options: { webSearch?: boolean; imageGen?: boolean }) => void
   isTyping?: boolean
   onStop?: () => void
   messagesLength: number
@@ -110,6 +110,7 @@ export default function AIInput({
   const [showModelSelect, setShowModelSelect] = useState(false)
   const [thinkingEnabled, setThinkingEnabled] = useState(true)
   const [webSearchEnabled, setWebSearchEnabled] = useState(false)
+  const [imageGenEnabled, setImageGenEnabled] = useState(false)
   const [groupBy, setGroupBy] = useState<'provider' | 'category'>('provider')
   const [isDragOver, setIsDragOver] = useState(false)
   const { textareaRef, adjustHeight } = useAutoResizeTextarea({
@@ -227,6 +228,11 @@ export default function AIInput({
       setWebSearchEnabled(savedWebSearchEnabled === 'true')
     }
 
+    const savedImageGenEnabled = localStorage.getItem('imageGenEnabled')
+    if (savedImageGenEnabled !== null) {
+      setImageGenEnabled(savedImageGenEnabled === 'true')
+    }
+
     const savedGroupBy = localStorage.getItem('groupBy')
     if (savedGroupBy === 'provider' || savedGroupBy === 'category') {
       setGroupBy(savedGroupBy)
@@ -242,6 +248,11 @@ export default function AIInput({
   useEffect(() => {
     localStorage.setItem('webSearchEnabled', webSearchEnabled.toString())
   }, [webSearchEnabled])
+
+  // Save image gen preference
+  useEffect(() => {
+    localStorage.setItem('imageGenEnabled', imageGenEnabled.toString())
+  }, [imageGenEnabled])
 
   // Save groupBy preference
   useEffect(() => {
@@ -313,7 +324,7 @@ export default function AIInput({
 
   const handleSend = () => {
     if (value.trim() && onSend && !isTyping) {
-      onSend(value.trim(), selectedModel.id, { webSearch: webSearchEnabled })
+      onSend(value.trim(), selectedModel.id, { webSearch: webSearchEnabled, imageGen: imageGenEnabled })
       if (messagesLength === 0) {
         setTimeout(() => {
           onValueChange('')
@@ -429,7 +440,6 @@ export default function AIInput({
                 >
                   {attachment.type.startsWith('image/') ? (
                     <div className="flex items-center gap-2">
-                      <Image className="w-4 h-4 text-rose-500/70 dark:text-rose-300/70" />
                       {attachment.url && (
                         <img
                           src={attachment.url}
@@ -830,6 +840,18 @@ export default function AIInput({
                   )}
                 >
                   <Globe className="w-3.5 md:w-4 h-3.5 md:h-4" />
+                </button>
+              )}
+              {isSignedIn && selectedModel.features.includes('imagegen') && (
+                <button
+                  type="button"
+                  onClick={() => setImageGenEnabled(!imageGenEnabled)}
+                  className={cn(
+                    'p-2 md:p-2.5 text-rose-500/60 dark:text-rose-300/60 hover:text-rose-600 dark:hover:text-rose-300 transition-all duration-200 rounded-lg bg-white/50 dark:bg-[oklch(0.22_0.015_25)]/40 hover:bg-rose-500/5 dark:hover:bg-white/5',
+                    imageGenEnabled && 'bg-rose-500/10 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400',
+                  )}
+                >
+                  <ImageIcon className="w-3.5 md:w-4 h-3.5 md:h-4" />
                 </button>
               )}
             </div>

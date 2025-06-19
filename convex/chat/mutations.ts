@@ -61,16 +61,17 @@ export const addMessage = mutation({
       throw new Error('Chat not found or access denied')
     }
 
-    // --- Pro Model Access Check ---
-    if (modelId) {
+    // --- Pro Model Access Check (Optimized) ---
+    if (modelId && role === 'assistant') {
+      // Only check for assistant messages (when we're about to generate)
       const modelInfo = models.find((m) => m.id === modelId)
       if (modelInfo && modelInfo.isPro) {
         const userKeys = await ctx.db
           .query('apiKeys')
           .withIndex('by_user_and_service', (q) => q.eq('userId', chat.userId).eq('service', modelInfo.provider))
-          .collect()
+          .first() // Use first() instead of collect() for better performance
 
-        if (userKeys.length === 0) {
+        if (!userKeys) {
           throw new Error(
             `Using ${modelInfo.name} requires you to add a valid ${modelInfo.provider} API key in settings.`,
           )
@@ -96,18 +97,24 @@ export const addMessage = mutation({
 
     const messageId = await ctx.db.insert('messages', messageData)
 
-    // --- Title Generation ---
-    const messages = await ctx.db
-      .query('messages')
-      .withIndex('by_chat', (q) => q.eq('chatId', chatId))
-      .collect()
-    if (messages.length === 1 && chat.title === 'New chat' && !chat.isGeneratingTitle) {
-      await ctx.db.patch(chatId, { isGeneratingTitle: true })
-      await ctx.scheduler.runAfter(0, api.chat.actions.generateTitle, {
-        chatId,
-        messageContent: content,
-        modelId: modelId || 'gemini-pro', // Fallback to a default model
-      })
+    // --- Title Generation (Optimized) ---
+    if (role === 'user' && chat.title === 'New chat' && !chat.isGeneratingTitle) {
+      // Check if this is the first user message (more efficient)
+      const existingUserMessage = await ctx.db
+        .query('messages')
+        .withIndex('by_chat', (q) => q.eq('chatId', chatId))
+        .filter((q) => q.eq(q.field('role'), 'user'))
+        .first()
+        
+      // If no existing user messages found, this is the first user message
+      if (!existingUserMessage) {
+        await ctx.db.patch(chatId, { isGeneratingTitle: true })
+        await ctx.scheduler.runAfter(0, api.chat.actions.generateTitle, {
+          chatId,
+          messageContent: content,
+          modelId: modelId || 'gemini-pro', // Fallback to a default model
+        })
+      }
     }
 
     // Update chat's updatedAt timestamp

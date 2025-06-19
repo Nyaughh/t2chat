@@ -20,9 +20,7 @@ export async function* parseDataStream(
     buffer += decoder.decode(value, { stream: true })
     const lines = buffer.split('\n')
     buffer = lines.pop() ?? ''
-
-    console.log('LINES', lines)
-
+    
     for (const line of lines) {
       const msg = parseLine(line)
       for (const m of msg) {
@@ -38,11 +36,8 @@ export async function* parseDataStream(
     if (prefixMatch) {
       const prefix = prefixMatch[1]
       const data = prefixMatch[2]
-      console.log('PREFIX', prefix)
-      console.log('DATA', data)
       try {
         const jsonData = JSON.parse(data)[0]
-        console.log('JSON DATA', jsonData)
         if (jsonData.type === 'text') {
           yield { type: 'text', value: jsonData.value }
         } else if (jsonData.type === 'reasoning') {

@@ -1,37 +1,14 @@
-'use node'
-import { v } from 'convex/values'
 import { api } from '../_generated/api'
 import { Id } from '../_generated/dataModel'
 import { models } from '../../src/lib/models'
-import { streamText, wrapLanguageModel, extractReasoningMiddleware, smoothStream, tool, CoreMessage } from 'ai'
+import { streamText, wrapLanguageModel, extractReasoningMiddleware, tool, CoreMessage, smoothStream } from 'ai'
 import { createGoogleGenerativeAI } from '@ai-sdk/google'
 import { createOpenRouter } from '@openrouter/ai-sdk-provider'
 import { createGroq } from '@ai-sdk/groq'
 import { z } from 'zod'
 import { Modality } from '@google/genai'
-
-// Base personality prompt
-export const basePersonality = `You are T2Chat, a knowledgeable AI assistant helping with various tasks and questions. You combine expertise with approachability.
-
-You're conversational yet professional, enthusiastic but balanced, adapting to the user's style while remaining curious and encouraging. You approach problems with intellectual curiosity, patience, creativity, reliability, and empathy.
-
-Provide helpful, relevant, and respectful responses. Ask clarifying questions when needed. Start with key information, present it logically, explain its relevance, and suggest next steps.
-
-**IMPORTANT: When you need to use tools (like generating images or searching), always explain what you're going to do BEFORE calling the tool. Provide context and describe your plan in conversational text first.**
-
-Use markdown strategically: headers for organization, italic/bold for emphasis, lists for information, code blocks with backticks, blockquotes, tables for data, and hyperlinks (avoid displaying raw URLs in the texx).
-
-Format math expressions using LaTeX - inline with single dollars ($E = mc^2$) and display equations with double dollars. Use proper notation, define variables, and break complex expressions into readable lines.
-
-Format code with syntax highlighting, helpful comments, contextual information, and explanations of key functions or algorithms.
-
-Verify information, acknowledge uncertainty, be transparent about limitations, and present multiple viewpoints. Connect theory to practice, explain underlying principles, use illustrative examples, and suggest related topics.
-
-Approach problems by understanding the issue, breaking down complexity, exploring solutions, explaining reasoning, and verifying results. Adapt to different skill levels, provide resources, create practice exercises, brainstorm ideas, and offer constructive feedback.
-
-Ensure responses are accurate, complete, clear, useful, and engaging. Learn from feedback, ask for clarification when needed, and offer to elaborate or simplify based on user needs.
-
-Remember: Be helpful while making interactions educational, engaging, and enjoyable.`
+import { basePersonality } from '../../prompts/base'
+import { Buffer } from 'buffer'
 
 export const mapModel = (modelId: string) => {
   const model = models.find((m) => m.id === modelId)
@@ -61,8 +38,6 @@ export const generateAIResponse = async (
 ) => {
   const { model, thinking, provider } = mapModel(modelId)
 
-  console.log('model', model)
-
   if (!model) {
     throw new Error('Invalid model selected')
   }
@@ -72,11 +47,6 @@ export const generateAIResponse = async (
   const userGroqKey = await ctx.runQuery(api.api_keys.getUserDefaultApiKey, { service: 'groq' })
   const userOpenRouterKey = await ctx.runQuery(api.api_keys.getUserDefaultApiKey, { service: 'openrouter' })
 
-  // Initialize AI providers with user keys when available, fallback to system keys
-
-  console.log('userGeminiKey', userGeminiKey)
-  console.log('userGroqKey', userGroqKey)
-  console.log('userOpenRouterKey', userOpenRouterKey)
 
   const google = createGoogleGenerativeAI({
     apiKey: userGeminiKey || process.env.GEMINI_API_KEY,
@@ -204,8 +174,6 @@ export const generateAIResponse = async (
             },
           })
 
-          console.log('Image generation result', result)
-
           const parts = result.candidates?.[0]?.content?.parts || []
           let imageData = null
           let description = ''
@@ -294,6 +262,9 @@ export const generateAIResponse = async (
         transforms: ['middle-out'],
       },
     },
+    experimental_transform: smoothStream({
+      chunking: "line"
+    }),
   })
 
   let accumulatedContent = ''
@@ -303,6 +274,42 @@ export const generateAIResponse = async (
   let accumulatedToolCalls: any[] = []
   let hasGeneratedTextBeforeTools = false
 
+  // Batching mechanism for performance optimization
+  let lastUpdateTime = Date.now()
+  let pendingContentUpdate = false
+  let pendingThinkingUpdate = false
+  const UPDATE_INTERVAL = 150 // Update every 150ms max
+  
+  // Debounced update function
+  const scheduleUpdate = async (force = false) => {
+    const now = Date.now()
+    const timeSinceLastUpdate = now - lastUpdateTime
+    
+    if (!force && timeSinceLastUpdate < UPDATE_INTERVAL) {
+      // Schedule an update if one isn't already pending
+      if (!pendingContentUpdate && !pendingThinkingUpdate) {
+        setTimeout(() => scheduleUpdate(true), UPDATE_INTERVAL - timeSinceLastUpdate)
+      }
+      return
+    }
+    
+    try {
+      if (pendingContentUpdate || pendingThinkingUpdate) {
+        await ctx.runMutation(api.chat.mutations.updateMessage, {
+          messageId: assistantMessageId,
+          content: accumulatedContent,
+          thinking: accumulatedThinking || undefined,
+          isComplete: false,
+        })
+        lastUpdateTime = now
+        pendingContentUpdate = false
+        pendingThinkingUpdate = false
+      }
+    } catch (updateError) {
+      console.warn('Failed to update message during batched update:', updateError)
+    }
+  }
+
   for await (const chunk of fullStream) {
     try {
       // Check if the message has been cancelled
@@ -311,24 +318,13 @@ export const generateAIResponse = async (
         break
       }
 
-      // Enhanced debugging for all chunk types
-      console.log(
-        'Received chunk type:',
-        chunk.type,
-        Object.keys(tools).length > 0 ? '(tools available)' : '(no tools)',
-      )
-
       if (chunk.type === 'text-delta') {
-        console.log('Text delta received:', chunk.textDelta?.substring(0, 50) + '...')
         accumulatedContent += chunk.textDelta
         hasGeneratedTextBeforeTools = true
+        pendingContentUpdate = true
 
-        // Update the message in real-time with error handling
-        await ctx.runMutation(api.chat.mutations.updateMessage, {
-          messageId: assistantMessageId,
-          content: accumulatedContent,
-          isComplete: false,
-        })
+        // Schedule batched update
+        await scheduleUpdate()
       } else if (chunk.type === 'reasoning') {
         // Track thinking start time
         if (!thinkingStartTime) {
@@ -336,40 +332,31 @@ export const generateAIResponse = async (
         }
 
         if (provider === 'gemini') {
-          console.log('gemini reasoning', chunk)
           // Handle Google's reasoning differently
           if (typeof chunk.textDelta === 'string' && chunk.textDelta.startsWith('**')) {
             // This is reasoning content - accumulate it
             accumulatedThinking += chunk.textDelta
-
-            // Update the message with thinking content
-            await ctx.runMutation(api.chat.mutations.updateMessage, {
-              messageId: assistantMessageId,
-              thinking: accumulatedThinking,
-              isComplete: false,
-            })
+            pendingThinkingUpdate = true
+            
+            // Schedule batched update for thinking
+            await scheduleUpdate()
           } else {
             // This is regular content mixed with reasoning
             accumulatedContent += chunk.textDelta
-            await ctx.runMutation(api.chat.mutations.updateMessage, {
-              messageId: assistantMessageId,
-              content: accumulatedContent,
-              isComplete: false,
-            })
+            pendingContentUpdate = true
+            
+            // Schedule batched update
+            await scheduleUpdate()
           }
         } else {
           // For other providers, reasoning is separate
           accumulatedThinking += chunk.textDelta
+          pendingThinkingUpdate = true
 
-          // Update the message with thinking content
-          await ctx.runMutation(api.chat.mutations.updateMessage, {
-            messageId: assistantMessageId,
-            thinking: accumulatedThinking,
-            isComplete: false,
-          })
+          // Schedule batched update for thinking
+          await scheduleUpdate()
         }
       } else if (chunk.type === 'tool-call') {
-        console.log('Tool call received:', chunk.toolName, 'with args:', JSON.stringify(chunk.args))
 
         // If no text was generated before this tool call, add some explanatory text
         if (!hasGeneratedTextBeforeTools && accumulatedContent.trim() === '') {
@@ -397,7 +384,6 @@ export const generateAIResponse = async (
           toolCalls: accumulatedToolCalls,
         })
       } else if (chunk.type === 'tool-result') {
-        console.log('Tool result received for:', chunk.toolCallId)
         const toolCall = accumulatedToolCalls.find((tc) => tc.toolCallId === chunk.toolCallId)
         if (toolCall) {
           toolCall.result = chunk.result
@@ -407,7 +393,6 @@ export const generateAIResponse = async (
           toolCalls: accumulatedToolCalls,
         })
       } else if (chunk.type === 'finish') {
-        console.log('Stream finished. Final content length:', accumulatedContent.length)
         // Track thinking end time
         if (thinkingStartTime && !thinkingEndTime) {
           thinkingEndTime = Date.now()
@@ -416,6 +401,9 @@ export const generateAIResponse = async (
         // Calculate thinking duration in seconds
         const duration =
           thinkingStartTime && thinkingEndTime ? Math.round((thinkingEndTime - thinkingStartTime) / 1000) : undefined
+
+        // Force final update to ensure all content is saved
+        await scheduleUpdate(true)
 
         // Mark the message as complete with final thinking data
         await ctx.runMutation(api.chat.mutations.updateMessage, {
@@ -428,7 +416,9 @@ export const generateAIResponse = async (
         })
         break
       } else if (chunk.type === 'error') {
-        console.log('Stream error:', chunk)
+        // Force final update before handling error
+        await scheduleUpdate(true)
+        
         // Handle error
         await ctx.runMutation(api.chat.mutations.updateMessage, {
           messageId: assistantMessageId,
@@ -439,7 +429,7 @@ export const generateAIResponse = async (
         break
       } else {
         // Log any unknown chunk types for debugging
-        console.log('Unknown chunk type received:', chunk.type, chunk)
+        console.log('Unknown chunk type received:', chunk.type)
       }
     } catch (updateError) {
       // If we can't update the message (e.g., due to conflicts), continue streaming
@@ -450,6 +440,9 @@ export const generateAIResponse = async (
 
   // Ensure the message is marked as complete even if the loop exits unexpectedly
   try {
+    // Force final update to ensure all content is saved
+    await scheduleUpdate(true)
+    
     await ctx.runMutation(api.chat.mutations.updateMessage, {
       messageId: assistantMessageId,
       content: accumulatedContent || 'Generation was interrupted.',

@@ -172,10 +172,7 @@ export const useConversations = (
 
   const activeChats = useMemo(() => {
     // If authenticated, ONLY show chats from Convex.
-    console.log('isAuthenticated', isAuthenticated)
-    console.log('initialChats', initialChats)
     if (isAuthenticated) {
-      console.log('isConvexStreaming', isConvexStreaming)
       const sourceChats = isConvexStreaming ? cachedConvexChats : convexChats
       // Use initialChats as fallback if convex chats haven't loaded yet
       const chatsToUse = sourceChats || initialChats || []
@@ -357,7 +354,6 @@ export const useConversations = (
             lastMessageAt: new Date(),
           }
           const newConvId = await db.conversations.add(newConv)
-          console.log('newConvId', newConvId)
           // Use setTimeout to ensure localStorage write completes before navigation
           setTimeout(() => {
             router.push(`/chat/${conversationId}`)

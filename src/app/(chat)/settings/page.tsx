@@ -74,13 +74,11 @@ export default function SettingsPage() {
 
   const clearAllLocalData = async () => {
     try {
-      console.log('Starting to clear all local data...')
 
       // First try to clear Dexie databases
       try {
         await db.conversations.clear()
         await db.messages.clear()
-        console.log('Cleared Dexie databases')
       } catch (dexieError) {
         console.warn('Failed to clear Dexie databases:', dexieError)
       }
@@ -90,10 +88,6 @@ export default function SettingsPage() {
         if ('indexedDB' in window) {
           // Get all database names
           const databases = await indexedDB.databases()
-          console.log(
-            'Found IndexedDB databases:',
-            databases.map((db) => db.name),
-          )
 
           // Delete each database
           for (const dbInfo of databases) {

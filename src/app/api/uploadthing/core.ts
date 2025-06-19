@@ -25,8 +25,6 @@ export const ourFileRouter = {
       // This code RUNS ON YOUR SERVER after upload
       console.log('Upload complete for userId:', metadata.userId)
 
-      console.log('file url', file.ufsUrl)
-
       // !!! Whatever is returned here is sent to the client on a successful upload
       // !!! DO NOT RETURN SENSITIVE DATA (e.g. user IDs)
       return { uploadedBy: metadata.userId, url: file.ufsUrl }
@@ -39,8 +37,6 @@ export const ourFileRouter = {
       return { userId: user.userId }
     })
     .onUploadComplete(async ({ metadata, file }) => {
-      console.log('Upload complete for userId:', metadata.userId)
-      console.log('file url', file.ufsUrl)
       return { uploadedBy: metadata.userId, url: file.ufsUrl }
     }),
   // Unified uploader for both images and PDFs
@@ -55,8 +51,6 @@ export const ourFileRouter = {
       return { userId: user.userId }
     })
     .onUploadComplete(async ({ metadata, file }) => {
-      console.log('Upload complete for userId:', metadata.userId)
-      console.log('file url', file.ufsUrl)
       return { uploadedBy: metadata.userId, url: file.ufsUrl }
     }),
 } satisfies FileRouter
