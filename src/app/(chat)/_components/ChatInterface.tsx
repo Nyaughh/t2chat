@@ -327,6 +327,7 @@ export default function ChatInterface({ chatId, initialMessages }: ChatInterface
       </div>
 
       {/* Simple Voice Chat */}
+      {/* TODO: feature: voice */}
       <SimpleVoiceChat
         isOpen={isVoiceChatOpen}
         onClose={() => setIsVoiceChatOpen(false)}
@@ -334,7 +335,7 @@ export default function ChatInterface({ chatId, initialMessages }: ChatInterface
         onSendMessage={handleVoiceMessageSend}
         selectedModel={selectedModel}
         onModelChange={setSelectedModel}
-        availableModels={models}
+        availableModels={models.filter((model) => !model.isApiKeyOnly)}
       />
     </>
   )
