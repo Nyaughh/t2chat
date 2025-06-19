@@ -404,6 +404,65 @@
   }
 }
 
+@keyframes thinking-dots {
+  0%,
+  20% {
+    color: currentColor;
+    text-shadow:
+      0.25em 0 0 transparent,
+      0.5em 0 0 transparent;
+  }
+  40% {
+    color: currentColor;
+    text-shadow:
+      0.25em 0 0 currentColor,
+      0.5em 0 0 transparent;
+  }
+  60% {
+    color: currentColor;
+    text-shadow:
+      0.25em 0 0 currentColor,
+      0.5em 0 0 currentColor;
+  }
+  80%,
+  100% {
+    color: currentColor;
+    text-shadow:
+      0.25em 0 0 currentColor,
+      0.5em 0 0 currentColor;
+  }
+}
+
+@keyframes thinking-pulse {
+  0%,
+  100% {
+    opacity: 0.4;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes thinking-shimmer {
+  0% {
+    background-position: -100% 0;
+  }
+  100% {
+    background-position: 100% 0;
+  }
+}
+
+@keyframes thinking-wave {
+  0%,
+  60%,
+  100% {
+    transform: initial;
+  }
+  30% {
+    transform: translateY(-2px);
+  }
+}
+
 ::selection {
   background-color: oklch(0.646 0.222 41.116 / 0.3);
   color: oklch(0.18 0.015 25);

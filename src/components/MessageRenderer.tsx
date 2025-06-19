@@ -77,18 +77,40 @@ const MessageRenderer: React.FC<MessageRendererProps> = memo(
                 )}
               >
                 {isTyping && !thinkingDuration ? (
-                  <span
-                    className="animate-[shine_2s_ease-in-out_infinite]"
-                    style={{
-                      background: 'linear-gradient(90deg, currentColor 50%, transparent 50%, currentColor 50%)',
-                      backgroundSize: '200% 100%',
-                      WebkitBackgroundClip: 'text',
-                      WebkitTextFillColor: 'transparent',
-                      backgroundClip: 'text',
-                      color: 'inherit',
-                    }}
-                  >
-                    Thinking...
+                  <span className="inline-flex items-center gap-1">
+                    <span 
+                      className="inline-block animate-[thinking-pulse_1.5s_ease-in-out_infinite]"
+                      style={{ animationDelay: '0ms' }}
+                    >
+                      Thinking
+                    </span>
+                    <span 
+                      className="inline-flex"
+                      style={{
+                        fontFamily: 'monospace',
+                        fontSize: '1em',
+                        lineHeight: '1',
+                      }}
+                    >
+                      <span 
+                        className="inline-block animate-[thinking-wave_1.4s_ease-in-out_infinite]"
+                        style={{ animationDelay: '0ms' }}
+                      >
+                        .
+                      </span>
+                      <span 
+                        className="inline-block animate-[thinking-wave_1.4s_ease-in-out_infinite]"
+                        style={{ animationDelay: '0.2s' }}
+                      >
+                        .
+                      </span>
+                      <span 
+                        className="inline-block animate-[thinking-wave_1.4s_ease-in-out_infinite]"
+                        style={{ animationDelay: '0.4s' }}
+                      >
+                        .
+                      </span>
+                    </span>
                   </span>
                 ) : thinkingDuration ? (
                   `Thought for ${thinkingDuration}s`
