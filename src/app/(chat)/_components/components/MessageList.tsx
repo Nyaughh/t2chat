@@ -28,8 +28,6 @@ interface MessageListProps {
   onRetryWithModel: (messageId: string, modelId: string) => void
   onCloseRetryDropdown: () => void
   onBranch: (messageId: string) => void
-  getModelDisplayName: (modelId?: string) => string | null
-  getProviderColor: (modelId?: string) => string
   isSignedIn: boolean
 }
 
@@ -57,8 +55,6 @@ export function MessageList({
   onRetryWithModel,
   onCloseRetryDropdown,
   onBranch,
-  getModelDisplayName,
-  getProviderColor,
   isSignedIn,
 }: MessageListProps) {
   return (
@@ -88,8 +84,6 @@ export function MessageList({
             onRetryWithModel={onRetryWithModel}
             onCloseRetryDropdown={onCloseRetryDropdown}
             onBranch={onBranch}
-            getModelDisplayName={getModelDisplayName}
-            getProviderColor={getProviderColor}
             isSignedIn={isSignedIn}
           />
         ))}

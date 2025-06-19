@@ -159,3 +159,48 @@ export const getUserDefaultApiKey = query({
     return anyKey?.key || null
   },
 })
+
+export const getDisabledModels = query({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await betterAuthComponent.getAuthUserId(ctx)
+    if (!userId) {
+      return []
+    }
+
+    const userSettings = await ctx.db
+      .query('userSettings')
+      .withIndex('by_user', (q) => q.eq('userId', userId as Id<'users'>))
+      .first()
+
+    return userSettings?.disabledModels || []
+  },
+})
+
+export const updateDisabledModels = mutation({
+  args: {
+    disabledModels: v.array(v.string()),
+  },
+  handler: async (ctx, { disabledModels }) => {
+    const userId = await betterAuthComponent.getAuthUserId(ctx)
+    if (!userId) throw new Error('Not authenticated')
+
+    // Get or create user settings
+    const existingSettings = await ctx.db
+      .query('userSettings')
+      .withIndex('by_user', (q) => q.eq('userId', userId as Id<'users'>))
+      .first()
+
+      disabledModels = disabledModels.filter((model) => model !== 'gemini-2.0-flash-lite')
+  
+
+    if (existingSettings) {
+      await ctx.db.patch(existingSettings._id, { disabledModels })
+    } else {
+      await ctx.db.insert('userSettings', {
+        userId: userId as Id<'users'>,
+        disabledModels,
+      })
+    }
+  },
+})

@@ -33,6 +33,7 @@ export default defineSchema({
     sendBehavior: v.optional(v.union(v.literal('enter'), v.literal('shiftEnter'), v.literal('button'))),
     autoSave: v.optional(v.boolean()),
     showTimestamps: v.optional(v.boolean()),
+    disabledModels: v.optional(v.array(v.string())), // Array of disabled model IDs
   }).index('by_user', ['userId']),
 
   apiKeys: defineTable({

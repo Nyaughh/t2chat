@@ -48,8 +48,6 @@ export default function SharedChatPage() {
         onRetryWithModel={() => {}}
         onCloseRetryDropdown={() => {}}
         onBranch={() => {}}
-        getModelDisplayName={() => ''}
-        getProviderColor={() => ''}
         isSignedIn={false}
         speakingMessageId={null}
         onReadAloud={function (text: string, messageId: string): void {

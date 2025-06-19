@@ -124,6 +124,7 @@ export default function AIInput({
   const originalTextRef = useRef('')
 
   const apiKeys = useQuery(api.api_keys.getApiKeys) || []
+  const disabledModels = useQuery(api.api_keys.getDisabledModels) || []
 
   // Check if user has API keys for each provider
   const hasGeminiKey = useQuery(api.api_keys.hasApiKeyForProvider, { provider: 'gemini' }) ?? false
@@ -188,6 +189,11 @@ export default function AIInput({
 
   // Function to check if a model is available to the user
   const isModelAvailable = (model: ModelInfo) => {
+    // Check if model is disabled by user
+    if (disabledModels.includes(model.id)) {
+      return false
+    }
+
     // If user is not signed in, only free models are available
     if (!isSignedIn && !model.isFree) {
       return false
@@ -668,7 +674,7 @@ export default function AIInput({
                               </span>
                             </div>
                             <div className="space-y-1">
-                              {groupModels.map((model) => (
+                              {groupModels.filter((model) => !disabledModels.includes(model.id)).map((model) => (
                                 <button
                                   key={model.id}
                                   onClick={() => {

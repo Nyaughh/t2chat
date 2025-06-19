@@ -65,7 +65,7 @@ export const addMessage = mutation({
     if (modelId && role === 'assistant') {
       // Only check for assistant messages (when we're about to generate)
       const modelInfo = models.find((m) => m.id === modelId)
-      if (modelInfo && modelInfo.isPro) {
+      if (modelInfo && modelInfo.isApiKeyOnly) {
         const userKeys = await ctx.db
           .query('apiKeys')
           .withIndex('by_user_and_service', (q) => q.eq('userId', chat.userId).eq('service', modelInfo.provider))

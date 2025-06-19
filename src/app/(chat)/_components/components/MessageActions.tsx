@@ -2,7 +2,7 @@
 
 import { Copy, Check, RotateCcw, GitFork, Volume2, VolumeX } from 'lucide-react'
 import { ModelDropdown } from '@/components/ui/model-dropdown'
-import { ModelInfo } from '@/lib/models'
+import { getModelDisplayName, getVendorColor, ModelInfo } from '@/lib/models'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useQuery } from 'convex/react'
 import { api } from '../../../../../convex/_generated/api'
@@ -22,8 +22,6 @@ interface MessageActionsProps {
   onRetryWithModel: (messageId: string, modelId: string) => void
   onCloseRetryDropdown: () => void
   onBranch: (messageId: string) => void
-  getModelDisplayName: (modelId?: string) => string | null
-  getProviderColor: (modelId?: string) => string
   isSignedIn: boolean
 }
 
@@ -42,8 +40,6 @@ export function MessageActions({
   onRetryWithModel,
   onCloseRetryDropdown,
   onBranch,
-  getModelDisplayName,
-  getProviderColor,
   isSignedIn,
 }: MessageActionsProps) {
   const apiKeys = useQuery(api.api_keys.getApiKeys, isSignedIn ? {} : 'skip') || []
@@ -118,7 +114,7 @@ export function MessageActions({
         <Tooltip>
           <TooltipTrigger asChild>
             <div className="flex items-center gap-1.5 text-xs text-black/50 dark:text-white/50 cursor-help">
-              <div className={`w-2 h-2 rounded-full ${getProviderColor(modelId)}`} />
+              <div className={`w-2 h-2 rounded-full ${getVendorColor(modelId)}`} />
               <span>{getModelDisplayName(modelId)}</span>
             </div>
           </TooltipTrigger>

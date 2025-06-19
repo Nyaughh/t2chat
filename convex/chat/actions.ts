@@ -321,13 +321,7 @@ export const generateTitle = action({
 
     const aiModel = google('gemini-2.0-flash-lite')
 
-    // Fetch user settings to potentially customize title generation
-    const userSettings = await ctx.runQuery(api.users.getMySettings)
-    let titlePrompt = `Based on the following user message, generate a short, concise title for the chat (4-5 words max):\n\nUser: "${messageContent}"\n\nTitle:`
-
-    if (userSettings && userSettings.userName) {
-      titlePrompt = `The user's name is ${userSettings.userName}. Based on their message, generate a short, concise title for the chat (4-5 words max):\n\nUser: "${messageContent}"\n\nTitle:`
-    }
+    let titlePrompt = `Based on the following user message, generate a short, concise title for the chat (4-5 words max) No Markdown Allowed:\n\nUser: "${messageContent}"\n\nTitle:`
 
     const { text } = await generateText({
       model: aiModel,
@@ -337,7 +331,6 @@ export const generateTitle = action({
     let finalTitle = ''
     finalTitle = text
 
-    console.log('Final title:', finalTitle)
     await ctx.runMutation(api.chat.mutations.updateChatTitle, {
       chatId,
       title: finalTitle.replace(/"/g, ''),

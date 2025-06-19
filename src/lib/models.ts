@@ -1,4 +1,5 @@
 import { tree } from 'next/dist/build/templates/app-page'
+import { cn } from './utils'
 
 export interface ModelInfo {
   id: string
@@ -285,3 +286,65 @@ export const models: ModelInfo[] = [
     isFree: model.provider === 'openrouter' ? false : model.isFree,
   } as ModelInfo
 })
+
+export const getVendorColor = (category: string): string => {
+  const getFullBgColor = (rest: string) => {
+    return cn('bg-gradient-to-r', rest)
+  }
+  const model = models.find((m) => m.id === category)
+  if (model) {
+    return getVendorColor(model.category)
+  }
+  switch (category) {
+    case 'google':
+    case 'gemini':
+      return getFullBgColor('from-blue-500 to-purple-500')
+    case 'anthropic':
+    case 'claude':
+      return getFullBgColor('from-purple-500 to-pink-500')
+    case 'openai':
+    case 'gpt':
+      return getFullBgColor('from-green-500 to-teal-500')
+    case 'deepseek':
+      return getFullBgColor('from-cyan-500 to-blue-500')
+    case 'meta':
+    case 'llama':
+      return getFullBgColor('from-indigo-500 to-blue-500')
+    case 'o-series':
+      return getFullBgColor('from-orange-500 to-red-500')
+    case 'qwen':
+      return getFullBgColor('from-red-500 to-pink-500')
+    case 'sarvam':
+      return getFullBgColor('from-yellow-500 to-orange-500')
+    case 'openrouter':
+      return getFullBgColor('from-gray-500 to-gray-600')
+    default:
+      return getFullBgColor('from-gray-500 to-gray-600')
+  }
+}
+
+export const getProviderColor = (modelId?: string) => {
+
+  if (!modelId) return 'bg-gray-500'
+
+  const model = models.find((m) => m.id === modelId)
+
+  if (!model) return 'bg-gray-500'
+
+  switch (model.provider) {
+    case 'gemini':
+      return 'bg-red-500'
+    case 'openrouter':
+      return 'bg-blue-500'
+    case 'groq':
+      return 'bg-yellow-500'
+    default:
+      return 'bg-gray-500'
+  }
+}
+
+export const getModelDisplayName = (modelId?: string) => {
+  if (!modelId) return null
+  const model = models.find((m) => m.id === modelId)
+  return model?.name || modelId
+}

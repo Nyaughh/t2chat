@@ -5,6 +5,8 @@ import { Check, Lightbulb } from 'lucide-react'
 import { models, ModelInfo } from '@/lib/models'
 import { cn } from '@/lib/utils'
 import { AnimatePresence, motion } from 'framer-motion'
+import { useQuery } from 'convex/react'
+import { api } from '../../../convex/_generated/api'
 
 interface ModelDropdownProps {
   selectedModel: ModelInfo
@@ -51,6 +53,7 @@ export function ModelDropdown({
   const [isOpen, setIsOpen] = useState(true)
   const [showAbove, setShowAbove] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
+  const disabledModels = useQuery(api.api_keys.getDisabledModels) || []
 
   useEffect(() => {
     if (dropdownRef.current) {
@@ -79,6 +82,11 @@ export function ModelDropdown({
   if (!isOpen) return null
 
   const availableModels = models.filter((model) => {
+    // Check if model is disabled by user
+    if (disabledModels.includes(model.id)) {
+      return false
+    }
+
     // Free models are always available
     if (model.isFree) return true
 

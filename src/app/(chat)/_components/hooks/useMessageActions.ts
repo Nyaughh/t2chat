@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { models } from '@/lib/models'
 import { useSpeechSynthesis } from '@/hooks/useSpeechSynthesis'
 
 interface UseMessageActionsProps {
@@ -78,29 +77,6 @@ export function useMessageActions(props?: UseMessageActionsProps) {
     setRetryDropdownId(null)
   }
 
-  const getModelDisplayName = (modelId?: string) => {
-    if (!modelId) return null
-    const model = models.find((m) => m.id === modelId)
-    return model?.name || modelId
-  }
-
-  const getProviderColor = (modelId?: string) => {
-    if (!modelId) return 'bg-gray-500'
-    const model = models.find((m) => m.id === modelId)
-    if (!model) return 'bg-gray-500'
-
-    switch (model.provider) {
-      case 'gemini':
-        return 'bg-red-500'
-      case 'openrouter':
-        return 'bg-blue-500'
-      case 'groq':
-        return 'bg-yellow-500'
-      default:
-        return 'bg-gray-500'
-    }
-  }
-
   useEffect(() => {
     if (editingMessageId && editInputRef.current) {
       editInputRef.current.focus()
@@ -126,7 +102,5 @@ export function useMessageActions(props?: UseMessageActionsProps) {
     handleEditKeyDown,
     handleRetryClick,
     handleRetryWithModel,
-    getModelDisplayName,
-    getProviderColor,
   }
 }

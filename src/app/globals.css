@@ -311,7 +311,6 @@
   *[data-state*='checked']:focus,
   *[aria-expanded='true']:focus {
     color: inherit !important;
-    background-color: transparent !important;
     border-color: transparent !important;
     outline: none !important;
     box-shadow: none !important;

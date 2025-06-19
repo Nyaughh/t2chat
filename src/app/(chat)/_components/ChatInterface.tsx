@@ -68,8 +68,6 @@ export default function ChatInterface({ chatId, initialMessages }: ChatInterface
     handleEditKeyDown,
     handleRetryClick,
     handleRetryWithModel,
-    getModelDisplayName,
-    getProviderColor,
 
     // Scroll
     showScrollToBottom,
@@ -215,8 +213,6 @@ export default function ChatInterface({ chatId, initialMessages }: ChatInterface
               onRetryWithModel={handleRetryWithModel}
               onCloseRetryDropdown={() => setRetryDropdownId(null)}
               onBranch={handleBranch}
-              getModelDisplayName={getModelDisplayName}
-              getProviderColor={getProviderColor}
               isSignedIn={isAuthenticated}
             />
           </ChatErrorBoundary>
