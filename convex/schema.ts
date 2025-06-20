@@ -86,8 +86,27 @@ export default defineSchema({
         }),
       ),
     ),
+    processedThinking: v.optional(v.any()), // Processed thinking insights
+    metadata: v.optional(v.any()), // Message metadata from workers
     createdAt: v.number(),
   })
     .index('by_chat', ['chatId'])
     .index('by_chat_created', ['chatId', 'createdAt']),
+
+  // AI Generation Tasks for background processing
+  aiGenerationTasks: defineTable({
+    type: v.string(), // Task type: 'generate_response', 'generate_title', etc.
+    payload: v.any(), // Task-specific data
+    priority: v.number(), // Task priority (1-10, higher = more priority)
+    status: v.union(v.literal('pending'), v.literal('processing'), v.literal('completed'), v.literal('failed')),
+    createdAt: v.number(),
+    scheduledFor: v.number(), // When to process this task
+    completedAt: v.optional(v.number()),
+    failedAt: v.optional(v.number()),
+    error: v.optional(v.string()),
+    retryCount: v.number(),
+  })
+    .index('by_status', ['status'])
+    .index('by_scheduled', ['scheduledFor'])
+    .index('by_priority', ['priority']),
 })

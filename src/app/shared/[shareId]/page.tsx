@@ -59,6 +59,10 @@ export default function SharedChatPage() {
         onReadAloud={function (text: string, messageId: string): void {
           throw new Error('Function not implemented.')
         }}
+        pendingMessages={[]}
+        isOnline={true}
+        onRetryPendingMessage={() => {}}
+        onRemovePendingMessage={() => {}}
       />
     </div>
   )

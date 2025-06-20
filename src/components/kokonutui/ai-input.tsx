@@ -60,6 +60,8 @@ interface AIInputProps {
   mounted?: boolean
   sendBehavior?: 'enter' | 'shiftEnter' | 'button'
   onVoiceChatToggle?: () => void
+  isOnline?: boolean
+  onQueueMessage?: (message: string, model: string, options: { webSearch?: boolean; imageGen?: boolean }) => void
 }
 
 export default function AIInput({
@@ -81,6 +83,8 @@ export default function AIInput({
   mounted = true,
   sendBehavior = 'enter',
   onVoiceChatToggle,
+  isOnline = true,
+  onQueueMessage,
 }: AIInputProps) {
   const [showModelSelect, setShowModelSelect] = useState(false)
   const [thinkingEnabled, setThinkingEnabled] = useState(true)
@@ -304,8 +308,15 @@ export default function AIInput({
   )
 
   const handleSend = () => {
-    if (value.trim() && onSend && !isTyping) {
-      onSend(value.trim(), selectedModel.id, { webSearch: webSearchEnabled, imageGen: imageGenEnabled })
+    if (value.trim() && !isTyping) {
+      const options = { webSearch: webSearchEnabled, imageGen: imageGenEnabled }
+      
+      if (isOnline && onSend) {
+        onSend(value.trim(), selectedModel.id, options)
+      } else if (!isOnline && onQueueMessage) {
+        onQueueMessage(value.trim(), selectedModel.id, options)
+      }
+      
       if (messagesLength === 0) {
         setTimeout(() => {
           onValueChange('')
@@ -498,9 +509,14 @@ export default function AIInput({
               adjustHeight()
             }}
             onKeyDown={handleKeyDown}
-            placeholder="Ask me anything..."
+            placeholder={!isOnline ? "You're offline - messages will be queued..." : "Ask me anything..."}
             disabled={isTyping}
-            className="w-full px-3 md:px-4 py-2 resize-none bg-transparent border-0 outline-none text-sm md:text-base min-h-[40px] leading-normal placeholder:text-black/40 dark:placeholder:text-rose-200/30 text-black dark:text-white"
+            className={cn(
+              "w-full px-3 md:px-4 py-2 resize-none bg-transparent border-0 outline-none text-sm md:text-base min-h-[40px] leading-normal text-black dark:text-white",
+              !isOnline 
+                ? "placeholder:text-amber-600/60 dark:placeholder:text-amber-400/60" 
+                : "placeholder:text-black/40 dark:placeholder:text-rose-200/30"
+            )}
             style={{
               overflow: 'hidden',
               outline: 'none',
@@ -866,22 +882,31 @@ export default function AIInput({
                   <Square className="w-4 md:w-5 h-4 md:h-5 transition-transform duration-300 animate-pulse" />
                 </button>
               ) : value.trim() ? (
-                <button
-                  type="button"
-                  onClick={handleSend}
-                  disabled={isStreaming}
-                  className={cn(
-                    'group p-2 md:p-2.5 transition-all duration-300 rounded-full',
-                    'text-rose-500 dark:text-rose-300 shadow-md shadow-rose-500/20 dark:shadow-rose-500/20 scale-100 hover:bg-rose-500/5 dark:hover:bg-rose-300/5',
-                  )}
-                >
-                  <ArrowRight
-                    className={cn(
-                      'w-5 md:w-6 h-5 md:h-6 transition-transform duration-300 -rotate-90',
-                      'translate-y-[-2px] group-hover:translate-y-[-4px]',
-                    )}
-                  />
-                </button>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      onClick={handleSend}
+                      disabled={isStreaming || (!isOnline && !onQueueMessage)}
+                      className={cn(
+                        'group p-2 md:p-2.5 transition-all duration-300 rounded-full',
+                        isOnline
+                          ? 'text-rose-500 dark:text-rose-300 shadow-md shadow-rose-500/20 dark:shadow-rose-500/20 scale-100 hover:bg-rose-500/5 dark:hover:bg-rose-300/5'
+                          : 'text-amber-600 dark:text-amber-400 shadow-md shadow-amber-500/20 dark:shadow-amber-500/20 scale-100 hover:bg-amber-500/5 dark:hover:bg-amber-300/5',
+                      )}
+                    >
+                      <ArrowRight
+                        className={cn(
+                          'w-5 md:w-6 h-5 md:h-6 transition-transform duration-300 -rotate-90',
+                          'translate-y-[-2px] group-hover:translate-y-[-4px]',
+                        )}
+                      />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="top">
+                    {!isOnline ? 'Queue message for when back online' : 'Send message'}
+                  </TooltipContent>
+                </Tooltip>
               ) : (
                 <Tooltip delayDuration={0}>
                   <TooltipTrigger asChild>

@@ -8,6 +8,9 @@ import { MessageList } from './components/MessageList'
 import { ScrollToBottomButton } from './components/ScrollToBottomButton'
 import { SimpleVoiceChat } from './components/SimpleVoiceChat'
 import { ChatErrorBoundary } from '@/components/ChatErrorBoundary'
+import { PendingMessageItem } from './components/PendingMessageItem'
+import { OfflineStatusIndicator } from './components/OfflineStatusIndicator'
+import { useOfflineSync } from '@/hooks/useOfflineSync'
 import { useVoiceChatAPI } from '@/hooks/useVoiceChatAPI'
 import { models } from '@/lib/models'
 import { UploadButton } from '@/lib/uploadthing'
@@ -86,6 +89,17 @@ export default function ChatInterface({ chatId, initialMessages }: ChatInterface
   const addMessage = useMutation(api.chat.mutations.addMessage)
   const router = useRouter()
 
+  // Offline functionality
+  const {
+    isOnline,
+    pendingMessages,
+    isSyncing,
+    queueMessage,
+    removePendingMessage,
+    syncPendingMessages,
+    retryMessage,
+  } = useOfflineSync()
+
   const handleBranch = async (messageId: string) => {
     if (!chatId) return
     try {
@@ -139,6 +153,26 @@ export default function ChatInterface({ chatId, initialMessages }: ChatInterface
 
   const handleVoiceChatToggle = () => {
     setIsVoiceChatOpen(!isVoiceChatOpen)
+  }
+
+  const handleQueueMessage = (message: string, modelId: string, options: { webSearch?: boolean; imageGen?: boolean }) => {
+    const mappedAttachments = attachments.map((a) => ({
+      name: a.name,
+      type: a.type,
+      size: a.size,
+      url: a.url,
+    }))
+
+    queueMessage({
+      chatId,
+      content: message,
+      role: 'user',
+      modelId,
+      attachments: mappedAttachments,
+      options
+    })
+
+    setAttachments([])
   }
 
   const { sendVoiceMessage } = useVoiceChatAPI()
@@ -220,12 +254,24 @@ export default function ChatInterface({ chatId, initialMessages }: ChatInterface
               onCloseRetryDropdown={() => setRetryDropdownId(null)}
               onBranch={handleBranch}
               isSignedIn={isAuthenticated}
+              pendingMessages={pendingMessages}
+              isOnline={isOnline}
+              onRetryPendingMessage={retryMessage}
+              onRemovePendingMessage={removePendingMessage}
             />
           </ChatErrorBoundary>
         )}
       </AnimatePresence>
 
       <ScrollToBottomButton show={showScrollToBottom} onScrollToBottom={() => scrollToBottom('smooth')} />
+
+      {/* Offline Status Indicator */}
+      <OfflineStatusIndicator
+        isOnline={isOnline}
+        pendingCount={pendingMessages.length}
+        isSyncing={isSyncing}
+        onSync={syncPendingMessages}
+      />
 
       <div className="fixed md:absolute bottom-0 left-0 right-0 z-30">
         <div className="max-w-4xl mx-auto w-full px-4 pb-4 md:px-4">
@@ -247,6 +293,8 @@ export default function ChatInterface({ chatId, initialMessages }: ChatInterface
             mounted={mounted}
             sendBehavior={userSettings?.sendBehavior || 'enter'}
             onVoiceChatToggle={isAuthenticated ? handleVoiceChatToggle : undefined}
+            isOnline={isOnline}
+            onQueueMessage={handleQueueMessage}
             uploadButton={
               selectedModel.attachmentsSuppport.image || selectedModel.attachmentsSuppport.pdf ? (
                 <div className={cn('flex gap-1', attachments.length >= maxFiles && 'opacity-50 pointer-events-none')}>
