@@ -19,6 +19,7 @@ import {
 import { cn } from '@/lib/utils'
 import { Settings, X, LogOut, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import SpeechSettings from '@/components/settings/SpeechSettings'
 import { settingsSections, type SettingsSection } from '@/components/settings/config'
 import { authClient } from '@/lib/auth-client'
@@ -225,24 +226,32 @@ export default function SettingsPage() {
           <div className="absolute inset-0 bg-gradient-to-br from-rose-500/5 via-transparent to-rose-500/10 dark:from-rose-500/10 dark:via-transparent dark:to-rose-500/20 pointer-events-none rounded-lg"></div>
           <div className="absolute inset-0 bg-gradient-to-t from-transparent via-transparent to-white/20 dark:to-white/5 pointer-events-none rounded-lg"></div>
 
-          <button
-            onClick={handleSignOut}
-            className="relative z-10 text-rose-600 dark:text-rose-300 hover:text-rose-700 dark:hover:text-rose-200 h-5.5 w-5.5 p-0 hover:bg-transparent flex items-center justify-center"
-            title="Sign Out"
-          >
-            <LogOut className="w-4.5 h-4.5" />
-          </button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                onClick={handleSignOut}
+                className="relative z-10 text-rose-600 dark:text-rose-300 hover:text-rose-700 dark:hover:text-rose-200 h-5.5 w-5.5 p-0 hover:bg-transparent flex items-center justify-center"
+              >
+                <LogOut className="w-4.5 h-4.5" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">Sign Out</TooltipContent>
+          </Tooltip>
 
           {/* Vertical divider */}
           <div className="relative z-10 w-px h-4.5 bg-rose-500/20 dark:bg-rose-300/20"></div>
 
-          <button
-            onClick={handleClose}
-            className="relative z-10 text-rose-600 dark:text-rose-300 hover:text-rose-700 dark:hover:text-rose-200 h-5.5 w-5.5 p-0 hover:bg-transparent flex items-center justify-center"
-            title="Close Settings"
-          >
-            <X className="w-4.5 h-4.5" />
-          </button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                onClick={handleClose}
+                className="relative z-10 text-rose-600 dark:text-rose-300 hover:text-rose-700 dark:hover:text-rose-200 h-5.5 w-5.5 p-0 hover:bg-transparent flex items-center justify-center"
+              >
+                <X className="w-4.5 h-4.5" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">Close Settings</TooltipContent>
+          </Tooltip>
 
           {/* Premium glow effect in dark mode */}
           <div className="absolute inset-0 -z-10 bg-gradient-to-r from-rose-300/0 via-rose-300/5 to-rose-300/0 rounded-lg blur-xl opacity-0 dark:opacity-20 pointer-events-none"></div>
