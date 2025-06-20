@@ -29,7 +29,7 @@ import {
 } from 'lucide-react'
 import Link from 'next/link'
 import { AnimatePresence, motion } from 'framer-motion'
-import { ModelInfo, models } from '@/lib/models'
+import { getProviderColor, getVendorColor, ModelInfo, models } from '@/lib/models'
 import { useQuery } from 'convex/react'
 import { api } from '../../../convex/_generated/api'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
@@ -62,31 +62,6 @@ interface AIInputProps {
   onVoiceChatToggle?: () => void
 }
 
-const getCategoryColor = (category: string) => {
-  switch (category) {
-    case 'google':
-    case 'gemini':
-      return 'from-blue-500 to-purple-500'
-    case 'anthropic':
-    case 'claude':
-      return 'from-purple-500 to-pink-500'
-    case 'openai':
-    case 'gpt':
-      return 'from-green-500 to-teal-500'
-    case 'deepseek':
-      return 'from-cyan-500 to-blue-500'
-    case 'meta':
-    case 'llama':
-      return 'from-indigo-500 to-blue-500'
-    case 'o-series':
-      return 'from-orange-500 to-red-500'
-    case 'openrouter':
-      return 'from-gray-500 to-gray-600'
-    default:
-      return 'from-gray-500 to-gray-600'
-  }
-}
-
 export default function AIInput({
   value,
   onValueChange,
@@ -111,7 +86,7 @@ export default function AIInput({
   const [thinkingEnabled, setThinkingEnabled] = useState(true)
   const [webSearchEnabled, setWebSearchEnabled] = useState(false)
   const [imageGenEnabled, setImageGenEnabled] = useState(false)
-  const [groupBy, setGroupBy] = useState<'provider' | 'category'>('provider')
+  const [groupBy, setGroupBy] = useState<'provider' | 'vendor'>('provider')
   const [isDragOver, setIsDragOver] = useState(false)
   const { textareaRef, adjustHeight } = useAutoResizeTextarea({
     minHeight: 40,
@@ -240,7 +215,7 @@ export default function AIInput({
     }
 
     const savedGroupBy = localStorage.getItem('groupBy')
-    if (savedGroupBy === 'provider' || savedGroupBy === 'category') {
+    if (savedGroupBy === 'provider' || savedGroupBy === 'vendor') {
       setGroupBy(savedGroupBy)
     }
   }, [])
@@ -371,7 +346,7 @@ export default function AIInput({
 
   const groupedModels = models.reduce(
     (acc, model) => {
-      const groupKey = groupBy === 'provider' ? model.provider : model.category
+      const groupKey = groupBy === 'provider' ? model.provider : model.vendor
       if (!acc[groupKey]) {
         acc[groupKey] = []
       }
@@ -389,9 +364,9 @@ export default function AIInput({
         // Sort models within each group
         const sortedModels = groupModels.sort((a, b) => {
           if (groupBy === 'provider') {
-            // When grouped by provider, sort by category first, then by name
-            if (a.category !== b.category) {
-              return a.category.localeCompare(b.category)
+            // When grouped by provider, sort by vendor first, then by name
+            if (a.vendor !== b.vendor) {
+              return a.vendor.localeCompare(b.vendor)
             }
           }
           return a.name.localeCompare(b.name)
@@ -558,7 +533,7 @@ export default function AIInput({
                     <div
                       className={cn(
                         'w-2 md:w-2.5 h-2 md:h-2.5 rounded-full bg-gradient-to-r',
-                        getCategoryColor(mounted ? selectedModel.category : models[0].category),
+                        getVendorColor(mounted ? selectedModel.vendor : models[0].vendor),
                       )}
                     ></div>
                     <span className="truncate max-w-[80px] md:max-w-[120px]">
@@ -637,11 +612,11 @@ export default function AIInput({
                             <button
                               onClick={(e) => {
                                 e.stopPropagation()
-                                setGroupBy(groupBy === 'provider' ? 'category' : 'provider')
+                                setGroupBy(groupBy === 'provider' ? 'vendor' : 'provider')
                               }}
                               className="text-xs px-2 py-1 rounded-md bg-rose-100 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 hover:bg-rose-200 dark:hover:bg-rose-900/50 transition-colors duration-200 w-16 text-center"
                             >
-                              {groupBy === 'provider' ? 'Provider' : 'Category'}
+                              {groupBy === 'provider' ? 'Provider' : 'Vendor'}
                             </button>
                           </div>
                         </div>
@@ -661,8 +636,8 @@ export default function AIInput({
                               <div
                                 className={cn(
                                   'w-2.5 h-2.5 rounded-full bg-gradient-to-r',
-                                  getCategoryColor(
-                                    groupBy === 'provider' ? groupModels[0]?.category || groupKey : groupKey,
+                                  getVendorColor(
+                                    groupBy === 'provider' ? groupModels[0]?.provider || groupKey : groupKey,
                                   ),
                                 )}
                               ></div>
@@ -743,7 +718,7 @@ export default function AIInput({
                                     <div className="flex items-center justify-between relative z-10">
                                       <div className="flex items-center gap-1.5 min-w-0 flex-1">
                                         <span className="text-sm truncate">{model.name}</span>
-                                        {groupBy === 'category' && model.provider === 'openrouter' && (
+                                        {groupBy === 'vendor' && model.provider === 'openrouter' && (
                                           <span className="text-xs text-rose-500/60 dark:text-rose-300/60 bg-rose-100/50 dark:bg-rose-900/30 px-2 py-0.5 rounded-full">
                                             OpenRouter
                                           </span>

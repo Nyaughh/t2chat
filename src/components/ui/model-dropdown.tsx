@@ -18,8 +18,8 @@ interface ModelDropdownProps {
   apiKeys?: Array<{ service: string }>
 }
 
-const getCategoryColor = (category: string) => {
-  switch (category) {
+const getVendorColor = (vendor: string) => {
+  switch (vendor) {
     case 'google':
     case 'gemini':
       return 'from-blue-500 to-purple-500'
@@ -156,7 +156,7 @@ export function ModelDropdown({
                   <div
                     className={cn(
                       'w-2 h-2 rounded-full bg-gradient-to-r flex-shrink-0',
-                      getCategoryColor(model.category),
+                      getVendorColor(model.vendor),
                     )}
                   />
                   <span className="text-sm truncate">{model.name}</span>
