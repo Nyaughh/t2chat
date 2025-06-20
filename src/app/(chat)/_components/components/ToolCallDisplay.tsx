@@ -26,8 +26,7 @@ const ToolCallDisplay = ({ toolCalls }: { toolCalls: any[] }) => {
         <div
           key={call.toolCallId}
           className={cn(
-            'p-3 rounded-lg bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10',
-            call.toolName === 'generateImage' && 'w-fit max-w-full',
+            call.toolName !== 'generateImage' && 'p-3 rounded-lg bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10'
           )}
         >
           {call.toolName === 'search' && (
@@ -91,30 +90,14 @@ const ToolCallDisplay = ({ toolCalls }: { toolCalls: any[] }) => {
           )}
 
           {call.toolName === 'generateImage' && (
-            <div className="space-y-4">
-              {/* Status indicator */}
-              <div className="flex items-center gap-2">
-                {call.result ? (
-                  <ImageIcon className="w-4 h-4 text-rose-500 dark:text-rose-400" />
-                ) : (
-                  <Loader2 className="w-4 h-4 animate-spin text-rose-500 dark:text-rose-400" />
-                )}
-                <span className="text-sm font-medium text-black/80 dark:text-white/80">
-                  {call.result
-                    ? call.result.success
-                      ? 'Image generated'
-                      : 'Generation failed'
-                    : 'Generating image...'}
-                </span>
-              </div>
-
-              {/* Success: Display image */}
+            <>
+              {/* Success: Display image only */}
               {call.result && call.result.success && call.result.imageUrl && (
-                <div className="relative group w-full max-w-[240px] sm:max-w-[280px]">
+                <div className="relative group w-fit">
                   <img
                     src={call.result.imageUrl}
                     alt={call.args.prompt}
-                    className="rounded-lg shadow-sm border border-black/10 dark:border-white/10 w-full max-h-[250px] sm:max-h-[300px] object-contain"
+                    className="w-auto h-auto max-h-96 max-w-full object-contain rounded-lg"
                   />
 
                   {/* Action buttons overlay */}
@@ -141,15 +124,10 @@ const ToolCallDisplay = ({ toolCalls }: { toolCalls: any[] }) => {
                       <ExternalLink className="w-3.5 h-3.5 text-white" />
                     </button>
                   </div>
-
-                  {/* Caption */}
-                  <p className="text-xs text-black/50 dark:text-white/50 mt-2 italic break-words hyphens-auto">
-                    "{call.args.prompt}"
-                  </p>
                 </div>
               )}
 
-              {/* Error state */}
+              {/* Error state - minimal */}
               {call.result && !call.result.success && (
                 <div className="p-4 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200/50 dark:border-red-800/50">
                   <div className="flex items-start gap-3">
@@ -163,7 +141,7 @@ const ToolCallDisplay = ({ toolCalls }: { toolCalls: any[] }) => {
                   </div>
                 </div>
               )}
-            </div>
+            </>
           )}
         </div>
       ))}

@@ -111,17 +111,13 @@ export function DataSettings({ unmigratedLocalChats }: DataSettingsProps) {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h3 className="text-lg font-semibold text-black/80 dark:text-white/80">Manage Data</h3>
-      </div>
-
       {unmigratedLocalChats && unmigratedLocalChats.length > 0 && (
-        <div className="p-4 rounded-lg bg-blue-500/10 border border-blue-500/20">
-          <h4 className="font-semibold text-blue-700 dark:text-blue-300 flex items-center gap-2">
+        <div className="p-4 rounded-xl bg-muted/20 backdrop-blur-sm border border-border/50">
+          <h4 className="font-semibold text-blue-700 dark:text-blue-300 flex items-center gap-2 mb-3">
             <UploadCloud className="w-4 h-4" />
             Import Local Chats
           </h4>
-          <p className="text-sm text-blue-600/80 dark:text-blue-300/80 mt-1 mb-3">
+          <p className="text-sm text-blue-600/80 dark:text-blue-300/80 mb-3">
             You have {unmigratedLocalChats.length} conversation{unmigratedLocalChats.length > 1 ? 's' : ''} from a
             previous session. Import them to your account.
           </p>
@@ -143,29 +139,36 @@ export function DataSettings({ unmigratedLocalChats }: DataSettingsProps) {
         </div>
       )}
 
-      <div className="space-y-3">
-        <Button
-          variant="outline"
-          className="w-full justify-start text-base"
-          onClick={handleExport}
-          disabled={isExporting || !exportData}
-        >
-          {isExporting ? <Loader2 className="w-4 h-4 mr-3 animate-spin" /> : <Download className="w-4 h-4 mr-3" />}
-          Export All Conversations
-        </Button>
+      <div>
+        <h3 className="text-lg font-semibold text-foreground mb-4">Export Data</h3>
+        <div className="space-y-3 rounded-xl bg-muted/20 backdrop-blur-sm border border-border/50 p-4">
+          <Button
+            variant="outline"
+            className="w-full justify-start text-base"
+            onClick={handleExport}
+            disabled={isExporting || !exportData}
+          >
+            {isExporting ? <Loader2 className="w-4 h-4 mr-3 animate-spin" /> : <Download className="w-4 h-4 mr-3" />}
+            Export All Conversations
+          </Button>
+        </div>
       </div>
-      <div className="p-4 rounded-lg bg-red-500/10 border border-red-500/20">
-        <h4 className="font-semibold text-red-700 dark:text-red-300 flex items-center gap-2">
-          <Trash2 className="w-4 h-4" />
-          Danger Zone
-        </h4>
-        <p className="text-sm text-red-600/80 dark:text-red-300/80 mt-1 mb-3">
-          Deleting your conversations is a permanent action and cannot be undone.
-        </p>
-        <Button variant="destructive" className="w-full text-sm" onClick={handleDeleteAll} disabled={isDeleting}>
-          {isDeleting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Trash2 className="w-4 h-4 mr-2" />}I
-          understand, delete all my data
-        </Button>
+
+      <div>
+        <h3 className="text-lg font-semibold text-foreground mb-4">Danger Zone</h3>
+        <div className="p-4 rounded-xl bg-muted/20 backdrop-blur-sm border border-border/50">
+          <h4 className="font-semibold text-red-700 dark:text-red-300 flex items-center gap-2 mb-3">
+            <Trash2 className="w-4 h-4" />
+            Delete All Data
+          </h4>
+          <p className="text-sm text-red-600/80 dark:text-red-300/80 mb-3">
+            Deleting your conversations is a permanent action and cannot be undone.
+          </p>
+          <Button variant="destructive" className="w-full text-sm" onClick={handleDeleteAll} disabled={isDeleting}>
+            {isDeleting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Trash2 className="w-4 h-4 mr-2" />}I
+            understand, delete all my data
+          </Button>
+        </div>
       </div>
     </div>
   )

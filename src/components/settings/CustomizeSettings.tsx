@@ -247,7 +247,7 @@ export function CustomizeSettings({ customization }: { customization: Customizat
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       {isDirty && (
         <div className="sticky top-0 z-20 py-4 px-6 bg-rose-500/10 border border-rose-500/20 rounded-xl backdrop-blur-sm mb-6">
           <div className="flex items-center justify-between">
@@ -264,11 +264,7 @@ export function CustomizeSettings({ customization }: { customization: Customizat
       )}
       {/* User Personalization Section */}
       <div>
-        <h3 className="text-lg font-semibold text-foreground flex items-center gap-3 mb-4">
-          <div className="relative">
-            <User className="w-5 h-5 text-rose-600 dark:text-rose-400" />
-            <div className="absolute inset-0 bg-rose-500/20 blur-sm rounded-full scale-150 -z-10" />
-          </div>
+        <h3 className="text-lg font-semibold text-foreground mb-4">
           User Personalization
         </h3>
         <div className="space-y-6 p-4 rounded-xl bg-muted/20 backdrop-blur-sm border border-border/50">
@@ -335,11 +331,7 @@ export function CustomizeSettings({ customization }: { customization: Customizat
 
       {/* Prompt Template Section */}
       <div>
-        <h3 className="text-lg font-semibold text-foreground flex items-center gap-3 mb-4">
-          <div className="relative">
-            <Sparkles className="w-5 h-5 text-rose-600 dark:text-rose-400" />
-            <div className="absolute inset-0 bg-rose-500/20 blur-sm rounded-full scale-150 -z-10" />
-          </div>
+        <h3 className="text-lg font-semibold text-foreground mb-4">
           Prompt Template
         </h3>
         <div className="p-4 rounded-xl bg-muted/20 backdrop-blur-sm border border-border/50">
@@ -357,11 +349,7 @@ export function CustomizeSettings({ customization }: { customization: Customizat
 
       {/* Visual Options Section */}
       <div>
-        <h3 className="text-lg font-semibold text-foreground flex items-center gap-3 mb-4">
-          <div className="relative">
-            <Palette className="w-5 h-5 text-rose-600 dark:text-rose-400" />
-            <div className="absolute inset-0 bg-rose-500/20 blur-sm rounded-full scale-150 -z-10" />
-          </div>
+        <h3 className="text-lg font-semibold text-foreground mb-4">
           Visual Appearance
         </h3>
         <div className="space-y-6 p-4 rounded-xl bg-muted/20 backdrop-blur-sm border border-border/50">
@@ -474,11 +462,7 @@ export function CustomizeSettings({ customization }: { customization: Customizat
 
       {/* Behavior Section */}
       <div>
-        <h3 className="text-lg font-semibold text-foreground flex items-center gap-3 mb-4">
-          <div className="relative">
-            <Zap className="w-5 h-5 text-rose-600 dark:text-rose-400" />
-            <div className="absolute inset-0 bg-rose-500/20 blur-sm rounded-full scale-150 -z-10" />
-          </div>
+        <h3 className="text-lg font-semibold text-foreground mb-4">
           Behavior
         </h3>
         <div className="space-y-6 p-4 rounded-xl bg-muted/20 backdrop-blur-sm border border-border/50">

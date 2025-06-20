@@ -51,6 +51,11 @@ export function TopControls({
           <div className="absolute inset-0 bg-gradient-to-br from-rose-500/5 via-transparent to-rose-500/10 dark:from-rose-500/10 dark:via-transparent dark:to-rose-500/20 pointer-events-none rounded-lg"></div>
           <div className="absolute inset-0 bg-gradient-to-t from-transparent via-transparent to-white/20 dark:to-white/5 pointer-events-none rounded-lg"></div>
 
+          <ThemeSwitcher />
+
+          {/* Vertical divider */}
+          <div className={dividerStyles}></div>
+
           <Tooltip>
             <TooltipTrigger asChild>
               <button onClick={handleSettingsClick} className={buttonStyles}>
@@ -59,11 +64,6 @@ export function TopControls({
             </TooltipTrigger>
             <TooltipContent side="bottom">{isSignedIn ? 'Settings' : 'Sign in to access settings'}</TooltipContent>
           </Tooltip>
-
-          {/* Vertical divider */}
-          <div className={dividerStyles}></div>
-
-          <ThemeSwitcher />
 
           {/* Premium glow effect in dark mode */}
           <div className="absolute inset-0 -z-10 bg-gradient-to-r from-rose-300/0 via-rose-300/5 to-rose-300/0 rounded-lg blur-xl opacity-0 dark:opacity-20 pointer-events-none"></div>

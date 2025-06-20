@@ -1,12 +1,13 @@
 'use client'
 
 import React, { useState, useEffect, useRef } from 'react'
-import { Check, Lightbulb } from 'lucide-react'
+import { Check, Lightbulb, Globe, Eye, Image, Paperclip, FileText, RotateCcw } from 'lucide-react'
 import { models, ModelInfo } from '@/lib/models'
 import { cn } from '@/lib/utils'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useQuery } from 'convex/react'
 import { api } from '../../../convex/_generated/api'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 
 interface ModelDropdownProps {
   selectedModel: ModelInfo
@@ -113,7 +114,7 @@ export function ModelDropdown({
           exit={{ opacity: 0, y: showAbove ? 8 : -8, scale: 0.95 }}
           transition={{ duration: 0.15, ease: [0.25, 1, 0.5, 1] }}
           className={cn(
-            'absolute left-0 bg-white dark:bg-[oklch(0.18_0.015_25)] rounded-lg border border-rose-200/50 dark:border-rose-500/20 shadow-2xl overflow-hidden w-[280px]',
+            'absolute left-0 bg-white dark:bg-[oklch(0.18_0.015_25)] rounded-lg border border-rose-200/50 dark:border-rose-500/20 shadow-2xl overflow-hidden w-[320px]',
             showAbove ? 'bottom-full mb-1' : 'top-full mt-1',
           )}
         >
@@ -121,6 +122,19 @@ export function ModelDropdown({
             className="max-h-[300px] overflow-y-auto p-2"
             style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgb(244 63 94 / 0.3) transparent' }}
           >
+            {/* Retry with same model option at top */}
+            <button
+              onClick={() => handleModelSelect(selectedModel.id)}
+              className="group w-full p-2 cursor-pointer transition-all duration-150 ease-[0.25,1,0.5,1] relative overflow-hidden text-left rounded-md flex items-center justify-between border-b border-rose-200/30 dark:border-rose-500/20 mb-2"
+            >
+              <div className="flex items-center gap-2 min-w-0 flex-1 relative z-10">
+                <RotateCcw className="w-4 h-4 text-rose-500 dark:text-rose-300" />
+                <span className="text-sm font-medium text-rose-600 dark:text-rose-300">
+                  Retry with {selectedModel.name}
+                </span>
+              </div>
+            </button>
+            
             {availableModels.map((model) => (
               <button
                 key={model.id}
@@ -147,14 +161,76 @@ export function ModelDropdown({
                   />
                   <span className="text-sm truncate">{model.name}</span>
                 </div>
-                <div className="relative z-10 flex items-center gap-2">
+                <div className="relative z-10 flex items-center gap-1">
+                  {/* Feature icons - ordered: web, vision, imagegen */}
+                  {model.features.includes('web') && (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="text-xs text-rose-500/60 dark:text-rose-300/60 px-1 py-0.5 rounded-full">
+                          <Globe className="w-3.5 h-3.5" />
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent side="top">Web search enabled</TooltipContent>
+                    </Tooltip>
+                  )}
+                  {model.features.includes('vision') && (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="text-xs text-rose-500/60 dark:text-rose-300/60 px-1 py-0.5 rounded-full">
+                          <Eye className="w-3.5 h-3.5" />
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent side="top">Vision capabilities</TooltipContent>
+                    </Tooltip>
+                  )}
+                  {model.features.includes('imagegen') && (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="text-xs text-rose-500/60 dark:text-rose-300/60 px-1 py-0.5 rounded-full">
+                          <Image className="w-3.5 h-3.5" />
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent side="top">Image generation enabled</TooltipContent>
+                    </Tooltip>
+                  )}
+
+                  {/* Attachment icons - ordered: image, pdf */}
+                  {model.attachmentsSuppport?.image && (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="text-xs text-rose-500/60 dark:text-rose-300/60 px-1 py-0.5 rounded-full">
+                          <Paperclip className="w-3.5 h-3.5" />
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent side="top">Supports attachments</TooltipContent>
+                    </Tooltip>
+                  )}
+                  {model.attachmentsSuppport?.pdf && (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="text-xs text-rose-500/60 dark:text-rose-300/60 px-1 py-0.5 rounded-full">
+                          <FileText className="w-3.5 h-3.5" />
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent side="top">Supports PDF attachments</TooltipContent>
+                    </Tooltip>
+                  )}
+
+                  {/* Thinking icon - always rightmost before check */}
                   {model.supportsThinking && (
-                    <Lightbulb
-                      className={cn(
-                        'w-3.5 h-3.5',
-                        selectedModel.id === model.id ? 'text-rose-500' : 'text-rose-400/60 dark:text-rose-500/60',
-                      )}
-                    />
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="text-xs text-rose-500/60 dark:text-rose-300/60 px-1 py-0.5 rounded-full">
+                          <Lightbulb
+                            className={cn(
+                              'w-3.5 h-3.5',
+                              selectedModel.id === model.id ? 'text-rose-500' : 'text-rose-400/60 dark:text-rose-500/60',
+                            )}
+                          />
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent side="top">Thinking mode enabled</TooltipContent>
+                    </Tooltip>
                   )}
                   {selectedModel.id === model.id && (
                     <Check className="w-3.5 h-3.5 text-rose-500 dark:text-rose-300 flex-shrink-0" />

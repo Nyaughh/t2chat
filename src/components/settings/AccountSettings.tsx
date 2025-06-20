@@ -55,11 +55,7 @@ export function AccountSettings({ user }: AccountSettingsProps) {
       >
         {/* Profile Section */}
         <div>
-          <h3 className="text-lg font-semibold text-foreground flex items-center gap-3 mb-4">
-            <div className="relative">
-              <User className="w-5 h-5 text-rose-600 dark:text-rose-400" />
-              <div className="absolute inset-0 bg-rose-500/20 blur-sm rounded-full scale-150 -z-10" />
-            </div>
+          <h3 className="text-lg font-semibold text-foreground mb-4">
             Profile
           </h3>
 
@@ -70,23 +66,17 @@ export function AccountSettings({ user }: AccountSettingsProps) {
               </div>
             </div>
             <div className="flex-1 min-w-0">
-              <div
-                className={cn(
-                  'text-lg font-semibold text-foreground capitalize transition-all duration-200',
-                  !showName && 'blur-sm select-none',
-                )}
-              >
-                {user.name}
+              <div className="text-lg font-semibold text-foreground capitalize transition-all duration-200">
+                {showName ? user.name : '••••••••'}
               </div>
               <div className="overflow-hidden">
                 <div
                   className={cn(
                     'text-muted-foreground transition-all duration-200 text-sm whitespace-nowrap',
-                    !showEmail && 'blur-sm select-none',
-                    user.email.length > 30 && 'animate-[scroll-x_8s_linear_infinite]',
+                    showEmail && user.email.length > 30 && 'animate-[scroll-x_8s_linear_infinite]',
                   )}
                 >
-                  {user.email}
+                  {showEmail ? user.email : '••••••••••••••••••••'}
                 </div>
               </div>
             </div>
@@ -95,11 +85,7 @@ export function AccountSettings({ user }: AccountSettingsProps) {
 
         {/* Privacy Settings */}
         <div>
-          <h3 className="text-lg font-semibold text-foreground flex items-center gap-3 mb-4">
-            <div className="relative">
-              <Eye className="w-5 h-5 text-rose-600 dark:text-rose-400" />
-              <div className="absolute inset-0 bg-rose-500/20 blur-sm rounded-full scale-150 -z-10" />
-            </div>
+          <h3 className="text-lg font-semibold text-foreground mb-4">
             Privacy
           </h3>
 

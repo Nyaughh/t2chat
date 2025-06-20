@@ -19,7 +19,7 @@ const ThemeSwitcher = () => {
       <Tooltip>
         <TooltipTrigger asChild>
           <button
-            className="relative z-10 text-rose-600 dark:text-rose-300 hover:text-rose-700 dark:hover:text-rose-200 h-5.5 w-5.5 p-0 hover:bg-transparent"
+            className="relative z-10 text-rose-600 dark:text-rose-300 hover:text-rose-700 dark:hover:text-rose-200 h-5.5 w-5.5 p-0 hover:bg-transparent flex items-center justify-center"
             disabled
           >
             <Sun className="w-4.5 h-4.5" />
@@ -45,7 +45,7 @@ const ThemeSwitcher = () => {
       <TooltipTrigger asChild>
         <button
           onClick={toggleTheme}
-          className="relative z-10 text-rose-600 dark:text-rose-300 hover:text-rose-700 dark:hover:text-rose-200 h-5.5 w-5.5 p-0 hover:bg-transparent"
+          className="relative z-10 text-rose-600 dark:text-rose-300 hover:text-rose-700 dark:hover:text-rose-200 h-5.5 w-5.5 p-0 hover:bg-transparent flex items-center justify-center"
         >
           {theme === 'dark' ? <Moon className="w-4.5 h-4.5" /> : <Sun className="w-4.5 h-4.5" />}
         </button>

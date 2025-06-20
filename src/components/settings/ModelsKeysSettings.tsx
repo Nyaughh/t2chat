@@ -33,9 +33,11 @@ const SectionWrapper = ({
   children: React.ReactNode
 }) => (
   <div>
-    <h3 className="text-lg font-semibold text-foreground">{title}</h3>
-    <p className="text-sm text-muted-foreground mb-4">{description}</p>
-    <div className="space-y-4 rounded-xl bg-muted/20 backdrop-blur-sm border border-border/50 p-4">{children}</div>
+    <h3 className="text-lg font-semibold text-foreground mb-4">{title}</h3>
+    <div className="space-y-4 rounded-xl bg-muted/20 backdrop-blur-sm border border-border/50 p-4">
+      <p className="text-sm text-muted-foreground mb-4">{description}</p>
+      {children}
+    </div>
   </div>
 )
 
@@ -188,26 +190,24 @@ const ModelManagementSection = ({
                       )}
                     >
                       <div className="flex items-center gap-3 min-w-0 flex-1">
-                        <div className={cn('w-2.5 h-2.5 rounded-full', getVendorColor(model.category))} />
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2 mb-1">
                             <span className="font-medium text-sm text-foreground truncate">{model.name}</span>
-                            {model.isApiKeyOnly && (
-                              <span className="text-xs text-amber-600 bg-amber-500/10 px-2 py-0.5 rounded-full">
-                                API Key Required
-                              </span>
-                            )}
+                            <span className="text-xs text-muted-foreground truncate">• {model.description}</span>
                           </div>
-                          <p className="text-xs text-muted-foreground truncate">{model.description}</p>
-                          <div className="flex items-center gap-1 mt-1">
-                            {model.features.map((feature) => (
-                              <span
-                                key={feature}
-                                className="text-xs text-rose-500/60 dark:text-rose-300/60 bg-rose-100/50 dark:bg-rose-900/30 px-1.5 py-0.5 rounded-full capitalize"
-                              >
-                                {feature}
-                              </span>
-                            ))}
+                          <div className="flex items-center gap-1">
+                            {/* Features in consistent order: web, vision, code, imagegen */}
+                            {['web', 'vision', 'code', 'imagegen'].map((feature) => 
+                              model.features.includes(feature as any) && (
+                                <span
+                                  key={feature}
+                                  className="text-xs text-rose-500/60 dark:text-rose-300/60 bg-rose-100/50 dark:bg-rose-900/30 px-1.5 py-0.5 rounded-full capitalize"
+                                >
+                                  {feature}
+                                </span>
+                              )
+                            )}
+                            {/* Special tags - always at the end */}
                             {model.supportsThinking && (
                               <span className="text-xs text-yellow-600 bg-yellow-500/10 px-1.5 py-0.5 rounded-full">
                                 Thinking
@@ -216,12 +216,18 @@ const ModelManagementSection = ({
                           </div>
                         </div>
                       </div>
-                      <Switch
-                        checked={isEnabled}
-                        onCheckedChange={(checked) => onToggleModel(model.id, checked)}
-                        className="ml-3"
-                        disabled={model.id === 'gemini-2.0-flash-lite'}
-                      />
+                      <div className="flex items-center gap-2">
+                        {model.isApiKeyOnly && (
+                          <span className="text-xs text-amber-600 bg-amber-500/10 px-2 py-0.5 rounded-full whitespace-nowrap">
+                            API Key Required
+                          </span>
+                        )}
+                        <Switch
+                          checked={isEnabled}
+                          onCheckedChange={(checked) => onToggleModel(model.id, checked)}
+                          disabled={model.id === 'gemini-2.0-flash-lite'}
+                        />
+                      </div>
                     </div>
                   )
                 })}
@@ -455,27 +461,13 @@ export function ModelsKeysSettings({ apiKeys, userSettings }: ModelsKeysSettings
   }
 
   return (
-    <div className="space-y-8">
-      <div>
-        <h2 className="text-xl font-bold mb-1 text-foreground">Models & API Keys</h2>
-        <p className="text-sm text-muted-foreground">
-          Manage your AI models and API keys. Add your own API keys to access premium models and control which models
-          appear in your interface.
-        </p>
-      </div>
-
+    <div className="space-y-6">
       <Tabs defaultValue="models" className="space-y-6">
         <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="models" className="flex items-center gap-2">
-            <div className="relative">
-              <div className="absolute inset-0 bg-rose-500/20 blur-sm rounded-full scale-150 -z-10" />
-            </div>
+          <TabsTrigger value="models">
             Models
           </TabsTrigger>
-          <TabsTrigger value="keys" className="flex items-center gap-2">
-            <div className="relative">
-              <div className="absolute inset-0 bg-rose-500/20 blur-sm rounded-full scale-150 -z-10" />
-            </div>
+          <TabsTrigger value="keys">
             API Keys
           </TabsTrigger>
         </TabsList>
@@ -486,43 +478,40 @@ export function ModelsKeysSettings({ apiKeys, userSettings }: ModelsKeysSettings
 
         <TabsContent value="keys" className="space-y-6">
           <div>
-            <h3 className="text-lg font-semibold text-foreground flex items-center gap-3 mb-4">
-              <div className="relative">
-                <div className="absolute inset-0 bg-rose-500/20 blur-sm rounded-full scale-150 -z-10" />
-              </div>
-              API Keys
+            <h3 className="text-lg font-semibold text-foreground mb-4">
+              API Keys Management
             </h3>
-            <p className="text-sm text-muted-foreground mb-6">
-              Add your own API keys to access premium models. When available, your keys will be used automatically
-              instead of our system keys.
-            </p>
-          </div>
-          <div className="space-y-6 p-4 rounded-xl bg-muted/20 backdrop-blur-sm border border-border/50">
-            <div className="space-y-6">
-              <LLMProviderKeysSection
-                title="Gemini Keys"
-                provider="gemini"
-                keys={apiKeys}
-                onSave={handleSaveApiKey}
-                onDelete={handleDeleteApiKey}
-                onSetDefault={handleSetDefault}
-              />
-              <LLMProviderKeysSection
-                title="Groq Keys"
-                provider="groq"
-                keys={apiKeys}
-                onSave={handleSaveApiKey}
-                onDelete={handleDeleteApiKey}
-                onSetDefault={handleSetDefault}
-              />
-              <LLMProviderKeysSection
-                title="OpenRouter Keys"
-                provider="openrouter"
-                keys={apiKeys}
-                onSave={handleSaveApiKey}
-                onDelete={handleDeleteApiKey}
-                onSetDefault={handleSetDefault}
-              />
+            <div className="space-y-6 rounded-xl bg-muted/20 backdrop-blur-sm border border-border/50 p-4">
+              <p className="text-sm text-muted-foreground mb-6">
+                Add your own API keys to access premium models. When available, your keys will be used automatically
+                instead of our system keys.
+              </p>
+              <div className="space-y-6">
+                <LLMProviderKeysSection
+                  title="Gemini Keys"
+                  provider="gemini"
+                  keys={apiKeys}
+                  onSave={handleSaveApiKey}
+                  onDelete={handleDeleteApiKey}
+                  onSetDefault={handleSetDefault}
+                />
+                <LLMProviderKeysSection
+                  title="Groq Keys"
+                  provider="groq"
+                  keys={apiKeys}
+                  onSave={handleSaveApiKey}
+                  onDelete={handleDeleteApiKey}
+                  onSetDefault={handleSetDefault}
+                />
+                <LLMProviderKeysSection
+                  title="OpenRouter Keys"
+                  provider="openrouter"
+                  keys={apiKeys}
+                  onSave={handleSaveApiKey}
+                  onDelete={handleDeleteApiKey}
+                  onSetDefault={handleSetDefault}
+                />
+              </div>
             </div>
           </div>
         </TabsContent>

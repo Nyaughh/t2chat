@@ -791,7 +791,7 @@ export default function AIInput({
                                                 <Paperclip className="w-3.5 h-3.5" />
                                               </span>
                                             </TooltipTrigger>
-                                            <TooltipContent side="top">Supports image attachments</TooltipContent>
+                                            <TooltipContent side="top">Supports attachments</TooltipContent>
                                           </Tooltip>
                                         )}
                                         {model.attachmentsSuppport.pdf && (
@@ -843,7 +843,7 @@ export default function AIInput({
                   type="button"
                   onClick={() => setWebSearchEnabled(!webSearchEnabled)}
                   className={cn(
-                    'p-2 md:p-2.5 text-rose-500/60 dark:text-rose-300/60 hover:text-rose-600 dark:hover:text-rose-300 transition-all duration-200 rounded-lg bg-white/50 dark:bg-[oklch(0.22_0.015_25)]/40 hover:bg-rose-500/5 dark:hover:bg-white/5',
+                    'w-7 h-7 md:w-8 md:h-8 text-rose-500/60 dark:text-rose-300/60 hover:text-rose-600 dark:hover:text-rose-300 transition-all duration-200 rounded-md bg-white/50 dark:bg-[oklch(0.22_0.015_25)]/40 hover:bg-rose-500/5 dark:hover:bg-white/5 flex items-center justify-center',
                     webSearchEnabled && 'bg-rose-500/10 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400',
                   )}
                 >
@@ -855,7 +855,7 @@ export default function AIInput({
                   type="button"
                   onClick={() => setImageGenEnabled(!imageGenEnabled)}
                   className={cn(
-                    'p-2 md:p-2.5 text-rose-500/60 dark:text-rose-300/60 hover:text-rose-600 dark:hover:text-rose-300 transition-all duration-200 rounded-lg bg-white/50 dark:bg-[oklch(0.22_0.015_25)]/40 hover:bg-rose-500/5 dark:hover:bg-white/5',
+                    'w-7 h-7 md:w-8 md:h-8 text-rose-500/60 dark:text-rose-300/60 hover:text-rose-600 dark:hover:text-rose-300 transition-all duration-200 rounded-md bg-white/50 dark:bg-[oklch(0.22_0.015_25)]/40 hover:bg-rose-500/5 dark:hover:bg-white/5 flex items-center justify-center',
                     imageGenEnabled && 'bg-rose-500/10 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400',
                   )}
                 >
