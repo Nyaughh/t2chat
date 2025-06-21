@@ -3,7 +3,6 @@ import { Inter, Inter_Tight } from 'next/font/google'
 import './globals.css'
 import { ThemeProvider } from 'next-themes'
 import { ConvexClientProvider } from './_providers/ConvexProvider'
-import WorkerInitializer from '@/components/WorkerInitializer'
 import { Toaster } from '@/components/ui/sonner'
 
 const inter = Inter({
@@ -85,7 +84,6 @@ export default function RootLayout({
       <body className={`${inter.variable} ${interTight.variable} antialiased`} suppressHydrationWarning>
         <ConvexClientProvider>
           <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-            <WorkerInitializer />
             {children}
             <Toaster />
           </ThemeProvider>

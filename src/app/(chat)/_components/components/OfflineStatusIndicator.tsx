@@ -34,9 +34,9 @@ export function OfflineStatusIndicator({
         <div className="flex items-center gap-2 bg-background/95 backdrop-blur-sm border rounded-full px-4 py-2 shadow-lg">
           {!isOnline ? (
             <>
-              <WifiOff className="w-4 h-4 text-red-500" />
-              <span className="text-sm font-medium text-red-700 dark:text-red-300">
-                Offline
+              <WifiOff className="w-4 h-4 text-amber-500" />
+              <span className="text-sm font-medium text-amber-700 dark:text-amber-300">
+                Offline - Chat is read-only
               </span>
             </>
           ) : isSyncing ? (

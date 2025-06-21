@@ -11,9 +11,13 @@ interface PendingMessage {
   content: string
   role: 'user' | 'assistant'
   modelId: string
-  attachments?: any[]
+  attachments?: Array<{
+    name: string
+    type: string
+    size: number
+    url: string
+  }>
   timestamp: number
-  attempts: number
   options?: {
     webSearch?: boolean
     imageGen?: boolean

@@ -1,256 +1,270 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
-import { workerManager } from '@/lib/worker-manager'
+import { useEffect, useState, useCallback } from 'react'
+import { useMutation } from 'convex/react'
+import { api } from '../../convex/_generated/api'
+import { Id } from '../../convex/_generated/dataModel'
 import { toast } from 'sonner'
 
-interface PendingMessage {
+// Store for pending messages
+let pendingMessages: Array<{
   id: string
   chatId?: string
   content: string
   role: 'user' | 'assistant'
   modelId: string
-  attachments?: any[]
-  timestamp: number
-  attempts: number
+  attachments?: Array<{
+    name: string
+    type: string
+    size: number
+    url: string
+  }>
   options?: {
     webSearch?: boolean
     imageGen?: boolean
   }
-}
+  timestamp: number
+}> = []
 
-interface OfflineState {
-  isOnline: boolean
-  pendingMessages: PendingMessage[]
-  isSyncing: boolean
-}
+// Worker manager instance
+let workerManagerInstance: any = null
 
 export function useOfflineSync() {
-  const [offlineState, setOfflineState] = useState<OfflineState>({
-    isOnline: typeof navigator !== 'undefined' ? navigator.onLine : true,
-    pendingMessages: [],
-    isSyncing: false
-  })
+  const [isOnline, setIsOnline] = useState(true)
+  const [pendingCount, setPendingCount] = useState(0)
+  const [isSyncing, setIsSyncing] = useState(false)
+  const [workersInitialized, setWorkersInitialized] = useState(false)
 
-  // Load pending messages from localStorage on mount
+  const addMessage = useMutation(api.chat.mutations.addMessage)
+
+  // Initialize workers on first use
   useEffect(() => {
-    if (typeof window === 'undefined') return
+    if (typeof window === 'undefined' || workersInitialized) return
 
-    const savedPending = localStorage.getItem('pendingMessages')
-    if (savedPending) {
+    const initWorkers = async () => {
       try {
-        const parsed = JSON.parse(savedPending)
-        setOfflineState(prev => ({
-          ...prev,
-          pendingMessages: parsed
-        }))
+        // Import worker manager safely
+        const { workerManager } = await import('@/lib/worker-manager')
+        workerManagerInstance = workerManager
+
+        if (workerManagerInstance) {
+          await workerManagerInstance.initialize()
+          setWorkersInitialized(true)
+          console.log('[useOfflineSync] Workers initialized successfully')
+
+          // Show notification if service worker is available
+          if ('serviceWorker' in navigator && !localStorage.getItem('sw-notification-shown')) {
+            toast.success('App is now available offline!', {
+              description: 'Your chats will sync automatically when you\'re back online.',
+              duration: 5000,
+            })
+            localStorage.setItem('sw-notification-shown', 'true')
+          }
+        }
       } catch (error) {
-        console.error('Failed to parse pending messages:', error)
-        localStorage.removeItem('pendingMessages')
+        console.error('[useOfflineSync] Failed to initialize workers:', error)
       }
     }
-  }, [])
 
-  // Save pending messages to localStorage whenever they change
+    initWorkers()
+  }, [workersInitialized])
+
+  // Monitor online/offline status
   useEffect(() => {
     if (typeof window === 'undefined') return
-    
-    localStorage.setItem('pendingMessages', JSON.stringify(offlineState.pendingMessages))
-  }, [offlineState.pendingMessages])
 
-  // Set up online/offline event listeners
-  useEffect(() => {
-    if (typeof window === 'undefined') return
+    const updateOnlineStatus = () => {
+      setIsOnline(navigator.onLine)
+    }
 
     const handleOnline = () => {
-      console.log('[OfflineSync] Network back online')
-      setOfflineState(prev => ({ ...prev, isOnline: true }))
-      
+      setIsOnline(true)
       toast.success('Back online!', {
-        description: 'Connection restored. Syncing queued messages...',
-        duration: 3000,
+        description: 'Connection restored. Syncing data...',
       })
-      
-      // Trigger sync when coming back online with a small delay
-      setTimeout(() => {
-        syncPendingMessages()
-      }, 1000)
     }
 
     const handleOffline = () => {
-      console.log('[OfflineSync] Network went offline')
-      setOfflineState(prev => ({ ...prev, isOnline: false }))
-      
-      toast.warning('Connection lost', {
-        description: 'You\'re now offline. Messages will be queued and sent when connection is restored.',
+      setIsOnline(false)
+      toast.warning('You\'re offline', {
+        description: 'Chat is now read-only. Messages will sync when back online.',
         duration: 5000,
       })
     }
 
-    // Check initial connection state
-    const updateConnectionState = () => {
-      const isOnline = navigator.onLine
-      setOfflineState(prev => ({ ...prev, isOnline }))
-      
-      if (!isOnline) {
-        toast.warning('You appear to be offline', {
-          description: 'Some features may not work properly.',
-          duration: 3000,
-        })
-      }
-    }
+    // Set initial status
+    updateOnlineStatus()
 
-    // Listen for online/offline events
+    // Listen for changes
     window.addEventListener('online', handleOnline)
     window.addEventListener('offline', handleOffline)
-    
-    // Also listen for visibility change to check connection when tab becomes visible
-    document.addEventListener('visibilitychange', () => {
-      if (!document.hidden) {
-        updateConnectionState()
-      }
-    })
-
-    // Initial state check
-    updateConnectionState()
 
     return () => {
       window.removeEventListener('online', handleOnline)
       window.removeEventListener('offline', handleOffline)
-      document.removeEventListener('visibilitychange', updateConnectionState)
     }
   }, [])
 
-  // Add message to pending queue when offline
-  const queueMessage = useCallback((messageData: Omit<PendingMessage, 'id' | 'timestamp' | 'attempts'>) => {
-    const pendingMessage: PendingMessage = {
-      ...messageData,
-      id: `pending_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+  // Update pending count when pendingMessages changes
+  useEffect(() => {
+    setPendingCount(pendingMessages.length)
+  }, [])
+
+  const queueMessage = useCallback((message: {
+    chatId?: string
+    content: string
+    role: 'user' | 'assistant'
+    modelId: string
+    attachments?: Array<{
+      name: string
+      type: string
+      size: number
+      url: string
+    }>
+    options?: {
+      webSearch?: boolean
+      imageGen?: boolean
+    }
+  }) => {
+    const pendingMessage = {
+      ...message,
+      id: Date.now().toString(),
       timestamp: Date.now(),
-      attempts: 0
     }
 
-    setOfflineState(prev => ({
-      ...prev,
-      pendingMessages: [...prev.pendingMessages, pendingMessage]
-    }))
+    pendingMessages.push(pendingMessage)
+    setPendingCount(pendingMessages.length)
 
-    toast.info('Message queued', {
-      description: 'Your message will be sent when you\'re back online.',
-      duration: 3000,
-    })
+    // Store in localStorage for persistence
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('pendingMessages', JSON.stringify(pendingMessages))
+    }
 
-    return pendingMessage.id
+    console.log('[useOfflineSync] Message queued:', pendingMessage)
   }, [])
 
-  // Remove message from pending queue
-  const removePendingMessage = useCallback((messageId: string) => {
-    setOfflineState(prev => ({
-      ...prev,
-      pendingMessages: prev.pendingMessages.filter(msg => msg.id !== messageId)
-    }))
-  }, [])
-
-  // Update message attempts
-  const incrementMessageAttempts = useCallback((messageId: string) => {
-    setOfflineState(prev => ({
-      ...prev,
-      pendingMessages: prev.pendingMessages.map(msg =>
-        msg.id === messageId ? { ...msg, attempts: msg.attempts + 1 } : msg
-      )
-    }))
-  }, [])
-
-  // Sync pending messages when online
   const syncPendingMessages = useCallback(async () => {
-    if (!offlineState.isOnline || offlineState.pendingMessages.length === 0) {
-      return
-    }
+    if (!isOnline || pendingMessages.length === 0 || isSyncing) return
 
-    setOfflineState(prev => ({ ...prev, isSyncing: true }))
+    setIsSyncing(true)
 
-    const messagesToSync = [...offlineState.pendingMessages]
-    let successCount = 0
-    let failureCount = 0
+    try {
+      const messagesToSync = [...pendingMessages]
+      
+      for (const message of messagesToSync) {
+        try {
+          if (message.chatId) {
+            await addMessage({
+              chatId: message.chatId as Id<'chats'>,
+              role: message.role,
+              content: message.content,
+              modelId: message.modelId,
+            })
+          }
 
-    for (const message of messagesToSync) {
-      try {
-        // Here you would call your actual message sending API
-        // For now, we'll simulate with a delay
-        await new Promise(resolve => setTimeout(resolve, 1000))
-        
-        // On success, remove from pending
-        removePendingMessage(message.id)
-        successCount++
-        
-        console.log('Synced pending message:', message.id)
-      } catch (error) {
-        console.error('Failed to sync message:', message.id, error)
-        
-        // Increment attempts
-        incrementMessageAttempts(message.id)
-        
-        // Remove if too many attempts
-        if (message.attempts >= 3) {
-          removePendingMessage(message.id)
-          failureCount++
+          // Remove successfully synced message
+          pendingMessages = pendingMessages.filter(m => m.id !== message.id)
+        } catch (error) {
+          console.error('[useOfflineSync] Failed to sync message:', error)
+          break // Stop syncing on first error
         }
       }
+
+      // Update localStorage
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem('pendingMessages', JSON.stringify(pendingMessages))
+      }
+
+      setPendingCount(pendingMessages.length)
+
+      if (messagesToSync.length > 0) {
+        toast.success('Messages synced successfully')
+      }
+    } catch (error) {
+      console.error('[useOfflineSync] Sync failed:', error)
+      toast.error('Failed to sync messages')
+    } finally {
+      setIsSyncing(false)
     }
+  }, [isOnline, isSyncing, addMessage])
 
-    setOfflineState(prev => ({ ...prev, isSyncing: false }))
-
-    // Show sync results
-    if (successCount > 0) {
-      toast.success(`Synced ${successCount} message${successCount > 1 ? 's' : ''}`, {
-        description: 'Your offline messages have been sent.',
-      })
-    }
-
-    if (failureCount > 0) {
-      toast.error(`Failed to sync ${failureCount} message${failureCount > 1 ? 's' : ''}`, {
-        description: 'Some messages could not be sent after multiple attempts.',
-      })
-    }
-  }, [offlineState.isOnline, offlineState.pendingMessages, removePendingMessage, incrementMessageAttempts])
-
-  // Clear all pending messages
-  const clearPendingMessages = useCallback(() => {
-    setOfflineState(prev => ({
-      ...prev,
-      pendingMessages: []
-    }))
-    
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('pendingMessages')
-    }
-  }, [])
-
-  // Retry specific message
   const retryMessage = useCallback(async (messageId: string) => {
-    const message = offlineState.pendingMessages.find(msg => msg.id === messageId)
+    if (!isOnline) return
+
+    const message = pendingMessages.find(m => m.id === messageId)
     if (!message) return
 
     try {
-      // Simulate retry logic
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      removePendingMessage(messageId)
-      
+      if (message.chatId) {
+        await addMessage({
+          chatId: message.chatId as Id<'chats'>,
+          role: message.role,
+          content: message.content,
+          modelId: message.modelId,
+        })
+      }
+
+      // Remove successfully synced message
+      pendingMessages = pendingMessages.filter(m => m.id !== messageId)
+      setPendingCount(pendingMessages.length)
+
+      // Update localStorage
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem('pendingMessages', JSON.stringify(pendingMessages))
+      }
+
       toast.success('Message sent successfully')
     } catch (error) {
-      incrementMessageAttempts(messageId)
+      console.error('[useOfflineSync] Failed to retry message:', error)
       toast.error('Failed to send message')
     }
-  }, [offlineState.pendingMessages, removePendingMessage, incrementMessageAttempts])
+  }, [isOnline, addMessage])
+
+  const removePendingMessage = useCallback((messageId: string) => {
+    pendingMessages = pendingMessages.filter(m => m.id !== messageId)
+    setPendingCount(pendingMessages.length)
+
+    // Update localStorage
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('pendingMessages', JSON.stringify(pendingMessages))
+    }
+  }, [])
+
+  // Auto-sync when coming back online
+  useEffect(() => {
+    if (isOnline && pendingMessages.length > 0) {
+      const timeoutId = setTimeout(() => {
+        syncPendingMessages()
+      }, 1000) // Wait 1 second after coming online
+
+      return () => clearTimeout(timeoutId)
+    }
+  }, [isOnline, syncPendingMessages])
+
+  // Load pending messages from localStorage on init
+  useEffect(() => {
+    if (typeof localStorage !== 'undefined') {
+      const stored = localStorage.getItem('pendingMessages')
+      if (stored) {
+        try {
+          pendingMessages = JSON.parse(stored)
+          setPendingCount(pendingMessages.length)
+        } catch (error) {
+          console.error('[useOfflineSync] Failed to parse stored messages:', error)
+        }
+      }
+    }
+  }, [])
 
   return {
-    isOnline: offlineState.isOnline,
-    pendingMessages: offlineState.pendingMessages,
-    isSyncing: offlineState.isSyncing,
+    isOnline,
+    pendingMessages: pendingMessages,
+    pendingCount,
+    isSyncing,
+    workersInitialized,
     queueMessage,
-    removePendingMessage,
     syncPendingMessages,
-    clearPendingMessages,
     retryMessage,
+    removePendingMessage,
   }
 } 

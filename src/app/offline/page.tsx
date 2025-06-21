@@ -5,7 +5,6 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { WifiOff, MessageSquare, Clock, RefreshCw } from 'lucide-react'
-import { workerManager } from '@/lib/worker-manager'
 
 export default function OfflinePage() {
   const [isOnline, setIsOnline] = useState(false)
@@ -14,7 +13,9 @@ export default function OfflinePage() {
 
   useEffect(() => {
     // Check online status
-    setIsOnline(navigator.onLine)
+    if (typeof navigator !== 'undefined') {
+      setIsOnline(navigator.onLine)
+    }
 
     // Load cached chats
     loadCachedChats()
@@ -32,17 +33,23 @@ export default function OfflinePage() {
       setIsOnline(false)
     }
 
-    window.addEventListener('online', handleOnline)
-    window.addEventListener('offline', handleOffline)
+    if (typeof window !== 'undefined') {
+      window.addEventListener('online', handleOnline)
+      window.addEventListener('offline', handleOffline)
+    }
 
     return () => {
-      window.removeEventListener('online', handleOnline)
-      window.removeEventListener('offline', handleOffline)
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('online', handleOnline)
+        window.removeEventListener('offline', handleOffline)
+      }
     }
   }, [])
 
   const loadCachedChats = async () => {
     try {
+      // Dynamically import worker manager to prevent SSR issues
+      const { workerManager } = await import('@/lib/worker-manager')
       const chats = await workerManager.getCachedChats()
       setCachedChats(chats)
     } catch (error) {
@@ -55,7 +62,7 @@ export default function OfflinePage() {
     
     // Simulate checking connection
     setTimeout(() => {
-      if (navigator.onLine) {
+      if (typeof navigator !== 'undefined' && navigator.onLine) {
         window.location.href = '/'
       }
     }, 1000)

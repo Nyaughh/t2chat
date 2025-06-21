@@ -93,7 +93,9 @@ export default function ChatInterface({ chatId, initialMessages }: ChatInterface
   const {
     isOnline,
     pendingMessages,
+    pendingCount,
     isSyncing,
+    workersInitialized,
     queueMessage,
     removePendingMessage,
     syncPendingMessages,
@@ -156,6 +158,14 @@ export default function ChatInterface({ chatId, initialMessages }: ChatInterface
   }
 
   const handleQueueMessage = (message: string, modelId: string, options: { webSearch?: boolean; imageGen?: boolean }) => {
+    // No longer queue messages - readonly mode when offline
+    if (!isOnline) {
+      toast.warning('Cannot send messages while offline', {
+        description: 'Please wait until connection is restored.',
+      })
+      return
+    }
+
     const mappedAttachments = attachments.map((a) => ({
       name: a.name,
       type: a.type,
@@ -294,10 +304,9 @@ export default function ChatInterface({ chatId, initialMessages }: ChatInterface
             sendBehavior={userSettings?.sendBehavior || 'enter'}
             onVoiceChatToggle={isAuthenticated ? handleVoiceChatToggle : undefined}
             isOnline={isOnline}
-            onQueueMessage={handleQueueMessage}
             uploadButton={
               selectedModel.attachmentsSuppport.image || selectedModel.attachmentsSuppport.pdf ? (
-                <div className={cn('flex gap-1', attachments.length >= maxFiles && 'opacity-50 pointer-events-none')}>
+                <div className={cn('flex gap-1', (attachments.length >= maxFiles || !isOnline) && 'opacity-50 pointer-events-none')}>
                   <UploadButton
                     endpoint="fileUploader"
                     onBeforeUploadBegin={(files) => {

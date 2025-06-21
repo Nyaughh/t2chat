@@ -58,10 +58,8 @@ class T2ChatWorkerManager implements WorkerManager {
   private workerCallbacks: Map<string, (result: any) => void> = new Map()
 
   constructor() {
-    // Only initialize on client side
-    if (typeof window !== 'undefined') {
-      this.initialize()
-    }
+    // Don't automatically initialize - let components handle this manually
+    // This prevents SSR issues
   }
 
   // Initialize all workers
