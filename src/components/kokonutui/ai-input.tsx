@@ -60,6 +60,7 @@ interface AIInputProps {
   mounted?: boolean
   sendBehavior?: 'enter' | 'shiftEnter' | 'button'
   onVoiceChatToggle?: () => void
+  isOnline?: boolean
 }
 
 export default function AIInput({
@@ -81,6 +82,7 @@ export default function AIInput({
   mounted = true,
   sendBehavior = 'enter',
   onVoiceChatToggle,
+  isOnline = true,
 }: AIInputProps) {
   const [showModelSelect, setShowModelSelect] = useState(false)
   const [thinkingEnabled, setThinkingEnabled] = useState(true)
@@ -304,8 +306,11 @@ export default function AIInput({
   )
 
   const handleSend = () => {
-    if (value.trim() && onSend && !isTyping) {
-      onSend(value.trim(), selectedModel.id, { webSearch: webSearchEnabled, imageGen: imageGenEnabled })
+    if (value.trim() && !isTyping && isOnline && onSend) {
+      const options = { webSearch: webSearchEnabled, imageGen: imageGenEnabled }
+      
+      onSend(value.trim(), selectedModel.id, options)
+      
       if (messagesLength === 0) {
         setTimeout(() => {
           onValueChange('')
@@ -494,13 +499,20 @@ export default function AIInput({
             ref={textareaRef}
             value={value}
             onChange={(e) => {
+              if (!isOnline) return // Block input when offline
               onValueChange(e.target.value)
               adjustHeight()
             }}
-            onKeyDown={handleKeyDown}
-            placeholder="Ask me anything..."
-            disabled={isTyping}
-            className="w-full px-3 md:px-4 py-2 resize-none bg-transparent border-0 outline-none text-sm md:text-base min-h-[40px] leading-normal placeholder:text-black/40 dark:placeholder:text-rose-200/30 text-black dark:text-white"
+            onKeyDown={!isOnline ? undefined : handleKeyDown}
+            placeholder={!isOnline ? "App is offline - chat is read-only until connection is restored" : "Ask me anything..."}
+            disabled={isTyping || !isOnline}
+            readOnly={!isOnline}
+            className={cn(
+              "w-full px-3 md:px-4 py-2 resize-none bg-transparent border-0 outline-none text-sm md:text-base min-h-[40px] leading-normal",
+              !isOnline 
+                ? "text-black/40 dark:text-white/40 placeholder:text-amber-600/80 dark:placeholder:text-amber-400/80 cursor-not-allowed" 
+                : "text-black dark:text-white placeholder:text-black/40 dark:placeholder:text-rose-200/30"
+            )}
             style={{
               overflow: 'hidden',
               outline: 'none',
@@ -519,14 +531,15 @@ export default function AIInput({
               <div className="relative">
                 <button
                   type="button"
-                  onClick={() => setShowModelSelect(!showModelSelect)}
+                  onClick={!isOnline ? undefined : () => setShowModelSelect(!showModelSelect)}
+                  disabled={!isOnline}
                   className={cn(
                     'h-7 md:h-8 px-2.5 md:px-3 text-xs md:text-sm transition-all duration-200 rounded-md',
                     'bg-white/50 dark:bg-[oklch(0.22_0.015_25)]/40',
                     'flex items-center gap-1 md:gap-1.5',
-                    'text-black/70 dark:text-white/70',
-                    'hover:text-black dark:hover:text-white',
-                    'hover:bg-black/5 dark:hover:bg-white/5',
+                    !isOnline 
+                      ? 'text-black/30 dark:text-white/30 cursor-not-allowed'
+                      : 'text-black/70 dark:text-white/70 hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5',
                   )}
                 >
                   <div className="flex items-center gap-1 md:gap-1.5">
@@ -549,7 +562,7 @@ export default function AIInput({
                 </button>
 
                 <AnimatePresence>
-                  {showModelSelect && (
+                  {showModelSelect && isOnline && (
                     <motion.div
                       initial={{ opacity: 0, y: -10, scale: 0.95 }}
                       animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -816,10 +829,14 @@ export default function AIInput({
               {isSignedIn && selectedModel.features.includes('web') && (
                 <button
                   type="button"
-                  onClick={() => setWebSearchEnabled(!webSearchEnabled)}
+                  onClick={!isOnline ? undefined : () => setWebSearchEnabled(!webSearchEnabled)}
+                  disabled={!isOnline}
                   className={cn(
-                    'w-7 h-7 md:w-8 md:h-8 text-rose-500/60 dark:text-rose-300/60 hover:text-rose-600 dark:hover:text-rose-300 transition-all duration-200 rounded-md bg-white/50 dark:bg-[oklch(0.22_0.015_25)]/40 hover:bg-rose-500/5 dark:hover:bg-white/5 flex items-center justify-center',
-                    webSearchEnabled && 'bg-rose-500/10 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400',
+                    'w-7 h-7 md:w-8 md:h-8 transition-all duration-200 rounded-md bg-white/50 dark:bg-[oklch(0.22_0.015_25)]/40 flex items-center justify-center',
+                    !isOnline
+                      ? 'text-rose-500/30 dark:text-rose-300/30 cursor-not-allowed'
+                      : 'text-rose-500/60 dark:text-rose-300/60 hover:text-rose-600 dark:hover:text-rose-300 hover:bg-rose-500/5 dark:hover:bg-white/5',
+                    webSearchEnabled && isOnline && 'bg-rose-500/10 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400',
                   )}
                 >
                   <Globe className="w-3.5 md:w-4 h-3.5 md:h-4" />
@@ -828,10 +845,14 @@ export default function AIInput({
               {isSignedIn && selectedModel.features.includes('imagegen') && (
                 <button
                   type="button"
-                  onClick={() => setImageGenEnabled(!imageGenEnabled)}
+                  onClick={!isOnline ? undefined : () => setImageGenEnabled(!imageGenEnabled)}
+                  disabled={!isOnline}
                   className={cn(
-                    'w-7 h-7 md:w-8 md:h-8 text-rose-500/60 dark:text-rose-300/60 hover:text-rose-600 dark:hover:text-rose-300 transition-all duration-200 rounded-md bg-white/50 dark:bg-[oklch(0.22_0.015_25)]/40 hover:bg-rose-500/5 dark:hover:bg-white/5 flex items-center justify-center',
-                    imageGenEnabled && 'bg-rose-500/10 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400',
+                    'w-7 h-7 md:w-8 md:h-8 transition-all duration-200 rounded-md bg-white/50 dark:bg-[oklch(0.22_0.015_25)]/40 flex items-center justify-center',
+                    !isOnline
+                      ? 'text-rose-500/30 dark:text-rose-300/30 cursor-not-allowed'
+                      : 'text-rose-500/60 dark:text-rose-300/60 hover:text-rose-600 dark:hover:text-rose-300 hover:bg-rose-500/5 dark:hover:bg-white/5',
+                    imageGenEnabled && isOnline && 'bg-rose-500/10 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400',
                   )}
                 >
                   <ImageIcon className="w-3.5 md:w-4 h-3.5 md:h-4" />
@@ -843,18 +864,23 @@ export default function AIInput({
                 <TooltipTrigger asChild>
                   <button
                     type="button"
-                    onClick={handleToggleListening}
+                    onClick={!isOnline ? undefined : handleToggleListening}
+                    disabled={!isOnline}
                     className={cn(
                       'group p-2 md:p-2.5 transition-all duration-300 rounded-full',
-                      isListening
-                        ? 'text-rose-500 dark:text-rose-300 shadow-md shadow-rose-500/20 dark:shadow-rose-500/20 scale-100 hover:bg-rose-500/5 dark:hover:bg-rose-300/5 animate-pulse'
-                        : 'text-rose-500/70 dark:text-rose-300/70 hover:text-rose-500 dark:hover:text-rose-300 scale-95 hover:bg-rose-500/5 dark:hover:bg-rose-300/5 hover:scale-100',
+                      !isOnline
+                        ? 'text-rose-500/30 dark:text-rose-300/30 cursor-not-allowed scale-95'
+                        : isListening
+                          ? 'text-rose-500 dark:text-rose-300 shadow-md shadow-rose-500/20 dark:shadow-rose-500/20 scale-100 hover:bg-rose-500/5 dark:hover:bg-rose-300/5 animate-pulse'
+                          : 'text-rose-500/70 dark:text-rose-300/70 hover:text-rose-500 dark:hover:text-rose-300 scale-95 hover:bg-rose-500/5 dark:hover:bg-rose-300/5 hover:scale-100',
                     )}
                   >
                     <Mic className="w-5 md:w-6 h-5 md:h-6" />
                   </button>
                 </TooltipTrigger>
-                <TooltipContent side="top">{isListening ? 'Stop voice input' : 'Start voice input'}</TooltipContent>
+                <TooltipContent side="top">
+                  {!isOnline ? 'Voice input disabled while offline' : isListening ? 'Stop voice input' : 'Start voice input'}
+                </TooltipContent>
               </Tooltip>
               {isStreaming ? (
                 <button
@@ -866,29 +892,38 @@ export default function AIInput({
                   <Square className="w-4 md:w-5 h-4 md:h-5 transition-transform duration-300 animate-pulse" />
                 </button>
               ) : value.trim() ? (
-                <button
-                  type="button"
-                  onClick={handleSend}
-                  disabled={isStreaming}
-                  className={cn(
-                    'group p-2 md:p-2.5 transition-all duration-300 rounded-full',
-                    'text-rose-500 dark:text-rose-300 shadow-md shadow-rose-500/20 dark:shadow-rose-500/20 scale-100 hover:bg-rose-500/5 dark:hover:bg-rose-300/5',
-                  )}
-                >
-                  <ArrowRight
-                    className={cn(
-                      'w-5 md:w-6 h-5 md:h-6 transition-transform duration-300 -rotate-90',
-                      'translate-y-[-2px] group-hover:translate-y-[-4px]',
-                    )}
-                  />
-                </button>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      onClick={!isOnline ? undefined : handleSend}
+                      disabled={isStreaming || !isOnline}
+                      className={cn(
+                        'group p-2 md:p-2.5 transition-all duration-300 rounded-full',
+                        !isOnline
+                          ? 'text-rose-500/30 dark:text-rose-300/30 cursor-not-allowed scale-95'
+                          : 'text-rose-500 dark:text-rose-300 shadow-md shadow-rose-500/20 dark:shadow-rose-500/20 scale-100 hover:bg-rose-500/5 dark:hover:bg-rose-300/5',
+                      )}
+                    >
+                      <ArrowRight
+                        className={cn(
+                          'w-5 md:w-6 h-5 md:h-6 transition-transform duration-300 -rotate-90',
+                          !isOnline ? '' : 'translate-y-[-2px] group-hover:translate-y-[-4px]',
+                        )}
+                      />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="top">
+                    {!isOnline ? 'Sending disabled while offline' : 'Send message'}
+                  </TooltipContent>
+                </Tooltip>
               ) : (
                 <Tooltip delayDuration={0}>
                   <TooltipTrigger asChild>
                     <button
                       type="button"
                       onClick={(e) => {
-                        if (!onVoiceChatToggle) {
+                        if (!onVoiceChatToggle || !isOnline) {
                           // When disabled, show tooltip on mobile by preventing default action
                           e.preventDefault()
                           // Force tooltip to show by triggering pointer events
@@ -903,25 +938,27 @@ export default function AIInput({
                         onVoiceChatToggle()
                       }}
                       onTouchStart={(e) => {
-                        if (!onVoiceChatToggle) {
+                        if (!onVoiceChatToggle || !isOnline) {
                           // Show tooltip on touch for mobile
                           const event = new PointerEvent('pointerenter', { bubbles: true })
                           e.currentTarget.dispatchEvent(event)
                         }
                       }}
-                      disabled={false}
+                      disabled={!isOnline}
                       className={cn(
                         'group p-2 md:p-2.5 transition-all duration-300 rounded-full',
-                        onVoiceChatToggle
-                          ? 'text-rose-500 dark:text-rose-300 shadow-md shadow-rose-500/20 dark:shadow-rose-500/20 scale-100 hover:bg-rose-500/5 dark:hover:bg-rose-300/5 cursor-pointer'
-                          : 'text-black/30 dark:text-rose-300/30 scale-95 cursor-not-allowed',
+                        !isOnline
+                          ? 'text-rose-500/30 dark:text-rose-300/30 scale-95 cursor-not-allowed'
+                          : onVoiceChatToggle
+                            ? 'text-rose-500 dark:text-rose-300 shadow-md shadow-rose-500/20 dark:shadow-rose-500/20 scale-100 hover:bg-rose-500/5 dark:hover:bg-rose-300/5 cursor-pointer'
+                            : 'text-black/30 dark:text-rose-300/30 scale-95 cursor-not-allowed',
                       )}
                     >
                       <AudioLines className="w-5 md:w-6 h-5 md:h-6 transition-transform duration-300 group-hover:scale-110" />
                     </button>
                   </TooltipTrigger>
                   <TooltipContent side="top">
-                    {onVoiceChatToggle ? 'Start voice chat' : 'Sign in to use voice chat'}
+                    {!isOnline ? 'Voice chat disabled while offline' : onVoiceChatToggle ? 'Start voice chat' : 'Sign in to use voice chat'}
                   </TooltipContent>
                 </Tooltip>
               )}

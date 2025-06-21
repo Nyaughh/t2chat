@@ -2,7 +2,27 @@
 
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { MessageItem } from './MessageItem'
+import { PendingMessageItem } from './PendingMessageItem'
 import { ModelInfo } from '@/lib/models'
+
+interface PendingMessage {
+  id: string
+  chatId?: string
+  content: string
+  role: 'user' | 'assistant'
+  modelId: string
+  attachments?: Array<{
+    name: string
+    type: string
+    size: number
+    url: string
+  }>
+  timestamp: number
+  options?: {
+    webSearch?: boolean
+    imageGen?: boolean
+  }
+}
 
 interface MessageListProps {
   messages: any[]
@@ -29,6 +49,10 @@ interface MessageListProps {
   onCloseRetryDropdown: () => void
   onBranch: (messageId: string) => void
   isSignedIn: boolean
+  pendingMessages: PendingMessage[]
+  isOnline: boolean
+  onRetryPendingMessage: (messageId: string) => void
+  onRemovePendingMessage: (messageId: string) => void
 }
 
 export function MessageList({
@@ -56,6 +80,10 @@ export function MessageList({
   onCloseRetryDropdown,
   onBranch,
   isSignedIn,
+  pendingMessages,
+  isOnline,
+  onRetryPendingMessage,
+  onRemovePendingMessage,
 }: MessageListProps) {
   return (
     <ScrollArea className="h-full scrollbar-hide" ref={scrollAreaRef}>
@@ -85,6 +113,17 @@ export function MessageList({
             onCloseRetryDropdown={onCloseRetryDropdown}
             onBranch={onBranch}
             isSignedIn={isSignedIn}
+          />
+        ))}
+
+        {/* Render pending messages */}
+        {pendingMessages.map((pendingMessage) => (
+          <PendingMessageItem
+            key={pendingMessage.id}
+            message={pendingMessage}
+            isOnline={isOnline}
+            onRetry={onRetryPendingMessage}
+            onRemove={onRemovePendingMessage}
           />
         ))}
 
