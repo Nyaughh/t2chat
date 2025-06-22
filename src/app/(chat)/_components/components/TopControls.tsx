@@ -58,7 +58,7 @@ export function TopControls({
 
           <Tooltip>
             <TooltipTrigger asChild>
-              <button onClick={handleSettingsClick} className={buttonStyles}>
+              <button onClick={handleSettingsClick} className={cn(buttonStyles, 'hover:cursor-pointer')}>
                 <Settings className="w-4.5 h-4.5" />
               </button>
             </TooltipTrigger>
@@ -79,7 +79,7 @@ export function TopControls({
 
           <Tooltip>
             <TooltipTrigger asChild>
-              <button onClick={onToggleSidebar} className={buttonStyles}>
+              <button onClick={onToggleSidebar} className={cn(buttonStyles, 'hover:cursor-pointer')}>
                 <Menu className="w-4.5 h-4.5" />
               </button>
             </TooltipTrigger>
@@ -93,7 +93,11 @@ export function TopControls({
             <TooltipTrigger asChild>
               <button
                 onClick={onNewChat}
-                className={cn(buttonStyles, isOnHomePage && 'opacity-30 cursor-not-allowed')}
+                className={cn(buttonStyles,
+                  isOnHomePage 
+                    ? 'opacity-30 cursor-not-allowed' 
+                    : 'hover:cursor-pointer'
+                  )}
                 disabled={isOnHomePage}
               >
                 <Plus className="w-4.5 h-4.5" />

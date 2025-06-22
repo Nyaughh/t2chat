@@ -116,7 +116,7 @@ export const ChatItem = memo(function ChatItem({
                           onClick={(e) => {
                             e.stopPropagation()
                           }}
-                          className="opacity-100 md:opacity-0 md:group-hover:opacity-100 p-1 -m-1 text-black/40 dark:text-white/40 hover:text-rose-500 dark:hover:text-rose-400 transition-all duration-150 ease-[0.25,1,0.5,1] hover:scale-110 outline-none focus:outline-none"
+                          className="opacity-100 md:opacity-0 md:group-hover:opacity-100 p-1 -m-1 text-black/40 dark:text-white/40 hover:text-rose-500 dark:hover:text-rose-400  hover:cursor-pointer transition-all duration-150 ease-[0.25,1,0.5,1] hover:scale-110 outline-none focus:outline-none"
                         >
                           <MoreVertical className="w-4 h-4" />
                         </button>
