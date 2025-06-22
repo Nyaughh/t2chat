@@ -208,6 +208,7 @@ export default function ChatLayout({
           onChatRename={handleOpenRenameDialog}
           onChatShare={handleOpenShareDialog}
           onSettingsClick={() => router.push('/settings')}
+          allChats={activeChats || []}
         />
       )}
 
