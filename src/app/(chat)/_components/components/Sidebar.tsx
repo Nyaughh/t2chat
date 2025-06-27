@@ -1,13 +1,15 @@
 'use client'
 
 import { Button } from '@/components/ui/button'
-import { Plus, Menu, Search } from 'lucide-react'
+import { Plus, Menu, Search, Command as CommandIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { ChatList } from './ChatList'
 import { UserProfile } from './UserProfile'
+import { CommandPalette } from './CommandPalette'
 import { ConvexChat, UserMetadata } from '@/lib/types'
-import { memo, useCallback } from 'react'
+import { memo, useCallback, useState, useEffect } from 'react'
 import Link from 'next/link'
+import { Id } from '../../../../../convex/_generated/dataModel'
 
 interface SidebarProps {
   effectiveSidebarOpen: boolean
@@ -22,6 +24,13 @@ interface SidebarProps {
   isSignedIn: boolean
   userMetadata: UserMetadata
   editingChatId: string | null
+  allChats: Array<{
+    id: Id<"chats">
+    title: string
+    createdAt: Date
+    lastMessageAt: Date
+    isBranch: boolean | undefined
+  }> | ConvexChat[]
   onTouchStart: (e: React.TouchEvent) => void
   onTouchMove: (e: React.TouchEvent) => void
   onTouchEnd: (e: React.TouchEvent) => void
@@ -56,13 +65,37 @@ export const Sidebar = memo(function Sidebar({
   onChatRename,
   onChatShare,
   onSettingsClick,
+  allChats = [],
 }: SidebarProps) {
+
+  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false)
+
   const handleSearchChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       onSearchChange(e.target.value)
     },
     [onSearchChange],
   )
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault()
+        setCommandPaletteOpen(true)
+      }
+    }
+
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [])
+
+  const handleSearchClick = () => {
+    setCommandPaletteOpen(true)
+  }
+
+  const handleCommandPaletteClose = () => {
+    setCommandPaletteOpen(false)
+  }
 
   return (
     <div
@@ -82,7 +115,7 @@ export const Sidebar = memo(function Sidebar({
           <div className="p-2 rounded-lg">
             <button
               onClick={onToggleSidebar}
-              className="text-rose-600 dark:text-rose-300 hover:text-rose-700 dark:hover:text-rose-200 h-5.5 w-5.5 p-0 hover:bg-transparent flex items-center justify-center"
+              className="text-rose-600 dark:text-rose-300 hover:text-rose-700 dark:hover:text-rose-200 h-5.5 w-5.5 p-0 hover:bg-transparent flex items-center justify-center hover:cursor-pointer"
               title="Close sidebar"
             >
               <Menu className="w-4.5 h-4.5" />
@@ -112,7 +145,25 @@ export const Sidebar = memo(function Sidebar({
             </span>
           </Button>
 
-          <div className="relative">
+            {/* Command+K Search Trigger */}
+            <button
+              onClick={handleSearchClick}
+              className="w-full relative group cursor-pointer"
+            >
+              <div className="relative flex items-center">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-3.5 h-3.5 text-black/50 dark:text-white/50 group-hover:text-rose-500/70 dark:group-hover:text-rose-300/70 transition-colors" />
+                <div className="w-full pl-10 pr-16 py-1.5 bg-transparent text-sm text-black/50 dark:text-white/50 border border-transparent rounded-md group-hover:border-rose-500/20 dark:group-hover:border-rose-300/20 transition-colors">
+                  Search conversations...
+                </div>
+                <div className="absolute right-2 top-1/2 transform -translate-y-1/2 flex items-center gap-1 text-xs text-black/40 dark:text-white/40 group-hover:text-rose-500/60 dark:group-hover:text-rose-300/60 transition-colors">
+                  <CommandIcon className="w-3 h-3" />
+                  <span>K</span>
+                </div>
+              </div>
+            </button>
+          </div>
+
+          {/* <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-3.5 h-3.5 text-black/50 dark:text-white/50" />
             <input
               type="text"
@@ -122,7 +173,7 @@ export const Sidebar = memo(function Sidebar({
               className="w-full pl-10 pr-3 py-1.5 bg-transparent text-sm text-black dark:text-white placeholder-black/50 dark:placeholder-white/50 focus:outline-none"
             />
           </div>
-        </div>
+        </div> */}
 
         <div className="h-px bg-black/10 dark:bg-white/10 mt-4"></div>
       </div>
@@ -140,6 +191,19 @@ export const Sidebar = memo(function Sidebar({
       />
 
       <UserProfile isSignedIn={isSignedIn} userMetadata={userMetadata} onSettingsClick={onSettingsClick} />
+      <CommandPalette
+        isOpen={commandPaletteOpen}
+        onClose={handleCommandPaletteClose}
+        searchQuery={searchQuery}
+        onSearchChange={onSearchChange}
+        groupedChats={groupedChats}
+        allChats={allChats}
+        onNewChat={onNewChat}
+        onChatSelect={onChatSelect}
+        effectiveSidebarOpen={effectiveSidebarOpen}
+        onCloseSidebar={onToggleSidebar}
+        isOnHomePage={isOnHomePage}
+      />
     </div>
   )
 })
