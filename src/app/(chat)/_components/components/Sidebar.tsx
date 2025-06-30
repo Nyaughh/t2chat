@@ -148,14 +148,22 @@ export const Sidebar = memo(function Sidebar({
             {/* Command+K Search Trigger */}
             <button
               onClick={handleSearchClick}
-              className="w-full relative group cursor-pointer"
+              className="w-full relative group cursor-pointer rounded-md overflow-hidden"
             >
+              {/* Chat history style hover effect */}
+              <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-150 ease-[0.25,1,0.5,1]">
+                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-rose-500/8 dark:via-rose-300/8 to-transparent"></div>
+                  <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-rose-500/30 dark:via-rose-300/30 to-transparent"></div>
+                  <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-rose-500/30 dark:via-rose-300/30 to-transparent"></div>
+                  <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-4 bg-gradient-to-r from-transparent via-rose-500/5 dark:via-rose-300/5 to-transparent blur-sm"></div>
+              </div>
+
               <div className="relative flex items-center">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-3.5 h-3.5 text-black/50 dark:text-white/50 group-hover:text-rose-500/70 dark:group-hover:text-rose-300/70 transition-colors" />
-                <div className="w-full pl-10 pr-16 py-1.5 bg-transparent text-sm text-black/50 dark:text-white/50 border border-transparent rounded-md group-hover:border-rose-500/20 dark:group-hover:border-rose-300/20 transition-colors">
-                  Search conversations...
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-3.5 h-3.5 text-black/50 dark:text-white/50 transition-colors" />
+                <div className="w-full pl-10 pr-16 py-1.5 bg-transparent text-sm text-black/50 dark:text-white/50 border border-transparent rounded-md transition-colors whitespace-nowrap truncate">
+                  Search chats...
                 </div>
-                <div className="absolute right-2 top-1/2 transform -translate-y-1/2 flex items-center gap-1 text-xs text-black/40 dark:text-white/40 group-hover:text-rose-500/60 dark:group-hover:text-rose-300/60 transition-colors">
+                <div className="absolute right-2 top-1/2 transform -translate-y-1/2 hidden md:flex items-center gap-1 text-xs text-black/40 dark:text-white/40 transition-colors">
                   <CommandIcon className="w-3 h-3" />
                   <span>K</span>
                 </div>

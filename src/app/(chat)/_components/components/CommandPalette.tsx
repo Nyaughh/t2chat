@@ -175,7 +175,7 @@ export function CommandPalette({
 
   <div className="flex-1 min-w-0">
     <CommandInput
-      placeholder="Search conversations or create new chat..."
+      placeholder="Search conversations..."
       value={internalSearchQuery}
       onValueChange={handleSearchChange}
       className="h-12 w-full bg-transparent py-3 text-sm truncate outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50 border-none focus:ring-0 focus-visible:ring-0"
@@ -183,7 +183,10 @@ export function CommandPalette({
   </div>
 </div>
 
-      <CommandList className="max-h-[400px] overflow-y-auto">
+      <CommandList 
+        className="max-h-[400px] overflow-y-auto"
+        style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgb(244 63 94 / 0.3) transparent' }}
+      >
         <CommandEmpty>
           {internalSearchQuery.trim() ? 'No conversations found.' : 'Start typing to search...'}
         </CommandEmpty>
@@ -193,29 +196,37 @@ export function CommandPalette({
             onSelect={handleNewChat}
             disabled={isOnHomePage}
             className={cn(
-              "flex items-center gap-3 px-4 py-3 w-full",
-              isOnHomePage 
-                ? "opacity-50 cursor-not-allowed" 
-                : "cursor-pointer hover:bg-accent"
+              "group relative overflow-hidden px-4 py-3 w-full data-[selected=true]:bg-transparent dark:data-[selected=true]:bg-transparent",
+              isOnHomePage
+                ? "opacity-50 cursor-not-allowed"
+                : "cursor-pointer hover:text-rose-600 dark:hover:text-rose-300"
             )}
           >
-            <div className={cn(
-              "flex h-8 w-8 items-center justify-center rounded-lg flex-shrink-0",
-              isOnHomePage 
-                ? "bg-rose-500/5 dark:bg-rose-300/5" 
-                : "bg-rose-500/10 dark:bg-rose-300/10"
-            )}>
-              <Plus className={cn(
-                "h-4 w-4",
-                isOnHomePage 
-                  ? "text-rose-600/50 dark:text-rose-300/50" 
-                  : "text-rose-600 dark:text-rose-300"
-              )} />
+            <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-150 ease-[0.25,1,0.5,1]">
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-rose-500/8 dark:via-rose-300/8 to-transparent"></div>
+              <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-rose-500/30 dark:via-rose-300/30 to-transparent"></div>
+              <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-rose-500/30 dark:via-rose-300/30 to-transparent"></div>
+              <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-4 bg-gradient-to-r from-transparent via-rose-500/5 dark:via-rose-300/5 to-transparent blur-sm"></div>
             </div>
-            <div className="flex-1 min-w-0">
-              <div className="font-medium">New Chat</div>
-              <div className="text-xs text-muted-foreground">
-                {isOnHomePage ? 'Already on home page' : 'Start a new conversation'}
+            <div className="relative z-10 flex items-center gap-3">
+              <div className={cn(
+                "flex h-8 w-8 items-center justify-center rounded-lg flex-shrink-0",
+                isOnHomePage 
+                  ? "bg-rose-500/5 dark:bg-rose-300/5" 
+                  : "bg-rose-500/10 dark:bg-rose-300/10"
+              )}>
+                <Plus className={cn(
+                  "h-4 w-4",
+                  isOnHomePage 
+                    ? "text-rose-600/50 dark:text-rose-300/50" 
+                    : "text-rose-600 dark:text-rose-300"
+                )} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="font-medium">New Chat</div>
+                <div className="text-xs text-muted-foreground">
+                  {isOnHomePage ? 'Already on home page' : 'Start a new conversation'}
+                </div>
               </div>
             </div>
           </CommandItem>
@@ -227,18 +238,26 @@ export function CommandPalette({
               <CommandItem
                 key={chat.id}
                 onSelect={() => handleChatSelect(chat.id)}
-                className="flex items-center gap-3 px-4 py-3 cursor-pointer w-full"
+                className="group relative overflow-hidden px-4 py-3 w-full cursor-pointer data-[selected=true]:bg-transparent dark:data-[selected=true]:bg-transparent hover:text-rose-600 dark:hover:text-rose-300"
               >
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-500/10 dark:bg-blue-300/10 flex-shrink-0">
-                  <Clock className="h-4 w-4 text-blue-600 dark:text-blue-300" />
+                <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-150 ease-[0.25,1,0.5,1]">
+                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-rose-500/8 dark:via-rose-300/8 to-transparent"></div>
+                  <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-rose-500/30 dark:via-rose-300/30 to-transparent"></div>
+                  <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-rose-500/30 dark:via-rose-300/30 to-transparent"></div>
+                  <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-4 bg-gradient-to-r from-transparent via-rose-500/5 dark:via-rose-300/5 to-transparent blur-sm"></div>
                 </div>
-                <div className="flex-1 min-w-0 flex items-center justify-between">
-                  <div className="min-w-0 flex-1">
-                    <div className="font-medium truncate">{chat.title}</div>
-                    <div className="text-xs text-muted-foreground">Recent conversation</div>
+                <div className="relative z-10 flex items-center gap-3">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-500/10 dark:bg-blue-300/10 flex-shrink-0">
+                    <Clock className="h-4 w-4 text-blue-600 dark:text-blue-300" />
                   </div>
-                  <div className="text-xs text-muted-foreground ml-3 flex-shrink-0">
-                    {formatRelativeTime(chat.timestamp)}
+                  <div className="flex-1 min-w-0 flex items-center justify-between">
+                    <div className="min-w-0 flex-1">
+                      <div className="font-medium truncate">{chat.title}</div>
+                      <div className="text-xs text-muted-foreground">Recent conversation</div>
+                    </div>
+                    <div className="text-xs text-muted-foreground ml-3 flex-shrink-0">
+                      {formatRelativeTime(chat.timestamp)}
+                    </div>
                   </div>
                 </div>
               </CommandItem>
@@ -252,18 +271,26 @@ export function CommandPalette({
               <CommandItem
                 key={chat.id}
                 onSelect={() => handleChatSelect(chat.id)}
-                className="flex items-center gap-3 px-4 py-3 cursor-pointer w-full"
+                className="group relative overflow-hidden px-4 py-3 w-full cursor-pointer data-[selected=true]:bg-transparent dark:data-[selected=true]:bg-transparent hover:text-rose-600 dark:hover:text-rose-300"
               >
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-green-500/10 dark:bg-green-300/10 flex-shrink-0">
-                  <MessageSquare className="h-4 w-4 text-green-600 dark:text-green-300" />
+                <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-150 ease-[0.25,1,0.5,1]">
+                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-rose-500/8 dark:via-rose-300/8 to-transparent"></div>
+                  <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-rose-500/30 dark:via-rose-300/30 to-transparent"></div>
+                  <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-rose-500/30 dark:via-rose-300/30 to-transparent"></div>
+                  <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-4 bg-gradient-to-r from-transparent via-rose-500/5 dark:via-rose-300/5 to-transparent blur-sm"></div>
                 </div>
-                <div className="flex-1 min-w-0 flex items-center justify-between">
-                  <div className="min-w-0 flex-1">
-                    <div className="font-medium truncate">{chat.title}</div>
-                    <div className="text-xs text-muted-foreground">Conversation</div>
+                <div className="relative z-10 flex items-center gap-3">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-green-500/10 dark:bg-green-300/10 flex-shrink-0">
+                    <MessageSquare className="h-4 w-4 text-green-600 dark:text-green-300" />
                   </div>
-                  <div className="text-xs text-muted-foreground ml-3 flex-shrink-0">
-                    {formatRelativeTime(chat.timestamp)}
+                  <div className="flex-1 min-w-0 flex items-center justify-between">
+                    <div className="min-w-0 flex-1">
+                      <div className="font-medium truncate">{chat.title}</div>
+                      <div className="text-xs text-muted-foreground">Search result</div>
+                    </div>
+                    <div className="text-xs text-muted-foreground ml-3 flex-shrink-0">
+                      {formatRelativeTime(chat.timestamp)}
+                    </div>
                   </div>
                 </div>
               </CommandItem>
