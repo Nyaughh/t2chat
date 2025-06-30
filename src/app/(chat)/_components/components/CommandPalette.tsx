@@ -246,18 +246,16 @@ export function CommandPalette({
                   <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-rose-500/30 dark:via-rose-300/30 to-transparent"></div>
                   <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-4 bg-gradient-to-r from-transparent via-rose-500/5 dark:via-rose-300/5 to-transparent blur-sm"></div>
                 </div>
-                <div className="relative z-10 flex items-center gap-3">
+                <div className="relative z-10 flex items-center gap-3 w-full">
                   <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-500/10 dark:bg-blue-300/10 flex-shrink-0">
                     <Clock className="h-4 w-4 text-blue-600 dark:text-blue-300" />
                   </div>
-                  <div className="flex-1 min-w-0 flex items-center justify-between">
-                    <div className="min-w-0 flex-1">
-                      <div className="font-medium truncate">{chat.title}</div>
-                      <div className="text-xs text-muted-foreground">Recent conversation</div>
-                    </div>
-                    <div className="text-xs text-muted-foreground ml-3 flex-shrink-0">
-                      {formatRelativeTime(chat.timestamp)}
-                    </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-medium truncate">{chat.title}</div>
+                    <div className="text-xs text-muted-foreground">Recent conversation</div>
+                  </div>
+                  <div className="text-xs text-muted-foreground ml-auto flex-shrink-0">
+                    {formatRelativeTime(chat.timestamp)}
                   </div>
                 </div>
               </CommandItem>
