@@ -33,6 +33,9 @@ interface ChatLayoutProps {
   isSignedIn: boolean
   userMetadata: UserMetadata
   initialChats?: ConvexChat[] | null
+  defaultSidebarOpen?: boolean
+  mainFont?: string
+  codeFont?: string
 }
 
 function RenameDialog({
@@ -85,6 +88,9 @@ export default function ChatLayout({
   userMetadata: serverUserMetadata,
   isSignedIn: serverIsSignedIn,
   initialChats,
+  defaultSidebarOpen,
+  mainFont,
+  codeFont,
 }: ChatLayoutProps) {
   const router = useRouter()
   const pathname = usePathname()
@@ -102,10 +108,22 @@ export default function ChatLayout({
     handleConversationSelect,
     createNewChat,
     toggleSidebar,
-  } = useChatLayout(initialChats)
+  } = useChatLayout(initialChats, defaultSidebarOpen)
 
   const { isSignedIn, userMetadata, isPending } = useAuth({ serverIsSignedIn, serverUserMetadata })
-  useFont()
+  useFont(mainFont as any, codeFont as any)
+
+  useEffect(() => {
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js').then(registration => {
+          console.log('SW registered: ', registration);
+        }).catch(registrationError => {
+          console.log('SW registration failed: ', registrationError);
+        });
+      });
+    }
+  }, []);
 
   const [renamingChatInfo, setRenamingChatInfo] = useState<{ id: string; title: string } | null>(null)
   const [deletingChatId, setDeletingChatId] = useState<string | null>(null)

@@ -1,5 +1,5 @@
 import ChatLayout from '@/app/(chat)/_components/ChatLayout'
-import { headers } from 'next/headers'
+import { cookies } from 'next/headers'
 import { api } from '../../../convex/_generated/api'
 import { fetchQuery } from 'convex/nextjs'
 import { createAuth } from '../../../convex/auth'
@@ -18,9 +18,23 @@ export default async function ChatLayoutPage({ children }: { children: React.Rea
     image: user?.image,
   }
 
+  const cookieStore = await cookies()
+  const layoutCookie = cookieStore.get('t2chat-sidebar-open')
+  const defaultSidebarOpen = layoutCookie ? layoutCookie.value === 'true' : true
+
+  const mainFont = cookieStore.get('mainFont')?.value
+  const codeFont = cookieStore.get('codeFont')?.value
+
   return (
     <div>
-      <ChatLayout userMetadata={userMetadata} isSignedIn={!!user} initialChats={initialChats}>
+      <ChatLayout
+        userMetadata={userMetadata}
+        isSignedIn={!!user}
+        initialChats={initialChats}
+        defaultSidebarOpen={defaultSidebarOpen}
+        mainFont={mainFont}
+        codeFont={codeFont}
+      >
         {children}
       </ChatLayout>
     </div>
