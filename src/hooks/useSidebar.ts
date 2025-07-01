@@ -6,7 +6,7 @@ import Cookies from 'js-cookie'
 const SIDEBAR_COOKIE_NAME = 't2chat-sidebar-open'
 
 export function useIsMobile() {
-  const isMobile = useMediaQuery({ maxWidth: 767 })
+  const isMobile = useMediaQuery({ query: '(max-width: 767px)' })
   const [mounted, setMounted] = useState(false)
   useEffect(() => {
     setMounted(true)
