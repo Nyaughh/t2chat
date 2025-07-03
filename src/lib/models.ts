@@ -282,7 +282,7 @@ export const models: ModelInfo[] = [
   return {
     ...model,
     features: model.features.filter((feature) => !(feature === 'imagegen' && model.supportsThinking)),
-    isApiKeyOnly: model.isApiKeyOnly || model.provider === 'openrouter',
+    isApiKeyOnly: model.isApiKeyOnly || model.provider === 'openrouter' || model.isApiKeyOnly,
     isFree: model.provider === 'openrouter' ? false : model.isFree,
   } as ModelInfo
 })
