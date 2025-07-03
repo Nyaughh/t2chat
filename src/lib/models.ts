@@ -49,6 +49,7 @@ export const models: ModelInfo[] = [
     isPro: false,
     supportsThinking: false,
     unauthenticated: false,
+    isApiKeyOnly: true,
     attachmentsSuppport: {
       pdf: false,
       image: true,
@@ -65,6 +66,7 @@ export const models: ModelInfo[] = [
     isPro: false,
     supportsThinking: true,
     unauthenticated: false,
+    isApiKeyOnly: true,
     attachmentsSuppport: {
       pdf: false,
       image: false,
@@ -80,6 +82,7 @@ export const models: ModelInfo[] = [
     isPro: false,
     supportsThinking: false,
     unauthenticated: false,
+    isApiKeyOnly: true,
     isFree: true,
     attachmentsSuppport: {
       pdf: false,
@@ -282,7 +285,7 @@ export const models: ModelInfo[] = [
   return {
     ...model,
     features: model.features.filter((feature) => !(feature === 'imagegen' && model.supportsThinking)),
-    isApiKeyOnly: model.isApiKeyOnly || model.provider === 'openrouter',
+    isApiKeyOnly: model.isApiKeyOnly || model.provider === 'openrouter' || model.isApiKeyOnly,
     isFree: model.provider === 'openrouter' ? false : model.isFree,
   } as ModelInfo
 })
