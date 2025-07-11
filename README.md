@@ -133,8 +133,9 @@ Here is what you need to be able to run T2Chat.
 
    ```env
    # Convex
-   CONVEX_DEPLOYMENT=your-convex-deployment-url
-   NEXT_PUBLIC_CONVEX_URL=your-convex-url
+   CONVEX_DEPLOYMENT=your-convex-deployment-url (eg: dev:blue-bird-144)
+   NEXT_PUBLIC_CONVEX_URL=your-convex-url (eg: https://blue-bird-144.convex.cloud)
+   NEXT_PUBLIC_CONVEX_SITE_URL=your-convex-site-url (eg: https://blue-bird-144.convex.site)
 
    # Better Auth
    BETTER_AUTH_SECRET=your-auth-secret
