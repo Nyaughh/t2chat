@@ -54,6 +54,7 @@ export const models: ModelInfo[] = [
       image: true,
     },
     toolCalls: true,
+    isApiKeyOnly: true,
   },
   {
     id: 'gemini-2.0-flash-thinking-exp-01-21',
@@ -69,6 +70,7 @@ export const models: ModelInfo[] = [
       pdf: false,
       image: false,
     },
+    isApiKeyOnly: true,
   },
   {
     id: 'gemini-2.5-flash-preview-04-17',
@@ -81,6 +83,7 @@ export const models: ModelInfo[] = [
     supportsThinking: false,
     unauthenticated: false,
     isFree: true,
+    isApiKeyOnly: true,
     attachmentsSuppport: {
       pdf: false,
       image: true,
@@ -282,7 +285,7 @@ export const models: ModelInfo[] = [
   return {
     ...model,
     features: model.features.filter((feature) => !(feature === 'imagegen' && model.supportsThinking)),
-    isApiKeyOnly: model.isApiKeyOnly || model.provider === 'openrouter',
+    isApiKeyOnly: model.isApiKeyOnly || model.provider === 'openrouter' || model.isApiKeyOnly,
     isFree: model.provider === 'openrouter' ? false : model.isFree,
   } as ModelInfo
 })
