@@ -33,7 +33,6 @@ interface ChatLayoutProps {
   isSignedIn: boolean
   userMetadata: UserMetadata
   initialChats?: ConvexChat[] | null
-  defaultSidebarOpen?: boolean
   mainFont?: string
   codeFont?: string
 }
@@ -88,7 +87,6 @@ export default function ChatLayout({
   userMetadata: serverUserMetadata,
   isSignedIn: serverIsSignedIn,
   initialChats,
-  defaultSidebarOpen,
   mainFont,
   codeFont,
 }: ChatLayoutProps) {
@@ -108,7 +106,7 @@ export default function ChatLayout({
     handleConversationSelect,
     createNewChat,
     toggleSidebar,
-  } = useChatLayout(initialChats, defaultSidebarOpen)
+  } = useChatLayout(initialChats)
 
   const { isSignedIn, userMetadata, isPending } = useAuth({ serverIsSignedIn, serverUserMetadata })
   useFont(mainFont as any, codeFont as any)

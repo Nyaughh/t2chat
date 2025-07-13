@@ -19,9 +19,6 @@ export default async function ChatLayoutPage({ children }: { children: React.Rea
   }
 
   const cookieStore = await cookies()
-  const layoutCookie = cookieStore.get('t2chat-sidebar-open')
-  const defaultSidebarOpen = layoutCookie ? layoutCookie.value === 'true' : true
-
   const mainFont = cookieStore.get('mainFont')?.value
   const codeFont = cookieStore.get('codeFont')?.value
 
@@ -31,7 +28,6 @@ export default async function ChatLayoutPage({ children }: { children: React.Rea
         userMetadata={userMetadata}
         isSignedIn={!!user}
         initialChats={initialChats}
-        defaultSidebarOpen={defaultSidebarOpen}
         mainFont={mainFont}
         codeFont={codeFont}
       >

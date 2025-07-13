@@ -14,17 +14,20 @@ export function useIsMobile() {
   return mounted && isMobile
 }
 
-export function useSidebar(initialState: boolean) {
+export function useSidebar() {
   const isMobile = useIsMobile()
-  const [sidebarOpen, setSidebarOpen] = useState(initialState)
+  const [sidebarOpen, setSidebarOpen] = useState(false)
 
   useEffect(() => {
+    const cookieValue = Cookies.get(SIDEBAR_COOKIE_NAME)
+    const initial = cookieValue !== undefined ? cookieValue === 'true' : true
+
     if (isMobile) {
-      setSidebarOpen(false) // Always start closed on mobile
+      setSidebarOpen(false)
     } else {
-      setSidebarOpen(initialState)
+      setSidebarOpen(initial)
     }
-  }, [isMobile, initialState])
+  }, [isMobile])
 
   const toggleSidebar = useCallback(() => {
     setSidebarOpen((open) => {

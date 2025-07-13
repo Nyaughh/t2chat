@@ -11,12 +11,12 @@ import { ConvexChat } from '@/lib/types'
 import { useAuth } from '@/hooks/useAuth'
 import { useMediaQuery } from 'react-responsive'
 
-export function useChatLayout(initialChats?: ConvexChat[] | null, defaultSidebarOpen?: boolean) {
+export function useChatLayout(initialChats?: ConvexChat[] | null) {
   const router = useRouter()
   const pathname = usePathname()
   const { user } = useAuth({})
 
-  const { sidebarOpen, toggleSidebar } = useSidebar(defaultSidebarOpen ?? true)
+  const { sidebarOpen, toggleSidebar } = useSidebar()
   const [mounted, setMounted] = useState(false)
   const {
     chats: activeChats,
@@ -52,7 +52,7 @@ export function useChatLayout(initialChats?: ConvexChat[] | null, defaultSidebar
     }
   }
 
-  const effectiveSidebarOpen = mounted ? sidebarOpen : defaultSidebarOpen ?? false
+  const effectiveSidebarOpen = mounted ? sidebarOpen : false
 
   const isMobile = useMediaQuery({ query: '(max-width: 767px)' })
 
