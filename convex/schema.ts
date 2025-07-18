@@ -6,8 +6,7 @@ export default defineSchema({
     name: v.optional(v.string()),
     email: v.optional(v.string()),
     image: v.optional(v.string()),
-    tokenIdentifier: v.optional(v.string()),
-  }).index('by_token', ['tokenIdentifier']),
+  }).index('by_token', ['email']),
 
   userSettings: defineTable({
     userId: v.id('users'),

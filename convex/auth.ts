@@ -99,7 +99,6 @@ export const getOrCreateUser = internalMutation({
 
     const user = await ctx.db
       .query('users')
-      .withIndex('by_token', (q) => q.eq('tokenIdentifier', identity.tokenIdentifier))
       .unique()
 
     if (user) {
@@ -110,7 +109,6 @@ export const getOrCreateUser = internalMutation({
       name: identity.name!,
       email: identity.email!,
       image: identity.pictureUrl!,
-      tokenIdentifier: identity.tokenIdentifier,
     })
 
     return userId

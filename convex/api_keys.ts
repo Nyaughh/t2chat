@@ -1,6 +1,5 @@
 import { query, mutation } from './_generated/server'
 import { v } from 'convex/values'
-import { getOneFrom } from 'convex-helpers/server/relationships'
 import { Id } from './_generated/dataModel'
 import { betterAuthComponent } from './auth'
 
