@@ -129,6 +129,10 @@ Here is what you need to be able to run T2Chat.
 
 3. **Set up environment variables**
 
+   Follow [Better Auth Github Authentication](https://www.better-auth.com/docs/authentication/github) to get your Github Client ID and Client Secret.
+
+   > If you create a new Github App, make sure the app is public. If you don't, only you can use the app.
+
    Create a `.env.local` file in the root directory:
 
    ```env
