@@ -27,11 +27,29 @@ export const INTERRUPTED_NOTE = '\n\n*Generation was interrupted.*'
 /** Size of an immutable segment. The open tail is always shorter than this. */
 export const SEGMENT_CHARS = 4_000
 
-/** Longer than Convex's 10-minute action limit: a reply still open after this has no live action. */
-export const STREAM_EXPIRY_MS = 11 * 60 * 1000
+/**
+ * When an unfinished reply is treated as orphaned. A reply is written by the
+ * action that created its placeholder (default runtime: at most 30 minutes)
+ * and possibly by a Node action it starts (at most 10 minutes, started no
+ * later than the parent's end). So no live writer can exist 40 minutes after
+ * the placeholder; the extra minute is margin. A reply that is still healthy
+ * at minute 11, 20 or 39 is never cut off.
+ * https://docs.convex.dev/production/state/limits#execution-time-and-scheduling
+ */
+export const STREAM_EXPIRY_MS = (30 + 10 + 1) * 60 * 1000
 
-/** Segments deleted per transaction when discarding a stream (each is at most ~16 KB). */
-const DISCARD_BATCH = 256
+/**
+ * Segments deleted per discard transaction. A segment is at most
+ * SEGMENT_CHARS UTF-16 units, so at most ~12 KB of UTF-8: 512 segments stay
+ * far below the 16 MiB read limit.
+ */
+const DISCARD_SEGMENT_BUDGET = 512
+
+/**
+ * Message ids per discard job: two index lookups each keeps a job small. A
+ * delete page (at most 1,000 messages) needs at most two such jobs.
+ */
+export const MAX_DISCARD_IDS = 500
 
 type Kind = 'content' | 'thinking'
 
@@ -54,23 +72,61 @@ export const readStreamText = async (ctx: QueryCtx, row: Doc<'streamingMessages'
 }
 
 /**
- * Deletes a reply's streaming row and segments. Large streams continue in a
- * scheduled job, so this stays within transaction limits.
+ * Deletes the streaming row and segments of each listed reply, within one
+ * segment budget. Returns the ids still left to clean (the first may be
+ * partly done). Never schedules anything itself.
+ */
+const discardWithinBudget = async (ctx: MutationCtx, messageIds: Id<'messages'>[]) => {
+  let budget = DISCARD_SEGMENT_BUDGET
+  for (let i = 0; i < messageIds.length; i++) {
+    const messageId = messageIds[i]
+    const row = await getStreamRow(ctx, messageId)
+    if (row) await ctx.db.delete(row._id)
+    const segments = await ctx.db
+      .query('streamSegments')
+      .withIndex('by_message_kind_index', (q) => q.eq('messageId', messageId))
+      .take(budget + 1)
+    const now = segments.slice(0, budget)
+    for (const segment of now) {
+      await ctx.db.delete(segment._id)
+    }
+    budget -= now.length
+    if (segments.length > now.length || (budget === 0 && i < messageIds.length - 1)) {
+      return messageIds.slice(segments.length > now.length ? i : i + 1)
+    }
+  }
+  return []
+}
+
+/**
+ * Deletes a reply's streaming row and segments. A very large stream continues
+ * in one scheduled job, so this stays within transaction limits.
  */
 export const discardStreamArtifacts = async (ctx: MutationCtx, messageId: Id<'messages'>) => {
-  const row = await getStreamRow(ctx, messageId)
-  if (row) await ctx.db.delete(row._id)
-  const segments = await ctx.db
-    .query('streamSegments')
-    .withIndex('by_message_kind_index', (q) => q.eq('messageId', messageId))
-    .take(DISCARD_BATCH)
-  for (const segment of segments) {
-    await ctx.db.delete(segment._id)
-  }
-  if (segments.length === DISCARD_BATCH) {
-    await ctx.scheduler.runAfter(0, internal.chat.streaming.discardStream, { messageId })
+  const left = await discardWithinBudget(ctx, [messageId])
+  if (left.length > 0) {
+    await ctx.scheduler.runAfter(0, internal.chat.streaming.discardStreams, { messageIds: left })
   }
 }
+
+/** Schedules the cleanup of deleted replies' streams: one scheduled call per MAX_DISCARD_IDS ids. */
+export const scheduleStreamDiscard = async (ctx: MutationCtx, messageIds: Id<'messages'>[]) => {
+  for (let i = 0; i < messageIds.length; i += MAX_DISCARD_IDS) {
+    await ctx.scheduler.runAfter(0, internal.chat.streaming.discardStreams, {
+      messageIds: messageIds.slice(i, i + MAX_DISCARD_IDS),
+    })
+  }
+}
+
+const isHighSurrogate = (code: number) => code >= 0xd800 && code <= 0xdbff
+const isLowSurrogate = (code: number) => code >= 0xdc00 && code <= 0xdfff
+
+/**
+ * Where to cut a full segment: SEGMENT_CHARS units, or one less so a
+ * surrogate pair (an emoji, for example) is never split. Convex rejects
+ * strings with unpaired surrogates, and each segment must be valid on its own.
+ */
+const segmentCut = (text: string) => (isHighSurrogate(text.charCodeAt(SEGMENT_CHARS - 1)) ? SEGMENT_CHARS - 1 : SEGMENT_CHARS)
 
 /** Appends new text to one kind of a stream, moving full segments out of the tail. */
 const appendText = async (
@@ -84,14 +140,19 @@ const appendText = async (
   let tail = kind === 'content' ? row.contentTail : row.thinkingTail
   let segments = kind === 'content' ? row.contentSegments : row.thinkingSegments
 
-  // The caller's offset must not skip text; overlap from a retried write is ignored
+  // The caller's offset must not skip text; overlap from a retried write is ignored.
+  // Offsets and lengths count UTF-16 units, like JavaScript string lengths.
   if (offset > length) return { tail, segments, length }
-  const fresh = delta.slice(length - offset)
+  const skip = length - offset
+  // Stored text always ends on a whole code point; never start mid-pair either
+  if (skip > 0 && skip < delta.length && isLowSurrogate(delta.charCodeAt(skip))) return { tail, segments, length }
+  const fresh = delta.slice(skip)
   tail += fresh
   while (tail.length >= SEGMENT_CHARS) {
-    await ctx.db.insert('streamSegments', { messageId: row.messageId, kind, index: segments, text: tail.slice(0, SEGMENT_CHARS) })
+    const cut = segmentCut(tail)
+    await ctx.db.insert('streamSegments', { messageId: row.messageId, kind, index: segments, text: tail.slice(0, cut) })
     segments++
-    tail = tail.slice(SEGMENT_CHARS)
+    tail = tail.slice(cut)
   }
   return { tail, segments, length: length + fresh.length }
 }
@@ -229,11 +290,14 @@ export const expireStream = internalMutation({
   },
 })
 
-/** Continues deleting a large stream's segments. */
-export const discardStream = internalMutation({
-  args: { messageId: v.id('messages') },
-  handler: async (ctx, { messageId }) => {
-    await discardStreamArtifacts(ctx, messageId)
+/** Deletes the streams of the listed replies within a budget, continuing in one follow-up job. */
+export const discardStreams = internalMutation({
+  args: { messageIds: v.array(v.id('messages')) },
+  handler: async (ctx, { messageIds }) => {
+    const left = await discardWithinBudget(ctx, messageIds)
+    if (left.length > 0) {
+      await ctx.scheduler.runAfter(0, internal.chat.streaming.discardStreams, { messageIds: left })
+    }
   },
 })
 

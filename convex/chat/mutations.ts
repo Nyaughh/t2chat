@@ -18,7 +18,14 @@ import {
   toolCallsValidator,
   type Attachment,
 } from './access'
-import { STOPPED_NOTE, STREAM_EXPIRY_MS, discardStreamArtifacts, getStreamRow, readStreamText } from './streaming'
+import {
+  STOPPED_NOTE,
+  STREAM_EXPIRY_MS,
+  discardStreamArtifacts,
+  getStreamRow,
+  readStreamText,
+  scheduleStreamDiscard,
+} from './streaming'
 
 // MUTATIONS - for database modifications
 //
@@ -273,7 +280,7 @@ export const deleteMessage = mutation({
   },
   handler: async (ctx, { messageId }) => {
     const { message } = await requireOwnedMessage(ctx, messageId)
-    await deleteMessageDoc(ctx, message)
+    await scheduleStreamDiscard(ctx, await deleteMessageDocs(ctx, [message]))
     return { success: true }
   },
 })
@@ -300,9 +307,7 @@ export const deleteMessagesFromIndex = mutation({
 
     const fromIndex = tail.findIndex((msg) => msg._id === fromMessageId)
     const messagesToDelete = tail.slice(fromIndex)
-    for (const message of messagesToDelete) {
-      await deleteMessageDoc(ctx, message)
-    }
+    await scheduleStreamDiscard(ctx, await deleteMessageDocs(ctx, messagesToDelete))
 
     return { success: true, deletedCount: messagesToDelete.length }
   },
@@ -377,24 +382,31 @@ export const deleteAllConversations = mutation({
 //
 // A page reads messages a few at a time and stops before the next small read
 // could pass the read budget, whatever the message sizes (each document is at
-// most 1 MiB), and before the write cap.
+// most 1 MiB), and before 1,000 deletes. It schedules at most three functions
+// (stream-discard jobs for its unfinished replies, 500 ids each, and one
+// continuation), far below the 1,000 scheduled calls Convex allows per mutation.
 // ---------------------------------------------------------------------------
 
 const MAX_DOC_BYTES = 1 << 20
 const READ_LIMIT_BYTES = 14 * MAX_DOC_BYTES // headroom under Convex's 16 MiB
 const READ_STEP = 8
-const MAX_DELETES_PER_PAGE = 2_000
+const MAX_DELETES_PER_PAGE = 1_000
 const CHAT_DELETE_BATCH = 100
 
 const encoder = new TextEncoder()
 const docBytes = (doc: unknown) => encoder.encode(JSON.stringify(doc)).length
 
-/** Deletes a message; an in-progress reply's stream is discarded by a scheduled job (unbounded size). */
-const deleteMessageDoc = async (ctx: MutationCtx, message: Doc<'messages'>) => {
-  if (message.isComplete === false) {
-    await ctx.scheduler.runAfter(0, internal.chat.streaming.discardStream, { messageId: message._id })
+/**
+ * Deletes messages and returns the ids of unfinished replies among them, whose
+ * streams (unbounded size) the caller hands to one scheduled discard job.
+ */
+const deleteMessageDocs = async (ctx: MutationCtx, messages: Doc<'messages'>[]) => {
+  const unfinished: Id<'messages'>[] = []
+  for (const message of messages) {
+    if (message.isComplete === false) unfinished.push(message._id)
+    await ctx.db.delete(message._id)
   }
-  await ctx.db.delete(message._id)
+  return unfinished
 }
 
 /**
@@ -404,22 +416,26 @@ const deleteMessageDoc = async (ctx: MutationCtx, message: Doc<'messages'>) => {
 const purgeMessagePage = async (ctx: MutationCtx, chatId: Id<'chats'>) => {
   let bytesRead = 0
   let deleted = 0
+  let more = true
+  const unfinished: Id<'messages'>[] = []
   while (bytesRead + READ_STEP * MAX_DOC_BYTES <= READ_LIMIT_BYTES && deleted + READ_STEP <= MAX_DELETES_PER_PAGE) {
     const step = await ctx.db
       .query('messages')
       .withIndex('by_chat_created', (q) => q.eq('chatId', chatId))
       .take(READ_STEP)
-    for (const message of step) {
-      bytesRead += docBytes(message)
-      await deleteMessageDoc(ctx, message)
-      deleted++
-    }
+    for (const message of step) bytesRead += docBytes(message)
+    unfinished.push(...(await deleteMessageDocs(ctx, step)))
+    deleted += step.length
     if (step.length < READ_STEP) {
-      return { bytesRead, deleted, more: false }
+      more = false
+      break
     }
   }
-  await ctx.scheduler.runAfter(0, internal.chat.mutations.purgeChatMessages, { chatId })
-  return { bytesRead, deleted, more: true }
+  await scheduleStreamDiscard(ctx, unfinished)
+  if (more) {
+    await ctx.scheduler.runAfter(0, internal.chat.mutations.purgeChatMessages, { chatId })
+  }
+  return { bytesRead, deleted, more }
 }
 
 /** Deletes one batch of a user's chats created at or before `before`, then schedules the rest. */
