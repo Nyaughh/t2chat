@@ -13,10 +13,14 @@ import {
   decideQueuedSend,
   isGuestLocalId,
   isGuestWritable,
+  hasActiveReply,
+  importableLocalChats,
   isLocalRowVisible,
   latchOrigin,
   ownershipRetryDelayMs,
   planLegacyCleanup,
+  withLease,
+  withoutLease,
   planOwnershipSync,
   runOwnershipSync,
   sessionStateFrom,
@@ -55,13 +59,18 @@ function memoryRows(rows: OwnedRow[]) {
     visibleTo: (viewer: LocalSessionState) => ids(current.filter((r) => isLocalRowVisible(r, viewer))),
     readRows: async () => current.map((r) => ({ ...r })),
     add: (row: OwnedRow) => current.push({ ...row }),
-    apply: async (session: LocalSessionState, plan: OwnershipPlan) => {
+    apply: async (session: LocalSessionState, plan: OwnershipPlan, now = 0) => {
       const bound = boundPlan(plan, current)
-      const del = new Set(ids(bound.deletions))
+      const leased = new Set(ids(current.filter((r) => hasActiveReply(r, now))))
+      const del = new Set(ids(bound.deletions).filter((id) => !leased.has(id)))
       const claim = new Set(ids(bound.claims))
       current = current
         .filter((r) => !del.has(r.id))
-        .map((r) => (claim.has(r.id) && session.status === 'signed-in' ? { id: r.id, userId: session.userId } : r))
+        .map((r) =>
+          claim.has(r.id) && session.status === 'signed-in' ? { ...r, userId: session.userId, legacyOwner: undefined } : r,
+        )
+        .map((r) => (r.legacyOwner === undefined ? (({ legacyOwner: _l, ...rest }) => rest)(r) : r))
+      return bound.deletions.length - del.size
     },
   }
 }
@@ -179,6 +188,28 @@ test('pending or unknown sessions never change ownership', async () => {
   assert.equal(await runOwnershipSync(PENDING, { ...rows, confirm }), 'skipped')
   assert.equal(await runOwnershipSync(UNKNOWN, { ...rows, confirm }), 'skipped')
   assert.equal(rows.get().length, 2)
+})
+
+test('a wipe waits for a reply lease: deferred while a guest reply is still being written, done after release', async () => {
+  const lease = withLease(undefined, 'reply-1', 30_000, 0)
+  const rows = memoryRows([{ id: G1, userId: 'userA', inFlight: lease }])
+  assert.equal(await runOwnershipSync(OUT, { ...rows, confirm: async () => OUT }), 'deferred')
+  assert.equal(rows.get().length, 1, 'not deleted while its reply text may be only in memory')
+  rows.get()[0].inFlight = withoutLease(rows.get()[0].inFlight, 'reply-1', 0)
+  assert.equal(await runOwnershipSync(OUT, { ...rows, confirm: async () => OUT }), 'applied')
+  assert.deepEqual(rows.get(), [])
+})
+
+test('reply leases: active until released or expired; a leased chat is not importable', () => {
+  const leases = withLease(withLease(undefined, 'r1', 100, 0), 'r2', 200, 0)
+  assert.equal(hasActiveReply({ inFlight: leases }, 50), true)
+  assert.equal(hasActiveReply({ inFlight: leases }, 250), false, 'a dead tab’s lease expires')
+  assert.deepEqual(withoutLease(leases, 'r1', 0), { r2: 200 })
+  assert.equal(withoutLease({ r1: 100 }, 'r1', 0), undefined)
+  const rows = [{ id: G1, userId: 'userA', inFlight: { r1: 100 } }, { id: G2, userId: 'userA' }]
+  assert.deepEqual(ids(importableLocalChats(rows, A, new Set(), 50)), [G2])
+  assert.deepEqual(ids(importableLocalChats(rows, A, new Set(), 150)), [G1, G2])
+  assert.deepEqual(ids(importableLocalChats(rows, A, new Set([G2]), 150)), [G1], 'already on the server')
 })
 
 test('retries back off and are capped', () => {

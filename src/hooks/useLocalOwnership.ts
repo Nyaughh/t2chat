@@ -45,7 +45,12 @@ export function useLocalOwnership(): { session: LocalSessionState; signingOut: b
   const rowsKey = useLiveQuery(
     async () =>
       (await db.conversations.toArray())
-        .map((c) => `${c.id}:${c.userId ?? ''}:${c.legacyOwner ? 1 : 0}`)
+        .map(
+          (c) =>
+            `${c.id}:${c.userId ?? ''}:${c.legacyOwner ? 1 : 0}:${Object.keys(c.inFlight ?? {})
+              .sort()
+              .join(',')}`,
+        )
         .sort()
         .join('|'),
     [],
@@ -77,7 +82,9 @@ export function useLocalOwnership(): { session: LocalSessionState; signingOut: b
     }
     syncLocalOwnership(session, confirmSession).then(
       (outcome) => {
-        if (outcome === 'unconfirmed') retryLater()
+        // 'deferred': a wipe waits for a reply lease; retry (the lease's release
+        // also changes the rows and re-runs this).
+        if (outcome === 'unconfirmed' || outcome === 'deferred') retryLater()
         else attemptRef.current = 0
       },
       (err) => {

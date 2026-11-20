@@ -9,6 +9,8 @@ interface Conversation {
   userId?: string
   /** Owner was written by an older client; hidden until that user signs in again. */
   legacyOwner?: boolean
+  /** Guest replies still being written here, in any tab: messageId -> lease expiry (epoch ms). */
+  inFlight?: Record<string, number>
   title: string
   createdAt: Date
   updatedAt: Date

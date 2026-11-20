@@ -61,6 +61,68 @@ export interface OwnedRow {
   id: string
   userId?: string
   legacyOwner?: boolean
+  /** Guest replies still being written into this chat, in any tab (see reply leases below). */
+  inFlight?: ReplyLeases
+}
+
+// ---------------------------------------------------------------------------
+// Reply leases: a durable, cross-tab "a guest reply is still being written
+// here" marker on the conversation row. A streaming reply buffers up to
+// GUEST_PERSIST_INTERVAL_MS of text in memory, so until its final write lands
+// the stored message can be behind what was shown. While a lease is active the
+// chat is not offered for import and not deleted by an ownership wipe. A lease
+// is set with the reply's placeholder, renewed on every write and by a
+// heartbeat, released after the reply's last write, and expires on its own if
+// the tab that holds it dies.
+
+/** messageId -> lease expiry (epoch ms). */
+export type ReplyLeases = Record<string, number>
+
+export const REPLY_LEASE_MS = 30_000
+export const REPLY_LEASE_RENEW_MS = 10_000
+
+/** True while any reply lease on the row has not expired. */
+export const hasActiveReply = (row: { inFlight?: ReplyLeases }, now: number): boolean =>
+  !!row.inFlight && Object.values(row.inFlight).some((until) => until > now)
+
+/** Earliest expiry of an active lease on any row, or null. */
+export function nextLeaseExpiry(rows: ReadonlyArray<{ inFlight?: ReplyLeases }>, now: number): number | null {
+  let next: number | null = null
+  for (const row of rows) {
+    for (const until of Object.values(row.inFlight ?? {})) {
+      if (until > now && (next === null || until < next)) next = until
+    }
+  }
+  return next
+}
+
+/** Leases with `messageId` set to `until`; expired leases are dropped. */
+export function withLease(leases: ReplyLeases | undefined, messageId: string, until: number, now: number): ReplyLeases {
+  const next: ReplyLeases = {}
+  for (const [id, expiry] of Object.entries(leases ?? {})) if (expiry > now) next[id] = expiry
+  next[messageId] = until
+  return next
+}
+
+/** Leases without `messageId` (and without expired ones); undefined when none remain. */
+export function withoutLease(leases: ReplyLeases | undefined, messageId: string, now: number): ReplyLeases | undefined {
+  const next: ReplyLeases = {}
+  for (const [id, expiry] of Object.entries(leases ?? {})) if (id !== messageId && expiry > now) next[id] = expiry
+  return Object.keys(next).length > 0 ? next : undefined
+}
+
+/**
+ * Local chats a signed-in user may import now: theirs (claim committed), not
+ * already on the server, and with no guest reply still being written in any
+ * tab, so the import never copies a message before its final text is stored.
+ */
+export function importableLocalChats<T extends OwnedRow>(
+  rows: ReadonlyArray<T>,
+  viewer: LocalSessionState,
+  serverChatIds: ReadonlySet<string>,
+  now: number,
+): T[] {
+  return rows.filter((row) => isLocalRowVisible(row, viewer) && !serverChatIds.has(row.id) && !hasActiveReply(row, now))
 }
 
 /**
@@ -223,7 +285,8 @@ export function planLegacyCleanup(
 // ---------------------------------------------------------------------------
 // Ownership sync sequence (the storage side is injected; see local-data.ts).
 
-export type OwnershipSyncOutcome = 'skipped' | 'unconfirmed' | 'applied'
+/** `deferred`: applied, but some deletions wait for a reply lease to end; retry later. */
+export type OwnershipSyncOutcome = 'skipped' | 'unconfirmed' | 'applied' | 'deferred'
 
 /**
  * Changes ownership only for a definite session (signed in or signed out), only
@@ -236,16 +299,20 @@ export async function runOwnershipSync(
   deps: {
     readRows: () => Promise<ReadonlyArray<OwnedRow>>
     confirm: () => Promise<LocalSessionState>
-    /** Must apply the plan with compare-and-set semantics (see boundPlan). */
-    apply: (session: LocalSessionState, plan: OwnershipPlan) => Promise<void>
+    /**
+     * Must apply the plan with compare-and-set semantics (see boundPlan) and
+     * skip deleting rows with an active reply lease. Resolves to how many
+     * deletions were deferred that way.
+     */
+    apply: (session: LocalSessionState, plan: OwnershipPlan) => Promise<number>
   },
 ): Promise<OwnershipSyncOutcome> {
   if (session.status !== 'signed-in' && session.status !== 'signed-out') return 'skipped'
   const plan = planOwnershipSync(await deps.readRows(), session)
   if (isEmptyPlan(plan)) return 'skipped'
   if (!sameSession(await deps.confirm(), session)) return 'unconfirmed'
-  await deps.apply(session, plan)
-  return 'applied'
+  const deferred = await deps.apply(session, plan)
+  return deferred > 0 ? 'deferred' : 'applied'
 }
 
 /** Delay before retrying an unconfirmed or failed ownership sync (attempt starts at 0). */

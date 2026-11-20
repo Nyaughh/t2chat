@@ -2,6 +2,7 @@ import type { ModelMessage } from 'ai'
 import { v4 as uuidv4 } from 'uuid'
 import type { DBMessage } from './dexie'
 import { parseDataStream } from './stream-parser'
+import { REPLY_LEASE_RENEW_MS } from './local-data-policy'
 
 // One streaming loop for every guest (signed-out) reply: new message, retry and
 // edit. The live text goes to the UI through `onUpdate` on every chunk. It is
@@ -37,6 +38,14 @@ export interface GuestMessageStore {
    */
   saveClaimed(id: string, changes: GuestMessageChanges): Promise<boolean>
   delete(id: string): Promise<unknown>
+  /**
+   * `add` also takes a reply lease on the chat (see local-data-policy.ts), so
+   * the chat isn't imported or wiped while this reply's text is only in memory.
+   * `update` renews it; these keep it alive during a stall and release it
+   * after the last write.
+   */
+  renewLease(conversationId: string, messageId: string): Promise<unknown>
+  releaseLease(conversationId: string, messageId: string): Promise<unknown>
 }
 
 export interface GuestStreamSnapshot {
@@ -144,123 +153,144 @@ export async function streamGuestReply(options: StreamGuestReplyOptions): Promis
       return { messageId: null, status: 'rejected' }
     }
 
-    let content = ''
-    let thinking = ''
-    let thinkingDuration: number | undefined
-    let streamError: string | undefined
-    let dirty = false
-    let lastPersist = now()
-    let timer: unknown = null
-    let writes: Promise<unknown> = Promise.resolve()
-
-    const snapshot = (): GuestStreamSnapshot => ({
-      id,
-      content,
-      thinking: thinking || undefined,
-      thinkingDuration,
-    })
-
-    const cancelTimer = () => {
-      if (timer !== null) clearTimer(timer)
-      timer = null
-    }
-
     // Writes are chained so they land in order.
-    const persist = (): Promise<void> => {
-      cancelTimer()
-      if (refused) return Promise.resolve()
-      dirty = false
-      lastPersist = now()
-      const changes = { content, thinking: thinking || undefined, thinkingDuration }
-      const write = writes.then(async () => {
-        if (refused) return
-        const result = await store.update(id, changes)
-        if (result === 'ok') return
-        refused = result
-        internal.abort()
-        if (result === 'claimed') {
-          // The guest signed in and the chat survived for import: keep
-          // everything received so far (what was on screen), then stop.
-          if (!completed) content += CLAIMED_NOTE
-          dirty = false
-          await store.saveClaimed(id, { content, thinking: thinking || undefined, thinkingDuration })
-          onUpdate?.(snapshot())
-        }
-      })
-      writes = write.catch(() => undefined)
-      return write
+    let writes: Promise<unknown> = Promise.resolve()
+    const writesSettled = () => writes.catch(() => undefined)
+
+    // Keep the reply lease alive while the reply runs (also during stalls).
+    let leaseTimer: unknown = null
+    const heartbeat = () => {
+      leaseTimer = setTimer(() => {
+        void store.renewLease(conversationId, id).catch(() => undefined)
+        heartbeat()
+      }, REPLY_LEASE_RENEW_MS)
     }
-
-    const flush = () => (dirty ? persist() : writes.then(() => undefined))
-    onFlushReady?.(flush)
-
-    const schedule = () => {
-      if (timer !== null || !dirty) return
-      const wait = Math.max(0, persistIntervalMs - (now() - lastPersist))
-      timer = setTimer(() => {
-        timer = null
-        if (dirty) void persist().catch(() => undefined)
-      }, wait)
-    }
-
+    heartbeat()
     try {
-      for await (const chunk of parseDataStream(response.body)) {
-        if (internal.signal.aborted) break
-        if (chunk.type === 'text') {
-          content += chunk.value
-        } else if (chunk.type === 'reasoning') {
-          thinking += chunk.value
-        } else if (chunk.type === 'finish') {
-          thinkingDuration = chunk.value?.thinkingDuration
-        } else if (chunk.type === 'error') {
-          streamError = typeof chunk.value === 'string' ? chunk.value : 'An error occurred while getting the response.'
-          continue
-        } else {
-          continue
-        }
-        dirty = true
-        onUpdate?.(snapshot())
-        if (now() - lastPersist >= persistIntervalMs) await persist()
-        else schedule()
+
+      let content = ''
+      let thinking = ''
+      let thinkingDuration: number | undefined
+      let streamError: string | undefined
+      let dirty = false
+      let lastPersist = now()
+      let timer: unknown = null
+
+      const snapshot = (): GuestStreamSnapshot => ({
+        id,
+        content,
+        thinking: thinking || undefined,
+        thinkingDuration,
+      })
+
+      const cancelTimer = () => {
+        if (timer !== null) clearTimer(timer)
+        timer = null
       }
-    } catch (error) {
-      if (!internal.signal.aborted) {
-        // Keep everything that already arrived (text or reasoning), then let
-        // the caller report the error.
+
+      const persist = (): Promise<void> => {
         cancelTimer()
-        if (content.trim() || thinking.trim()) await persist().catch(() => undefined)
-        else await store.delete(id).catch(() => undefined)
-        throw error
+        if (refused) return Promise.resolve()
+        dirty = false
+        lastPersist = now()
+        const changes = { content, thinking: thinking || undefined, thinkingDuration }
+        const write = writes.then(async () => {
+          if (refused) return
+          const result = await store.update(id, changes)
+          if (result === 'ok') return
+          refused = result
+          internal.abort()
+          if (result === 'claimed') {
+            // The guest signed in and the chat survived for import: keep
+            // everything received so far (what was on screen), then stop.
+            if (!completed) content += CLAIMED_NOTE
+            dirty = false
+            await store.saveClaimed(id, { content, thinking: thinking || undefined, thinkingDuration })
+            onUpdate?.(snapshot())
+          }
+        })
+        writes = write.catch(() => undefined)
+        return write
       }
-    }
-    cancelTimer()
 
-    const refusedResult = async (): Promise<GuestReplyResult> => {
-      await writes
-      return refused === 'claimed'
-        ? { messageId: id, status: 'claimed', error: streamError }
-        : { messageId: null, status: 'rejected', error: streamError }
-    }
-    if (refused) return refusedResult()
+      const flush = () => (dirty ? persist() : writes.then(() => undefined))
+      onFlushReady?.(flush)
 
-    if (signal.aborted) {
-      content += STOPPED_NOTE
-      onUpdate?.(snapshot())
+      const schedule = () => {
+        if (timer !== null || !dirty) return
+        const wait = Math.max(0, persistIntervalMs - (now() - lastPersist))
+        timer = setTimer(() => {
+          timer = null
+          if (dirty) void persist().catch(() => undefined)
+        }, wait)
+      }
+
+      try {
+        for await (const chunk of parseDataStream(response.body)) {
+          if (internal.signal.aborted) break
+          if (chunk.type === 'text') {
+            content += chunk.value
+          } else if (chunk.type === 'reasoning') {
+            thinking += chunk.value
+          } else if (chunk.type === 'finish') {
+            thinkingDuration = chunk.value?.thinkingDuration
+          } else if (chunk.type === 'error') {
+            streamError = typeof chunk.value === 'string' ? chunk.value : 'An error occurred while getting the response.'
+            continue
+          } else {
+            continue
+          }
+          dirty = true
+          onUpdate?.(snapshot())
+          if (now() - lastPersist >= persistIntervalMs) await persist()
+          else schedule()
+        }
+      } catch (error) {
+        if (!internal.signal.aborted) {
+          // Keep everything that already arrived (text or reasoning), then let
+          // the caller report the error.
+          cancelTimer()
+          if (content.trim() || thinking.trim()) await persist().catch(() => undefined)
+          else await store.delete(id).catch(() => undefined)
+          throw error
+        }
+      }
+      cancelTimer()
+
+      const refusedResult = async (): Promise<GuestReplyResult> => {
+        await writes
+        return refused === 'claimed'
+          ? { messageId: id, status: 'claimed', error: streamError }
+          : { messageId: null, status: 'rejected', error: streamError }
+      }
+      if (refused) return refusedResult()
+
+      if (signal.aborted) {
+        content += STOPPED_NOTE
+        onUpdate?.(snapshot())
+        await persist()
+        return refused ? refusedResult() : { messageId: id, status: 'stopped', error: streamError }
+      }
+
+      if (!content.trim() && !thinking.trim()) {
+        await writes
+        await store.delete(id)
+        return { messageId: null, status: 'empty', error: streamError }
+      }
+
+      completed = true
       await persist()
-      return refused ? refusedResult() : { messageId: id, status: 'stopped', error: streamError }
+      if (refused) return refusedResult()
+      onUpdate?.(snapshot())
+      return { messageId: id, status: 'complete', error: streamError }
+    } finally {
+      // Release the lease only once the last write has landed, so the stored
+      // text is final before the chat can be imported or wiped.
+      if (leaseTimer !== null) clearTimer(leaseTimer)
+      leaseTimer = null
+      await writesSettled()
+      await store.releaseLease(conversationId, id).catch(() => undefined)
     }
-
-    if (!content.trim() && !thinking.trim()) {
-      await writes
-      await store.delete(id)
-      return { messageId: null, status: 'empty', error: streamError }
-    }
-
-    completed = true
-    await persist()
-    if (refused) return refusedResult()
-    onUpdate?.(snapshot())
-    return { messageId: id, status: 'complete', error: streamError }
   } finally {
     signal.removeEventListener('abort', onCallerAbort)
   }

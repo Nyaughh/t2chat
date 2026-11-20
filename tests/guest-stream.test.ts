@@ -13,6 +13,17 @@ import {
   type GuestStreamSnapshot,
 } from '../src/lib/guest-stream'
 import type { DBMessage } from '../src/lib/dexie'
+import {
+  REPLY_LEASE_MS,
+  importableLocalChats,
+  isGuestWritable,
+  isLocalRowVisible,
+  planOwnershipSync,
+  withLease,
+  withoutLease,
+  type LocalSessionState,
+  type OwnedRow,
+} from '../src/lib/local-data-policy'
 
 const line = (type: string, value: unknown) => `2:${JSON.stringify([{ type, value }])}\n`
 const tick = () => new Promise((r) => setTimeout(r, 0))
@@ -52,6 +63,8 @@ function memoryStore() {
       counts.delete++
       rows.delete(id)
     },
+    async renewLease() {},
+    async releaseLease() {},
   }
   return {
     store,
@@ -200,7 +213,7 @@ test('a chunk inside the throttle window is checkpointed by the trailing timer i
   await tick()
   const id = [...rows.keys()][0]
   assert.equal(rows.get(id)?.content, '', 'inside the window: not written yet')
-  assert.equal(timers.size, 1, 'a trailing checkpoint is scheduled')
+  assert.equal(timers.size, 2, 'a trailing checkpoint (plus the lease heartbeat) is scheduled')
 
   // The stream stalls; the timer fires.
   t += GUEST_PERSIST_INTERVAL_MS
@@ -544,4 +557,158 @@ test('an empty reply is removed and the stream error is reported', async () => {
   assert.equal(result.error, 'Model is unavailable.')
   assert.equal(rows.size, 0)
   assert.equal(counts.delete, 1)
+})
+
+// --- Import race (review round 4) -----------------------------------------
+
+/**
+ * One IndexedDB shared by two tabs. `store` is what tab 1's guest reply writes
+ * through (same checks as guardedGuestMessageStore); tab 2 reads the same rows.
+ */
+function sharedDb(clock: () => number) {
+  const convs = new Map<string, OwnedRow>()
+  const msgs = new Map<string, DBMessage>()
+  const lease = (conversationId: string, messageId: string) => {
+    const c = convs.get(conversationId)
+    if (c) c.inFlight = withLease(c.inFlight, messageId, clock() + REPLY_LEASE_MS, clock())
+  }
+  const store: GuestMessageStore = {
+    async add(m) {
+      if (!isGuestWritable(convs.get(m.conversationId))) return false
+      msgs.set(m.id, { ...m })
+      lease(m.conversationId, m.id)
+      return true
+    },
+    async update(id, changes) {
+      const m = msgs.get(id)
+      const c = m && convs.get(m.conversationId)
+      if (!m || !c) return 'gone'
+      if (!isGuestWritable(c)) return 'claimed'
+      msgs.set(id, { ...m, ...changes })
+      lease(m.conversationId, id)
+      return 'ok'
+    },
+    async saveClaimed(id, changes) {
+      const m = msgs.get(id)
+      if (!m || !convs.get(m.conversationId)) return false
+      msgs.set(id, { ...m, ...changes })
+      return true
+    },
+    async delete(id) {
+      msgs.delete(id)
+    },
+    async renewLease(conversationId, messageId) {
+      if (convs.get(conversationId)?.inFlight?.[messageId] !== undefined) lease(conversationId, messageId)
+    },
+    async releaseLease(conversationId, messageId) {
+      const c = convs.get(conversationId)
+      if (c) c.inFlight = withoutLease(c.inFlight, messageId, clock())
+    },
+  }
+  return { convs, msgs, store }
+}
+
+test('import race: a chat whose guest reply is still buffered in another tab is not imported until its final text is stored', async () => {
+  let t = 1_000
+  const db = sharedDb(() => t)
+  const A: LocalSessionState = { status: 'signed-in', userId: 'userA' }
+  db.convs.set('C', { id: 'C' })
+  db.msgs.set('u1', { id: 'u1', conversationId: 'C', role: 'user', content: 'question', createdAt: new Date(), parts: [] })
+
+  // Tab 1 (guest): the reply streams and shows text that is still inside the
+  // 250 ms throttle window, so it is only in memory.
+  const net = controllableFetch()
+  const timers = manualTimers()
+  const shown: string[] = []
+  const done = streamGuestReply({
+    ...base,
+    conversationId: 'C',
+    signal: new AbortController().signal,
+    store: db.store,
+    onUpdate: (snap) => shown.push(snap.content),
+    fetchImpl: net.fetchImpl,
+    now: () => t,
+    createId: () => 'reply',
+    ...timers,
+  })
+  net.respond()
+  await tick()
+  net.push(line('text', 'the answer'))
+  await tick()
+  assert.equal(shown.at(-1), 'the answer', 'tab 1 displays the text')
+  assert.equal(db.msgs.get('reply')?.content, '', 'not checkpointed yet')
+
+  // Tab 2: first sign-in claims the parent chat for A.
+  const plan = planOwnershipSync([...db.convs.values()], A)
+  for (const row of plan.claims) db.convs.get(row.id)!.userId = 'userA'
+  const claimed = db.convs.get('C')!
+  assert.equal(isLocalRowVisible(claimed, A), true, 'before the fix this alone made it importable')
+
+  // Tab 2: the Data pane takes its import snapshot now, before the checkpoint.
+  const snapshotBefore = importableLocalChats([...db.convs.values()], A, new Set(), t)
+  assert.deepEqual(snapshotBefore, [], 'the chat is excluded while its reply is in flight')
+  // (So nothing of C is copied and nothing of C is deleted locally.)
+
+  // Tab 1: the trailing checkpoint fires; the claim is seen, the shown text is
+  // saved into the surviving chat, and the lease is released.
+  t += 250
+  timers.fireAll()
+  const result = await done
+  assert.equal(result.status, 'claimed')
+  assert.equal(db.convs.get('C')!.inFlight, undefined, 'lease released after the last write')
+
+  // Tab 2: now the chat is importable, and the payload has the full text.
+  const importable = importableLocalChats([...db.convs.values()], A, new Set(), t)
+  assert.deepEqual(
+    importable.map((c) => c.id),
+    ['C'],
+  )
+  const payload = [...db.msgs.values()].filter((m) => m.conversationId === 'C').map((m) => m.content)
+  assert.ok(payload.some((content) => content.startsWith('the answer')), 'the import carries the reply text')
+  // Successful migration deletes the local rows; the copied payload keeps the text.
+  for (const m of [...db.msgs.values()]) if (m.conversationId === 'C') db.msgs.delete(m.id)
+  db.convs.delete('C')
+  assert.ok(payload.some((content) => content.startsWith('the answer')))
+})
+
+test('import race: a dead tab’s lease expires, so the chat becomes importable with what was stored', async () => {
+  const A: LocalSessionState = { status: 'signed-in', userId: 'userA' }
+  const rows: OwnedRow[] = [{ id: 'C', userId: 'userA', inFlight: withLease(undefined, 'reply', 1_000 + REPLY_LEASE_MS, 1_000) }]
+  assert.deepEqual(importableLocalChats(rows, A, new Set(), 1_000), [])
+  assert.deepEqual(
+    importableLocalChats(rows, A, new Set(), 1_001 + REPLY_LEASE_MS).map((c) => c.id),
+    ['C'],
+  )
+})
+
+test('the lease heartbeat keeps a stalled reply leased, and stops when the reply ends', async () => {
+  let t = 0
+  const db = sharedDb(() => t)
+  db.convs.set('C', { id: 'C' })
+  const net = controllableFetch()
+  const timers = manualTimers()
+  const done = streamGuestReply({
+    ...base,
+    conversationId: 'C',
+    signal: new AbortController().signal,
+    store: db.store,
+    fetchImpl: net.fetchImpl,
+    now: () => t,
+    createId: () => 'reply',
+    ...timers,
+  })
+  net.respond()
+  await tick()
+  // Long stall: only heartbeats run.
+  for (let i = 0; i < 5; i++) {
+    t += 10_000
+    timers.fireAll()
+    await tick()
+  }
+  assert.ok((db.convs.get('C')!.inFlight?.reply ?? 0) > t, 'still leased during the stall')
+  net.push(line('text', 'late'))
+  net.end()
+  await done
+  assert.equal(db.convs.get('C')!.inFlight, undefined)
+  assert.equal(timers.size, 0, 'heartbeat stopped')
 })

@@ -30,8 +30,10 @@ import {
 import {
   chatsBelongTo,
   createSendGate,
+  importableLocalChats,
   isGuestLocalId,
   isLocalRowVisible,
+  nextLeaseExpiry,
   type SendDestination,
 } from '@/lib/local-data-policy'
 import { useLocalOwnership } from './useLocalOwnership'
@@ -345,8 +347,22 @@ export const useConversations = (
     guestConversations,
   ])
 
-  // Local chats the signed-in user can import: their own and still-unclaimed
-  // guest chats. Hidden while a sign-out request is in flight.
+  // A chat with a guest reply still being written (in any tab) becomes
+  // importable when its lease is released, which changes the row, or when the
+  // lease expires because its tab died. Re-check at that expiry.
+  const [leaseCheck, setLeaseCheck] = useState(0)
+  useEffect(() => {
+    if (!liveLocalConversations) return
+    const next = nextLeaseExpiry(liveLocalConversations, Date.now())
+    if (next === null) return
+    const timer = setTimeout(() => setLeaseCheck((n) => n + 1), Math.max(0, next - Date.now()) + 50)
+    return () => clearTimeout(timer)
+  }, [liveLocalConversations, leaseCheck])
+
+  // Local chats the signed-in user can import: theirs (claim committed), not
+  // on the server yet, and with no guest reply still being written, so the
+  // import never copies a reply before its final text is stored. Hidden while
+  // a sign-out request is in flight.
   const unmigratedLocalChatsRef = useRef<DBConversation[]>([])
   const unmigratedLocalChats = useMemo(() => {
     if (!isAuthenticated || !verifiedUserId || signingOut || !liveLocalConversations || !verifiedConvexChats) {
@@ -354,9 +370,7 @@ export const useConversations = (
     }
 
     const convexChatIds = new Set<string>(verifiedConvexChats.map((c) => c._id))
-    const newUnmigrated = liveLocalConversations.filter(
-      (c) => isLocalRowVisible(c, session) && !convexChatIds.has(c.id),
-    )
+    const newUnmigrated = importableLocalChats(liveLocalConversations, session, convexChatIds, Date.now())
 
     const oldUnmigrated = unmigratedLocalChatsRef.current
 
@@ -369,7 +383,9 @@ export const useConversations = (
 
     unmigratedLocalChatsRef.current = newUnmigrated
     return newUnmigrated
-  }, [isAuthenticated, verifiedUserId, signingOut, liveLocalConversations, verifiedConvexChats, session])
+    // leaseCheck: re-evaluate when a reply lease expires.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated, verifiedUserId, signingOut, liveLocalConversations, verifiedConvexChats, session, leaseCheck])
 
   // This effect will redirect the user if the chat is not found
   useEffect(() => {
