@@ -29,6 +29,29 @@ export const getMessage = query({
   },
 })
 
+/**
+ * The in-progress text of a reply that is still streaming (null once it
+ * finishes). Clients overlay it on the incomplete message from
+ * getChatMessages, so streaming progress doesn't re-send the whole chat.
+ */
+export const getStreamingMessage = query({
+  args: { messageId: v.id('messages') },
+  handler: async (ctx, { messageId }) => {
+    await requireUserId(ctx)
+    // A deleted message reads as null, like getMessage
+    if (!(await ctx.db.get(messageId))) {
+      return null
+    }
+    await requireOwnedMessage(ctx, messageId)
+
+    const streaming = await ctx.db
+      .query('streamingMessages')
+      .withIndex('by_message', (q) => q.eq('messageId', messageId))
+      .first()
+    return streaming ? { messageId, content: streaming.content, thinking: streaming.thinking } : null
+  },
+})
+
 export const getUserChats = query({
   args: {},
   handler: async (ctx) => {
@@ -225,7 +248,7 @@ export const exportAllConversations = query({
       chats.map((chat) =>
         ctx.db
           .query('messages')
-          .withIndex('by_chat', (q) => q.eq('chatId', chat._id))
+          .withIndex('by_chat_created', (q) => q.eq('chatId', chat._id))
           .collect(),
       ),
     )

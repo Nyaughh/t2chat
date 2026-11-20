@@ -94,7 +94,15 @@ export default defineSchema({
       ),
     ),
     createdAt: v.number(),
-  })
-    .index('by_chat', ['chatId'])
-    .index('by_chat_created', ['chatId', 'createdAt']),
+  }).index('by_chat_created', ['chatId', 'createdAt']),
+
+  // In-progress text of an assistant reply while it streams. Kept apart from
+  // `messages` so frequent progress writes don't invalidate the chat's message
+  // list; the final text is written to the message once, then this row is deleted.
+  streamingMessages: defineTable({
+    messageId: v.id('messages'),
+    content: v.string(),
+    thinking: v.optional(v.string()),
+    updatedAt: v.number(),
+  }).index('by_message', ['messageId']),
 })

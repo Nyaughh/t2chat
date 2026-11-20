@@ -108,7 +108,7 @@ const insertOwnedMessage = async (ctx: MutationCtx, args: NewMessage) => {
   if (role === 'user' && chat.title === 'New chat' && !chat.isGeneratingTitle) {
     const existingUserMessage = await ctx.db
       .query('messages')
-      .withIndex('by_chat', (q) => q.eq('chatId', chatId))
+      .withIndex('by_chat_created', (q) => q.eq('chatId', chatId))
       .filter((q) => q.eq(q.field('role'), 'user'))
       .first()
 
@@ -165,9 +165,19 @@ export const insertMessage = internalMutation({
   },
 })
 
+export const STOPPED_NOTE = '\n\n*Generation was stopped by user.*'
+
+const getStreamingRow = (ctx: MutationCtx, messageId: Id<'messages'>) =>
+  ctx.db
+    .query('streamingMessages')
+    .withIndex('by_message', (q) => q.eq('messageId', messageId))
+    .first()
+
 /**
- * Updates a message while a reply streams. Internal: only the chat actions
- * write assistant content. The ownership check still runs against the
+ * Updates a message. Internal: only the chat actions write assistant content.
+ * Used for the final text (isComplete: true), which also removes the reply's
+ * streaming row, and for the rare in-progress writes that must land on the
+ * message itself (tool calls). The ownership check still runs against the
  * action's (propagated) session.
  */
 export const updateMessage = internalMutation({
@@ -193,7 +203,41 @@ export const updateMessage = internalMutation({
 
     await ctx.db.patch(messageId, updateData)
 
+    // The final text now lives on the message: drop the in-progress copy in the same transaction
+    if (isComplete) {
+      const streaming = await getStreamingRow(ctx, messageId)
+      if (streaming) await ctx.db.delete(streaming._id)
+    }
+
     return messageId
+  },
+})
+
+/**
+ * Records a streaming reply's progress (internal, called by the chat actions
+ * about every 150 ms). Writes only the small streaming row, never the message,
+ * so the chat's message list isn't re-sent on every tick. Returns whether the
+ * user stopped the reply, so the action needs no separate polling query.
+ */
+export const writeStreamProgress = internalMutation({
+  args: {
+    messageId: v.id('messages'),
+    content: v.string(),
+    thinking: v.optional(v.string()),
+  },
+  handler: async (ctx, { messageId, content, thinking }): Promise<{ cancelled: boolean }> => {
+    const { message } = await requireOwnedMessage(ctx, messageId)
+    if (message.isCancelled || message.isComplete) {
+      return { cancelled: !!message.isCancelled }
+    }
+
+    const streaming = await getStreamingRow(ctx, messageId)
+    if (streaming) {
+      await ctx.db.patch(streaming._id, { content, thinking, updatedAt: Date.now() })
+    } else {
+      await ctx.db.insert('streamingMessages', { messageId, content, thinking, updatedAt: Date.now() })
+    }
+    return { cancelled: false }
   },
 })
 
@@ -209,11 +253,15 @@ export const cancelMessage = mutation({
       throw new ConvexError('Cannot cancel this message')
     }
 
+    // Keep what was streamed so far (it lives on the streaming row until the reply finishes)
+    const streaming = await getStreamingRow(ctx, messageId)
     await ctx.db.patch(messageId, {
       isCancelled: true,
       isComplete: true,
-      content: message.content + '\n\n*Generation was stopped by user.*',
+      content: (streaming?.content ?? message.content) + STOPPED_NOTE,
+      ...(streaming?.thinking !== undefined && { thinking: streaming.thinking }),
     })
+    if (streaming) await ctx.db.delete(streaming._id)
 
     return messageId
   },
@@ -278,20 +326,22 @@ export const deleteMessagesFromIndex = mutation({
   handler: async (ctx, { chatId, fromMessageId }) => {
     await requireOwnedChat(ctx, chatId)
 
-    const messages = await ctx.db
-      .query('messages')
-      .withIndex('by_chat', (q) => q.eq('chatId', chatId))
-      .order('asc')
-      .collect()
-
-    const fromIndex = messages.findIndex((msg) => msg._id === fromMessageId)
-    if (fromIndex === -1) {
+    const fromMessage = await ctx.db.get(fromMessageId)
+    if (!fromMessage || fromMessage.chatId !== chatId) {
       throw new ConvexError('Message not found in chat')
     }
 
-    const messagesToDelete = messages.slice(fromIndex)
+    // Only the tail of the chat (display order), not the whole history
+    const tail = await ctx.db
+      .query('messages')
+      .withIndex('by_chat_created', (q) => q.eq('chatId', chatId).gte('createdAt', fromMessage.createdAt))
+      .order('asc')
+      .collect()
+
+    const fromIndex = tail.findIndex((msg) => msg._id === fromMessageId)
+    const messagesToDelete = tail.slice(fromIndex)
     for (const message of messagesToDelete) {
-      await ctx.db.delete(message._id)
+      await deleteMessageAndStreamingRow(ctx, message)
     }
 
     return { success: true, deletedCount: messagesToDelete.length }
@@ -338,16 +388,9 @@ export const deleteChat = mutation({
   handler: async (ctx, { chatId }) => {
     await requireOwnedChat(ctx, chatId)
 
-    const messages = await ctx.db
-      .query('messages')
-      .withIndex('by_chat', (q) => q.eq('chatId', chatId))
-      .collect()
-
-    for (const message of messages) {
-      await ctx.db.delete(message._id)
-    }
-
+    // The chat disappears now; its messages (no longer reachable) go in bounded batches
     await ctx.db.delete(chatId)
+    await purgeMessageBatch(ctx, chatId)
 
     return { success: true }
   },
@@ -357,26 +400,76 @@ export const deleteAllConversations = mutation({
   args: {},
   handler: async (ctx) => {
     const userId = await requireUserId(ctx)
-
-    const chats = await ctx.db
-      .query('chats')
-      .withIndex('by_user', (q) => q.eq('userId', userId))
-      .collect()
-
-    for (const chat of chats) {
-      const messages = await ctx.db
-        .query('messages')
-        .withIndex('by_chat', (q) => q.eq('chatId', chat._id))
-        .collect()
-
-      for (const message of messages) {
-        await ctx.db.delete(message._id)
-      }
-
-      await ctx.db.delete(chat._id)
-    }
-
+    await deleteChatBatch(ctx, userId)
     return { success: true }
+  },
+})
+
+// ---------------------------------------------------------------------------
+// Bounded deletes
+//
+// Deleting a large chat (or every chat) in one transaction can exceed Convex's
+// per-transaction read/write limits. Chats are removed first (so they vanish
+// from the UI at once) and their messages are deleted in batches by internal
+// mutations that reschedule themselves until nothing is left.
+// ---------------------------------------------------------------------------
+
+const MESSAGE_DELETE_BATCH = 500
+const CHAT_DELETE_BATCH = 100
+
+/** Deletes a message, plus its streaming row if it was still in progress. */
+const deleteMessageAndStreamingRow = async (ctx: MutationCtx, message: Doc<'messages'>) => {
+  if (message.isComplete === false) {
+    const streaming = await getStreamingRow(ctx, message._id)
+    if (streaming) await ctx.db.delete(streaming._id)
+  }
+  await ctx.db.delete(message._id)
+}
+
+/** Deletes one batch of a chat's messages and schedules the next batch if more remain. */
+const purgeMessageBatch = async (ctx: MutationCtx, chatId: Id<'chats'>) => {
+  const batch = await ctx.db
+    .query('messages')
+    .withIndex('by_chat_created', (q) => q.eq('chatId', chatId))
+    .take(MESSAGE_DELETE_BATCH)
+  for (const message of batch) {
+    await deleteMessageAndStreamingRow(ctx, message)
+  }
+  if (batch.length === MESSAGE_DELETE_BATCH) {
+    await ctx.scheduler.runAfter(0, internal.chat.mutations.purgeChatMessages, { chatId })
+  }
+}
+
+/** Deletes one batch of a user's chats (scheduling their messages) and schedules the next batch. */
+const deleteChatBatch = async (ctx: MutationCtx, userId: Id<'users'>) => {
+  const chats = await ctx.db
+    .query('chats')
+    .withIndex('by_user', (q) => q.eq('userId', userId))
+    .take(CHAT_DELETE_BATCH)
+  for (const chat of chats) {
+    await ctx.db.delete(chat._id)
+    await ctx.scheduler.runAfter(0, internal.chat.mutations.purgeChatMessages, { chatId: chat._id })
+  }
+  if (chats.length === CHAT_DELETE_BATCH) {
+    await ctx.scheduler.runAfter(0, internal.chat.mutations.purgeUserChats, { userId })
+  }
+}
+
+/** Internal: continues deleting the messages of an already-deleted chat. */
+export const purgeChatMessages = internalMutation({
+  args: { chatId: v.id('chats') },
+  handler: async (ctx, { chatId }) => {
+    // Only ever purge messages whose chat is gone
+    if (await ctx.db.get(chatId)) return
+    await purgeMessageBatch(ctx, chatId)
+  },
+})
+
+/** Internal: continues deleting a user's chats for deleteAllConversations. */
+export const purgeUserChats = internalMutation({
+  args: { userId: v.id('users') },
+  handler: async (ctx, { userId }) => {
+    await deleteChatBatch(ctx, userId)
   },
 })
 

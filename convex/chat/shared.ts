@@ -8,7 +8,7 @@ import {
   getProviderDisplayName,
   groqReasoningOptions,
 } from '../../src/lib/models'
-import { streamText, tool, ModelMessage, smoothStream, isStepCount, type LanguageModel, type ToolSet } from 'ai'
+import { streamText, tool, ModelMessage, isStepCount, type LanguageModel, type ToolSet } from 'ai'
 import { createGoogleGenerativeAI, type GoogleLanguageModelOptions } from '@ai-sdk/google'
 import { createAnthropic, type AnthropicLanguageModelOptions } from '@ai-sdk/anthropic'
 import { createOpenAI } from '@ai-sdk/openai'
@@ -19,6 +19,7 @@ import { Modality } from '@google/genai'
 import { basePersonality } from '../../prompts/base'
 import { Buffer } from 'buffer'
 import { getUserApiKey } from '../api_keys'
+import { STOPPED_NOTE } from './mutations'
 import { describeProviderError, providerErrorStatus, userFacingProviderError } from '../../src/lib/provider-errors'
 
 export const mapModel = (modelId: string) => {
@@ -112,7 +113,6 @@ export const generateAIResponse = async (
   modelId: string,
   assistantMessageId: Id<'messages'>,
   webSearch?: boolean,
-  isNode = false,
 ) => {
   const { model, thinking, provider } = mapModel(modelId)
 
@@ -300,7 +300,10 @@ export const generateAIResponse = async (
   // Newer Anthropic and OpenAI reasoning models reject custom sampling settings
   const supportsTemperature = provider !== 'anthropic' && provider !== 'openai'
 
-  // Stream the response
+  // Stream the response. Progress reaches the client through the batched
+  // streaming-row writes below, so there's no server-side smoothing (it only
+  // delayed the action and multiplied chunk handling).
+  const abortController = new AbortController()
   const { stream } = streamText({
     instructions: personalizedSystemPrompt,
     model: aiModel,
@@ -311,55 +314,86 @@ export const generateAIResponse = async (
     temperature: supportsTemperature ? 0.7 : undefined,
     maxOutputTokens: provider === 'openrouter' ? 4000 : undefined,
     providerOptions: reasoningProviderOptions(model, thinking),
-    experimental_transform: smoothStream({
-      chunking: isNode ? 'line' : 'word',
-    }),
+    abortSignal: abortController.signal,
     // Errors are handled (and logged without request details) in the stream loop below
     onError: () => {},
   })
 
-  let isFinalized = false
   let accumulatedContent = ''
   let accumulatedThinking = ''
   let thinkingStartTime: number | null = null
   let thinkingEndTime: number | null = null
-  let accumulatedToolCalls: any[] = []
+  const accumulatedToolCalls: any[] = []
   let hasGeneratedTextBeforeTools = false
 
-  // Batching mechanism for performance optimization
-  let lastUpdateTime = Date.now()
-  let pendingContentUpdate = false
-  let pendingThinkingUpdate = false
-  const UPDATE_INTERVAL = 150 // Update every 150ms max
+  // ---------------------------------------------------------------------------
+  // Batched progress writes
+  //
+  // At most one streaming-row write per FLUSH_INTERVAL_MS, plus a trailing write
+  // so text that arrives just before a pause still shows. Writes run one at a
+  // time, in order. Each write also reports whether the user pressed stop, so
+  // there's no per-chunk cancellation query.
+  // ---------------------------------------------------------------------------
+  const FLUSH_INTERVAL_MS = 150
+  let lastFlushAt = 0
+  let dirty = false
+  let finalizing = false
+  let cancelled = false
+  let flushTimer: ReturnType<typeof setTimeout> | null = null
+  let flushChain: Promise<void> = Promise.resolve()
 
-  // Debounced update function
-  const scheduleUpdate = async (force = false) => {
-    const now = Date.now()
-    const timeSinceLastUpdate = now - lastUpdateTime
-
-    if (!force && timeSinceLastUpdate < UPDATE_INTERVAL) {
-      // Schedule an update if one isn't already pending
-      if (!pendingContentUpdate && !pendingThinkingUpdate) {
-        setTimeout(() => scheduleUpdate(true), UPDATE_INTERVAL - timeSinceLastUpdate)
-      }
-      return
+  const clearFlushTimer = () => {
+    if (flushTimer) {
+      clearTimeout(flushTimer)
+      flushTimer = null
     }
+  }
 
-    try {
-      if (pendingContentUpdate || pendingThinkingUpdate) {
-        await ctx.runMutation(internal.chat.mutations.updateMessage, {
+  const flushNow = () => {
+    clearFlushTimer()
+    if (!dirty || finalizing || cancelled) return flushChain
+    dirty = false
+    lastFlushAt = Date.now()
+    const content = accumulatedContent
+    const thinkingText = accumulatedThinking || undefined
+    flushChain = flushChain.then(async () => {
+      try {
+        const result = await ctx.runMutation(internal.chat.mutations.writeStreamProgress, {
           messageId: assistantMessageId,
-          content: accumulatedContent,
-          thinking: accumulatedThinking || undefined,
-          isComplete: false,
+          content,
+          thinking: thinkingText,
         })
-        lastUpdateTime = now
-        pendingContentUpdate = false
-        pendingThinkingUpdate = false
+        if (result.cancelled && !cancelled) {
+          cancelled = true
+          abortController.abort()
+        }
+      } catch (writeError) {
+        console.warn('Failed to write streaming progress:', writeError)
       }
-    } catch (updateError) {
-      console.warn('Failed to update message during batched update:', updateError)
+    })
+    return flushChain
+  }
+
+  const markDirty = () => {
+    dirty = true
+    const wait = FLUSH_INTERVAL_MS - (Date.now() - lastFlushAt)
+    if (wait <= 0) {
+      void flushNow()
+    } else if (!flushTimer) {
+      flushTimer = setTimeout(() => void flushNow(), wait)
     }
+  }
+
+  /** Stops progress writes and waits for any in flight, so the final write lands last. */
+  const stopProgressWrites = async () => {
+    finalizing = true
+    clearFlushTimer()
+    await flushChain
+  }
+
+  const thinkingDurationSeconds = () => {
+    if (thinkingStartTime && !thinkingEndTime) thinkingEndTime = Date.now()
+    return thinkingStartTime && thinkingEndTime ? Math.round((thinkingEndTime - thinkingStartTime) / 1000) : undefined
   }
 
   // Appends a fixed, user-facing error note (never the provider's own error text)
@@ -368,169 +402,118 @@ export const generateAIResponse = async (
     return accumulatedContent ? `${accumulatedContent}\n\n*${note}*` : `*${note}*`
   }
 
-  try {
-    for await (const chunk of stream) {
-      try {
-        // Only content-bearing parts need a cancellation check
-        if (
-          chunk.type !== 'text-delta' &&
-          chunk.type !== 'reasoning-delta' &&
-          chunk.type !== 'tool-call' &&
-          chunk.type !== 'tool-result' &&
-          chunk.type !== 'tool-error' &&
-          chunk.type !== 'finish' &&
-          chunk.type !== 'error'
-        ) {
-          continue
-        }
-
-        // Check if the message has been cancelled
-        const message = await ctx.runQuery(api.chat.queries.getMessage, { messageId: assistantMessageId })
-        if (message?.isCancelled) {
-          break
-        }
-
-        if (chunk.type === 'text-delta') {
-          // Reasoning ends when the first answer text arrives
-          if (thinkingStartTime && !thinkingEndTime) {
-            thinkingEndTime = Date.now()
-          }
-          accumulatedContent += chunk.text
-          hasGeneratedTextBeforeTools = true
-          pendingContentUpdate = true
-
-          // Schedule batched update
-          await scheduleUpdate()
-        } else if (chunk.type === 'reasoning-delta') {
-          if (!chunk.text) continue
-
-          // Track thinking start time
-          if (!thinkingStartTime) {
-            thinkingStartTime = Date.now()
-          }
-
-          accumulatedThinking += chunk.text
-          pendingThinkingUpdate = true
-
-          // Schedule batched update for thinking
-          await scheduleUpdate()
-        } else if (chunk.type === 'tool-call') {
-          // If no text was generated before this tool call, add some explanatory text
-          if (!hasGeneratedTextBeforeTools && accumulatedContent.trim() === '') {
-            let explanatoryText = ''
-            if (chunk.toolName === 'generateImage') {
-              explanatoryText = `I'll generate an image for you based on your request. `
-            } else if (chunk.toolName === 'search') {
-              explanatoryText = `Let me search for current information about that. `
-            } else {
-              explanatoryText = `I'll use a tool to help with your request. `
-            }
-            accumulatedContent += explanatoryText
-          }
-
-          const placeholder = `\n[TOOL_CALL:${chunk.toolCallId}]\n`
-          accumulatedContent += placeholder
-          accumulatedToolCalls.push({
-            toolCallId: chunk.toolCallId,
-            toolName: chunk.toolName,
-            args: chunk.input,
-          })
-          await ctx.runMutation(internal.chat.mutations.updateMessage, {
-            messageId: assistantMessageId,
-            content: accumulatedContent,
-            toolCalls: accumulatedToolCalls,
-          })
-        } else if (chunk.type === 'tool-result' || chunk.type === 'tool-error') {
-          const toolCall = accumulatedToolCalls.find((tc) => tc.toolCallId === chunk.toolCallId)
-          if (toolCall) {
-            toolCall.result =
-              chunk.type === 'tool-result'
-                ? chunk.output
-                : { success: false, error: 'The tool failed to run', results: [] }
-          }
-          await ctx.runMutation(internal.chat.mutations.updateMessage, {
-            messageId: assistantMessageId,
-            toolCalls: accumulatedToolCalls,
-          })
-        } else if (chunk.type === 'finish') {
-          // Track thinking end time
-          if (thinkingStartTime && !thinkingEndTime) {
-            thinkingEndTime = Date.now()
-          }
-
-          // Calculate thinking duration in seconds
-          const duration =
-            thinkingStartTime && thinkingEndTime ? Math.round((thinkingEndTime - thinkingStartTime) / 1000) : undefined
-
-          // Force final update to ensure all content is saved
-          await scheduleUpdate(true)
-
-          // Mark the message as complete with final thinking data
-          await ctx.runMutation(internal.chat.mutations.updateMessage, {
-            messageId: assistantMessageId,
-            content: accumulatedContent,
-            thinking: accumulatedThinking || undefined,
-            thinkingDuration: duration,
-            isComplete: true,
-            toolCalls: accumulatedToolCalls,
-          })
-          isFinalized = true
-          break
-        } else if (chunk.type === 'error') {
-          // Log controlled fields only: the provider's error text can echo request details
-          console.error('Model stream error:', describeProviderError({ provider, model: model.id }, chunk.error))
-
-          // Force final update before handling error
-          await scheduleUpdate(true)
-
-          // Handle error
-          await ctx.runMutation(internal.chat.mutations.updateMessage, {
-            messageId: assistantMessageId,
-            content: withErrorNote(chunk.error),
-            thinking: accumulatedThinking || undefined,
-            isComplete: true,
-            toolCalls: accumulatedToolCalls,
-          })
-          isFinalized = true
-          break
-        }
-      } catch (updateError) {
-        // If we can't update the message (e.g., due to conflicts), continue streaming
-        // but don't fail the entire operation
-        console.warn('Failed to update message during streaming:', updateError)
-      }
-    }
-  } catch (streamError) {
-    // Errors thrown by the stream itself (rather than sent as error parts)
-    console.error('Model stream error:', describeProviderError({ provider, model: model.id }, streamError))
+  /** Writes the final text to the message (this also removes the streaming row). */
+  const finalize = async (fields: { content: string; thinkingDuration?: number }) => {
+    await stopProgressWrites()
     try {
       await ctx.runMutation(internal.chat.mutations.updateMessage, {
         messageId: assistantMessageId,
-        content: withErrorNote(streamError),
+        content: fields.content,
         thinking: accumulatedThinking || undefined,
+        thinkingDuration: fields.thinkingDuration,
         isComplete: true,
         toolCalls: accumulatedToolCalls,
       })
-      isFinalized = true
-    } catch (updateError) {
-      console.warn('Failed to record stream error on message:', updateError)
+    } catch (finalUpdateError) {
+      console.warn('Failed to mark message as complete:', finalUpdateError)
     }
   }
 
-  // Ensure the message is marked as complete if the loop exits without finishing (e.g. cancelled)
-  if (isFinalized) return
-  try {
-    // Force final update to ensure all content is saved
-    await scheduleUpdate(true)
+  let outcome: { kind: 'finished' } | { kind: 'error'; error: unknown } | { kind: 'ended' } = { kind: 'ended' }
 
-    await ctx.runMutation(internal.chat.mutations.updateMessage, {
-      messageId: assistantMessageId,
-      content: accumulatedContent || 'Generation was interrupted.',
-      thinking: accumulatedThinking || undefined,
-      isComplete: true,
-      toolCalls: accumulatedToolCalls,
-    })
-  } catch (finalUpdateError) {
-    console.warn('Failed to mark message as complete:', finalUpdateError)
+  try {
+    for await (const chunk of stream) {
+      if (cancelled) break
+
+      if (chunk.type === 'text-delta') {
+        // Reasoning ends when the first answer text arrives
+        if (thinkingStartTime && !thinkingEndTime) {
+          thinkingEndTime = Date.now()
+        }
+        accumulatedContent += chunk.text
+        hasGeneratedTextBeforeTools = true
+        markDirty()
+      } else if (chunk.type === 'reasoning-delta') {
+        if (!chunk.text) continue
+        if (!thinkingStartTime) {
+          thinkingStartTime = Date.now()
+        }
+        accumulatedThinking += chunk.text
+        markDirty()
+      } else if (chunk.type === 'tool-call') {
+        // If no text was generated before this tool call, add some explanatory text
+        if (!hasGeneratedTextBeforeTools && accumulatedContent.trim() === '') {
+          if (chunk.toolName === 'generateImage') {
+            accumulatedContent += `I'll generate an image for you based on your request. `
+          } else if (chunk.toolName === 'search') {
+            accumulatedContent += `Let me search for current information about that. `
+          } else {
+            accumulatedContent += `I'll use a tool to help with your request. `
+          }
+        }
+
+        accumulatedContent += `\n[TOOL_CALL:${chunk.toolCallId}]\n`
+        accumulatedToolCalls.push({
+          toolCallId: chunk.toolCallId,
+          toolName: chunk.toolName,
+          args: chunk.input,
+        })
+        // Tool calls are rare: record them on the message now, and show the marker right away
+        try {
+          await ctx.runMutation(internal.chat.mutations.updateMessage, {
+            messageId: assistantMessageId,
+            toolCalls: accumulatedToolCalls,
+          })
+        } catch (updateError) {
+          console.warn('Failed to record tool call:', updateError)
+        }
+        dirty = true
+        await flushNow()
+      } else if (chunk.type === 'tool-result' || chunk.type === 'tool-error') {
+        const toolCall = accumulatedToolCalls.find((tc) => tc.toolCallId === chunk.toolCallId)
+        if (toolCall) {
+          toolCall.result =
+            chunk.type === 'tool-result'
+              ? chunk.output
+              : { success: false, error: 'The tool failed to run', results: [] }
+        }
+        try {
+          await ctx.runMutation(internal.chat.mutations.updateMessage, {
+            messageId: assistantMessageId,
+            toolCalls: accumulatedToolCalls,
+          })
+        } catch (updateError) {
+          console.warn('Failed to record tool result:', updateError)
+        }
+      } else if (chunk.type === 'finish') {
+        outcome = { kind: 'finished' }
+        break
+      } else if (chunk.type === 'error') {
+        outcome = { kind: 'error', error: chunk.error }
+        break
+      }
+    }
+  } catch (streamError) {
+    // Errors thrown by the stream itself (rather than sent as error parts).
+    // Stopping the reply aborts the request, which surfaces here too.
+    if (!cancelled) outcome = { kind: 'error', error: streamError }
+  }
+
+  if (cancelled) {
+    // cancelMessage already completed the message with the text shown so far;
+    // replace it with everything received, keeping the stop note.
+    await finalize({ content: accumulatedContent + STOPPED_NOTE, thinkingDuration: thinkingDurationSeconds() })
+    return
+  }
+
+  if (outcome.kind === 'finished') {
+    await finalize({ content: accumulatedContent, thinkingDuration: thinkingDurationSeconds() })
+  } else if (outcome.kind === 'error') {
+    // Log controlled fields only: the provider's error text can echo request details
+    console.error('Model stream error:', describeProviderError({ provider, model: model.id }, outcome.error))
+    await finalize({ content: withErrorNote(outcome.error) })
+  } else {
+    // The stream ended without a finish event
+    await finalize({ content: accumulatedContent || 'Generation was interrupted.' })
   }
 }

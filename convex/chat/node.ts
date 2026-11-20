@@ -52,7 +52,7 @@ export const sendMessage = internalAction({
       ],
     })
 
-    await generateAIResponse(ctx, chatMessages as ModelMessage[], modelId, assistantMessageId, webSearch, true)
+    await generateAIResponse(ctx, chatMessages as ModelMessage[], modelId, assistantMessageId, webSearch)
 
     return {
       success: true,

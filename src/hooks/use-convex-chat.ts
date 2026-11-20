@@ -16,10 +16,29 @@ export const useConvexChat = (chatId?: Id<'chats'>) => {
   }, [chatId, chats])
 
   // Queries
-  const messages = useQuery(
+  const storedMessages = useQuery(
     api.chat.queries.getChatMessages,
     chatId && isAuthenticated && chatExists ? { chatId } : 'skip',
   )
+
+  // While a reply streams, its text lives in a separate streaming row (so the
+  // message list isn't re-sent on every update). Overlay it on that message.
+  const streamingMessageId = useMemo(() => {
+    const last = storedMessages?.[storedMessages.length - 1]
+    return last && last.role === 'assistant' && last.isComplete === false ? last._id : undefined
+  }, [storedMessages])
+  const streaming = useQuery(
+    api.chat.queries.getStreamingMessage,
+    streamingMessageId && isAuthenticated ? { messageId: streamingMessageId } : 'skip',
+  )
+  const messages = useMemo(() => {
+    if (!storedMessages || !streaming) return storedMessages
+    return storedMessages.map((message) =>
+      message._id === streaming.messageId
+        ? { ...message, content: streaming.content, thinking: streaming.thinking ?? message.thinking }
+        : message,
+    )
+  }, [storedMessages, streaming])
 
   // Mutations & Actions
   const createChat = useMutation(api.chat.mutations.createChat)
