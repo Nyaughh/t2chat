@@ -92,7 +92,7 @@ export function MessageList({
           messages[messages.length - 1]?.role === 'assistant' &&
           !messages[messages.length - 1]?.content && (
             <div className="flex justify-start">
-              <div className="text-black dark:text-white px-4 py-3">
+              <div className="text-foreground px-4 py-3">
                 <div className="flex gap-1.5 items-center">
                   <div className="w-2 h-2 bg-rose-500/60 dark:bg-rose-300/60 rounded-full animate-bounce"></div>
                   <div className="w-2 h-2 bg-rose-500/60 dark:bg-rose-300/60 rounded-full animate-bounce delay-100"></div>

@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from 'react'
 import { Check, Lightbulb, Globe, Eye, Image, Paperclip, FileText, RotateCcw } from 'lucide-react'
 import { models, ModelInfo } from '@/lib/models'
 import { cn } from '@/lib/utils'
+import { ItemHighlight } from '@/components/ui/item-highlight'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useQuery } from 'convex/react'
 import { api } from '../../../convex/_generated/api'
@@ -105,7 +106,7 @@ export function ModelDropdown({
 
   return (
     <div className={cn('relative z-50', className)}>
-      <div className="fixed inset-0 bg-black/20 dark:bg-black/40" onClick={handleBackdropClick} />
+      <div className="fixed inset-0" onClick={handleBackdropClick} />
       <AnimatePresence>
         <motion.div
           ref={dropdownRef}
@@ -114,44 +115,36 @@ export function ModelDropdown({
           exit={{ opacity: 0, y: showAbove ? 8 : -8, scale: 0.95 }}
           transition={{ duration: 0.15, ease: [0.25, 1, 0.5, 1] }}
           className={cn(
-            'absolute left-0 bg-white dark:bg-[oklch(0.18_0.015_25)] rounded-lg border border-rose-200/50 dark:border-rose-500/20 shadow-2xl overflow-hidden w-[320px]',
+            'surface-popover absolute left-0 rounded-xl overflow-hidden w-[320px] max-w-[calc(100vw-2rem)]',
             showAbove ? 'bottom-full mb-1' : 'top-full mt-1',
           )}
         >
           <div
-            className="max-h-[300px] overflow-y-auto p-2"
+            className="max-h-[300px] overflow-y-auto p-1.5"
             style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgb(244 63 94 / 0.3) transparent' }}
           >
             {/* Retry with same model option at top */}
             <button
               onClick={() => handleModelSelect(selectedModel.id)}
-              className="group w-full p-2 cursor-pointer transition-all duration-150 ease-[0.25,1,0.5,1] relative overflow-hidden text-left rounded-md flex items-center justify-between border-b border-rose-200/30 dark:border-rose-500/20 mb-2"
+              className="menu-item mb-1.5 text-rose-600 dark:text-rose-300"
             >
-              <div className="flex items-center gap-2 min-w-0 flex-1 relative z-10">
-                <RotateCcw className="w-4 h-4 text-rose-500 dark:text-rose-300" />
-                <span className="text-sm font-medium text-rose-600 dark:text-rose-300">
-                  Retry with {selectedModel.name}
-                </span>
-              </div>
+              <RotateCcw />
+              <span className="truncate">Retry with {selectedModel.name}</span>
             </button>
+            <div className="-mx-1.5 mb-1.5 h-px bg-gradient-to-r from-transparent via-rose-500/20 to-transparent dark:via-rose-300/20" />
             
             {availableModels.map((model) => (
               <button
                 key={model.id}
                 onClick={() => handleModelSelect(model.id)}
                 className={cn(
-                  'group w-full p-1.5 cursor-pointer transition-all duration-150 ease-[0.25,1,0.5,1] relative overflow-hidden text-left rounded-md flex items-center justify-between',
+                  'group w-full px-2 py-1.5 cursor-pointer transition-colors duration-150 ease-[0.25,1,0.5,1] relative overflow-hidden text-left flex items-center justify-between',
                   selectedModel.id === model.id
                     ? 'text-rose-600 dark:text-rose-300'
-                    : 'hover:text-rose-600 dark:hover:text-rose-300 text-black/70 dark:text-white/70',
+                    : 'hover:text-rose-600 dark:hover:text-rose-300 text-foreground/80',
                 )}
               >
-                {selectedModel.id === model.id && (
-                  <motion.div
-                    layoutId="model-highlight"
-                    className="absolute inset-0 bg-gradient-to-r from-transparent via-rose-500/10 dark:via-rose-300/10 to-transparent"
-                  />
-                )}
+                <ItemHighlight active={selectedModel.id === model.id} />
                 <div className="flex items-center gap-2 min-w-0 flex-1 relative z-10">
                   <div
                     className={cn(
@@ -224,7 +217,7 @@ export function ModelDropdown({
                           <Lightbulb
                             className={cn(
                               'w-3.5 h-3.5',
-                              selectedModel.id === model.id ? 'text-rose-500' : 'text-rose-400/60 dark:text-rose-500/60',
+                              selectedModel.id === model.id && 'text-rose-600 dark:text-rose-300',
                             )}
                           />
                         </span>

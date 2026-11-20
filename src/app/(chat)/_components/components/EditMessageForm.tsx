@@ -1,6 +1,8 @@
 'use client'
 
 import { X, Send } from 'lucide-react'
+import { buttonVariants } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
 
 interface EditMessageFormProps {
   content: string
@@ -33,18 +35,18 @@ export function EditMessageForm({
       <div className="flex items-center gap-1 justify-end" data-edit-controls>
         <button
           onClick={onCancel}
-          className="p-1.5 text-rose-500/70 hover:text-rose-600 dark:text-rose-300/70 dark:hover:text-rose-300 hover:bg-rose-500/5 dark:hover:bg-rose-300/5 rounded transition-all duration-150 ease-[0.25,1,0.5,1] hover:scale-110"
+          className={cn(buttonVariants({ variant: 'ghost', size: 'icon-xs' }), 'cursor-pointer')}
           title="Cancel edit"
         >
-          <X className="w-4 h-4" />
+          <X />
         </button>
         <button
           onClick={onSave}
           disabled={!content.trim()}
-          className="p-1.5 text-rose-500/70 hover:text-rose-600 dark:text-rose-300/70 dark:hover:text-rose-300 hover:bg-rose-500/5 dark:hover:bg-rose-300/5 rounded transition-all duration-150 ease-[0.25,1,0.5,1] hover:scale-110 disabled:opacity-50 disabled:cursor-not-allowed"
+          className={cn(buttonVariants({ variant: 'ghost', size: 'icon-xs' }), 'cursor-pointer')}
           title="Save edit"
         >
-          <Send className="w-4 h-4" />
+          <Send />
         </button>
       </div>
     </div>

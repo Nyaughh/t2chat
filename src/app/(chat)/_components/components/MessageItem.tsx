@@ -7,6 +7,7 @@ import { MessageActions } from './MessageActions'
 import { Attachment } from '@/lib/types'
 import { ModelInfo } from '@/lib/models'
 import { cn } from '@/lib/utils'
+import { buttonVariants } from '@/components/ui/button'
 import ToolCallDisplay from './ToolCallDisplay'
 
 interface MessageItemProps {
@@ -79,8 +80,8 @@ export function MessageItem({
         <div
           className={`px-4 py-3 break-words overflow-wrap-anywhere ${
             message.role === 'user'
-              ? 'bg-rose-500/5 dark:bg-rose-300/5 text-black dark:text-white rounded-lg'
-              : 'text-black dark:text-white'
+              ? 'bg-rose-500/5 dark:bg-rose-300/5 text-foreground rounded-xl'
+              : 'text-foreground'
           }`}
         >
           {editingMessageId === message.id ? (
@@ -114,31 +115,31 @@ export function MessageItem({
                           <img
                             src={attachment.url}
                             alt={attachment.name}
-                            className="max-w-sm max-h-64 rounded-lg border border-rose-500/20 dark:border-white/20 shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+                            className="max-w-full sm:max-w-sm max-h-64 rounded-lg border border-border shadow-sm hover:shadow-md transition-shadow cursor-pointer"
                             onClick={() => window.open(attachment.url, '_blank')}
                           />
                           <div className="absolute inset-0 bg-black/0 hover:bg-black/10 dark:hover:bg-white/10 rounded-lg transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
                             <ExternalLink className="w-6 h-6 text-white drop-shadow-lg" />
                           </div>
-                          <div className="mt-1 text-xs text-black/60 dark:text-white/60">
+                          <div className="mt-1 text-xs text-muted-foreground">
                             {attachment.name} ({(attachment.size / 1024).toFixed(1)}KB)
                           </div>
                         </div>
                       ) : (
                         <div
-                          className="flex items-center gap-3 p-3 bg-white/30 dark:bg-black/20 rounded-lg border border-rose-500/20 dark:border-white/20 hover:bg-white/40 dark:hover:bg-black/30 transition-colors cursor-pointer"
+                          className="flex items-center gap-3 p-3 bg-muted/40 rounded-lg border border-border hover:bg-muted/70 transition-colors cursor-pointer"
                           onClick={() => window.open(attachment.url, '_blank')}
                         >
                           <FileText className="w-8 h-8 text-rose-500/70 dark:text-rose-300/70 flex-shrink-0" />
                           <div className="flex-1 min-w-0">
-                            <div className="text-sm font-medium text-black/80 dark:text-white/80 truncate">
+                            <div className="text-sm font-medium text-foreground/90 truncate">
                               {attachment.name}
                             </div>
-                            <div className="text-xs text-black/60 dark:text-white/60">
+                            <div className="text-xs text-muted-foreground">
                               {(attachment.size / 1024).toFixed(1)}KB • {attachment.type}
                             </div>
                           </div>
-                          <ExternalLink className="w-4 h-4 text-black/40 dark:text-white/40 flex-shrink-0" />
+                          <ExternalLink className="size-4 text-muted-foreground flex-shrink-0" />
                         </div>
                       )}
                     </div>
@@ -150,7 +151,7 @@ export function MessageItem({
         </div>
 
         {message.role === 'assistant' && !isCurrentlyStreaming(message.id) && (
-          <div className="opacity-0 transition-opacity duration-150 ease-[0.25,1,0.5,1] group-hover:opacity-100 group-focus-within:opacity-100">
+          <div className="transition-opacity duration-150 ease-[0.25,1,0.5,1] md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100">
             <MessageActions
               messageId={message.id}
               content={message.content}
@@ -172,13 +173,14 @@ export function MessageItem({
         )}
 
         {message.role === 'user' && editingMessageId !== message.id && (
-          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity duration-150 ease-[0.25,1,0.5,1]">
+          <div className="flex items-center justify-end gap-0.5 transition-opacity duration-150 ease-[0.25,1,0.5,1] md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100">
             <button
               onClick={() => onStartEditing(message.id, message.content)}
-              className="p-1.5 text-rose-500/70 hover:text-rose-600 dark:text-rose-300/70 dark:hover:text-rose-300 hover:bg-rose-500/5 dark:hover:bg-rose-300/5 rounded transition-all duration-150 ease-[0.25,1,0.5,1] hover:scale-110"
+              className={cn(buttonVariants({ variant: 'ghost', size: 'icon-xs' }), 'cursor-pointer')}
               title="Edit message"
+              aria-label="Edit message"
             >
-              <Edit3 className="w-4 h-4" />
+              <Edit3 />
             </button>
           </div>
         )}

@@ -38,17 +38,17 @@ export default function SpeechSettings() {
       <div>
         <h3 className="text-lg font-semibold text-foreground mb-4">Voice Selection</h3>
         
-        <div className="space-y-4 rounded-xl bg-muted/20 backdrop-blur-sm border border-border/50 p-4">
+        <div className="space-y-4 rounded-xl bg-muted/20 border border-border/50 p-4">
           <div className="space-y-3">
             <Label className="text-base font-medium">Read Aloud Voice</Label>
             <p className="text-sm text-muted-foreground">Choose the voice used for reading messages aloud.</p>
 
             {englishVoices.length > 0 ? (
-              <RadioGroup value={selectedVoice || ''} onValueChange={setVoice} className="space-y-1">
+              <RadioGroup value={selectedVoice || ''} onValueChange={setVoice} className="gap-1.5">
                 {englishVoices.map((voice) => (
                   <div
                     key={voice.voiceURI}
-                    className="flex items-center space-x-3 p-2.5 rounded-lg border border-border/50 hover:border-border/80 transition-colors"
+                    className="flex items-center gap-3 p-2.5 rounded-lg border border-border bg-muted/30 transition-colors hover:bg-muted/60 has-[[data-state=checked]]:border-rose-500/30 has-[[data-state=checked]]:bg-rose-500/10 dark:has-[[data-state=checked]]:border-rose-300/30 dark:has-[[data-state=checked]]:bg-rose-300/10"
                   >
                     <RadioGroupItem value={voice.voiceURI} id={voice.voiceURI} />
                     <Label htmlFor={voice.voiceURI} className="flex-1 cursor-pointer font-normal">
@@ -56,7 +56,7 @@ export default function SpeechSettings() {
                         <span className="text-sm font-medium">
                           {voice.name}
                           {voice.name.toLowerCase().includes('google') && (
-                            <span className="ml-2 text-xs bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 px-1.5 py-0.5 rounded">
+                            <span className="ml-2 rounded-full bg-rose-500/10 px-2 py-0.5 text-[10px] font-medium text-rose-600 dark:bg-rose-300/10 dark:text-rose-300">
                               Recommended
                             </span>
                           )}
@@ -68,7 +68,7 @@ export default function SpeechSettings() {
                 ))}
               </RadioGroup>
             ) : (
-              <div className="p-4 rounded-lg border border-border/50 bg-muted/20">
+              <div className="p-4 rounded-lg border border-border bg-muted/30">
                 <p className="text-sm text-muted-foreground">No English voices available</p>
               </div>
             )}
@@ -79,7 +79,7 @@ export default function SpeechSettings() {
       <div>
         <h3 className="text-lg font-semibold text-foreground mb-4">Voice Preview</h3>
         
-        <div className="space-y-3 rounded-xl bg-muted/20 backdrop-blur-sm border border-border/50 p-4">
+        <div className="space-y-3 rounded-xl bg-muted/20 border border-border/50 p-4">
           <Button
             onClick={handleVoicePreview}
             disabled={!selectedVoice || englishVoices.length === 0}
@@ -88,12 +88,12 @@ export default function SpeechSettings() {
           >
             {isSpeaking ? (
               <>
-                <Square className="w-4 h-4 mr-2" />
+                <Square className="fill-current" />
                 Stop Preview
               </>
             ) : (
               <>
-                <Play className="w-4 h-4 mr-2" />
+                <Play />
                 Test Voice
               </>
             )}

@@ -2,6 +2,7 @@
 
 import { motion } from 'framer-motion'
 import { cn } from '@/lib/utils'
+import { ItemHighlight } from '@/components/ui/item-highlight'
 import { useMemo, useState, useEffect } from 'react'
 
 interface WelcomeScreenProps {
@@ -63,22 +64,17 @@ const allPrompts = [
 
 function PromptItem({ prompt, onClick }: { prompt: string; onClick: () => void }) {
   return (
-    <div
+    <button
+      type="button"
       onClick={onClick}
       className={cn(
-        'group p-3 md:p-4 cursor-pointer transition-all duration-150 ease-[0.25,1,0.5,1] relative overflow-hidden',
-        'hover:text-rose-600 dark:hover:text-rose-300 text-black/70 dark:text-white/70',
-        'rounded-lg',
+        'group relative w-full overflow-hidden p-3 md:p-4 text-left cursor-pointer transition-colors duration-150 ease-[0.25,1,0.5,1]',
+        'text-foreground/70 hover:text-rose-600 dark:hover:text-rose-300',
       )}
     >
-      <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-150 ease-[0.25,1,0.5,1]">
-        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-rose-500/8 dark:via-rose-300/8 to-transparent"></div>
-        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-rose-500/30 dark:via-rose-300/30 to-transparent"></div>
-        <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-rose-500/30 dark:via-rose-300/30 to-transparent"></div>
-        <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-4 bg-gradient-to-r from-transparent via-rose-500/5 dark:via-rose-300/5 to-transparent blur-sm"></div>
-      </div>
+      <ItemHighlight />
       <div className="relative z-10 text-sm md:text-base truncate">{prompt}</div>
-    </div>
+    </button>
   )
 }
 
@@ -111,10 +107,10 @@ export default function WelcomeScreen({ onPromptClick }: WelcomeScreenProps) {
       <div className="max-w-md w-full text-left">
         <div className="mt-8">
           <div className="px-3 mb-4">
-            <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-2 whitespace-nowrap">
+            <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-2">
               How can I help you?
             </h1>
-            <h3 className="text-xs font-medium text-black/50 dark:text-white/50 uppercase tracking-wider">
+            <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
               Here are some prompts to help you get started.
             </h3>
           </div>

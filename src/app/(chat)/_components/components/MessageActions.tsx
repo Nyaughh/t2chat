@@ -4,6 +4,8 @@ import { Copy, Check, RotateCcw, GitFork, Volume2, VolumeX } from 'lucide-react'
 import { ModelDropdown } from '@/components/ui/model-dropdown'
 import { getModelDisplayName, getVendorColor, ModelInfo } from '@/lib/models'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { buttonVariants } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
 import { useQuery } from 'convex/react'
 import { api } from '../../../../../convex/_generated/api'
 
@@ -44,16 +46,16 @@ export function MessageActions({
 }: MessageActionsProps) {
   const apiKeys = useQuery(api.api_keys.getApiKeys, isSignedIn ? {} : 'skip') || []
   return (
-    <div className="flex items-center gap-4 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity duration-150 ease-[0.25,1,0.5,1] relative">
+    <div className="relative flex items-center gap-3">
       {!isStreaming && (
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-0.5">
           <Tooltip>
             <TooltipTrigger asChild>
               <button
                 onClick={() => onCopy(content, messageId)}
-                className="p-1.5 text-rose-500/70 hover:text-rose-600 dark:text-rose-300/70 dark:hover:text-rose-300 hover:bg-rose-500/5 dark:hover:bg-rose-300/5 rounded transition-all duration-150 ease-[0.25,1,0.5,1] hover:scale-110"
+                className={cn(buttonVariants({ variant: 'ghost', size: 'icon-xs' }), 'cursor-pointer')}
               >
-                {copiedId === messageId ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                {copiedId === messageId ? <Check /> : <Copy />}
               </button>
             </TooltipTrigger>
             <TooltipContent>{copiedId === messageId ? 'Copied!' : 'Copy message'}</TooltipContent>
@@ -63,9 +65,9 @@ export function MessageActions({
             <TooltipTrigger asChild>
               <button
                 onClick={() => onReadAloud(content, messageId)}
-                className="p-1.5 text-rose-500/70 hover:text-rose-600 dark:text-rose-300/70 dark:hover:text-rose-300 hover:bg-rose-500/5 dark:hover:bg-rose-300/5 rounded transition-all duration-150 ease-[0.25,1,0.5,1] hover:scale-110"
+                className={cn(buttonVariants({ variant: 'ghost', size: 'icon-xs' }), 'cursor-pointer')}
               >
-                {speakingMessageId === messageId ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+                {speakingMessageId === messageId ? <VolumeX /> : <Volume2 />}
               </button>
             </TooltipTrigger>
             <TooltipContent>{speakingMessageId === messageId ? 'Stop reading' : 'Read aloud'}</TooltipContent>
@@ -75,9 +77,9 @@ export function MessageActions({
             <TooltipTrigger asChild>
               <button
                 onClick={() => onBranch(messageId)}
-                className="p-1.5 text-rose-500/70 hover:text-rose-600 dark:text-rose-300/70 dark:hover:text-rose-300 hover:bg-rose-500/5 dark:hover:bg-rose-300/5 rounded transition-all duration-150 ease-[0.25,1,0.5,1] hover:scale-110"
+                className={cn(buttonVariants({ variant: 'ghost', size: 'icon-xs' }), 'cursor-pointer')}
               >
-                <GitFork className="w-4 h-4" />
+                <GitFork />
               </button>
             </TooltipTrigger>
             <TooltipContent>Branch from this message</TooltipContent>
@@ -88,9 +90,9 @@ export function MessageActions({
               <TooltipTrigger asChild>
                 <button
                   onClick={() => onRetryClick(messageId)}
-                  className="p-1.5 text-rose-500/70 hover:text-rose-600 dark:text-rose-300/70 dark:hover:text-rose-300 hover:bg-rose-500/5 dark:hover:bg-rose-300/5 rounded transition-all duration-150 ease-[0.25,1,0.5,1] hover:scale-110"
+                  className={cn(buttonVariants({ variant: 'ghost', size: 'icon-xs' }), 'cursor-pointer')}
                 >
-                  <RotateCcw className="w-4 h-4" />
+                  <RotateCcw />
                 </button>
               </TooltipTrigger>
               <TooltipContent>Retry with model selection</TooltipContent>
@@ -113,7 +115,7 @@ export function MessageActions({
       {modelId && (
         <Tooltip>
           <TooltipTrigger asChild>
-            <div className="flex items-center gap-1.5 text-xs text-black/50 dark:text-white/50 cursor-help">
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-help">
               <div className={`w-2 h-2 rounded-full ${getVendorColor(modelId)}`} />
               <span>{getModelDisplayName(modelId)}</span>
             </div>

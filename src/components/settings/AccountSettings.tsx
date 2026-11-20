@@ -59,7 +59,7 @@ export function AccountSettings({ user }: AccountSettingsProps) {
             Profile
           </h3>
 
-          <div className="flex items-center gap-4 p-4 rounded-xl bg-muted/20 backdrop-blur-sm border border-border/50">
+          <div className="flex items-center gap-4 p-4 rounded-xl bg-muted/20 border border-border/50">
             <div className="relative">
               <div className="w-16 h-16 rounded-full bg-gradient-to-br from-rose-500/20 to-rose-600/20 dark:from-rose-300/20 dark:to-rose-400/20 flex items-center justify-center flex-shrink-0 overflow-hidden">
                 <Image src={user.image} alt={user.name} width={64} height={64} className="rounded-full" />
@@ -90,7 +90,7 @@ export function AccountSettings({ user }: AccountSettingsProps) {
           </h3>
 
           <div className="space-y-3">
-            <div className="flex items-center justify-between p-3 rounded-xl bg-muted/20 backdrop-blur-sm border border-border/50">
+            <div className="flex items-center justify-between gap-4 p-4 rounded-xl bg-muted/20 border border-border/50">
               <div className="flex items-center gap-3">
                 <User className="w-4 h-4 text-muted-foreground" />
                 <div>
@@ -101,7 +101,7 @@ export function AccountSettings({ user }: AccountSettingsProps) {
               <Switch checked={showName} onCheckedChange={setShowName} />
             </div>
 
-            <div className="flex items-center justify-between p-3 rounded-xl bg-muted/20 backdrop-blur-sm border border-border/50">
+            <div className="flex items-center justify-between gap-4 p-4 rounded-xl bg-muted/20 border border-border/50">
               <div className="flex items-center gap-3">
                 <Mail className="w-4 h-4 text-muted-foreground" />
                 <div>

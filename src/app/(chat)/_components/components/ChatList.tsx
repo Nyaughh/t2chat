@@ -54,8 +54,8 @@ export const ChatList = memo(function ChatList({
           {/* Show message when no conversations exist */}
           {totalChats === 0 && (
             <div className="text-center py-8 px-4">
-              <div className="text-black/40 dark:text-white/40 text-sm">No conversations yet</div>
-              <div className="text-black/30 dark:text-white/30 text-xs mt-1">Start a new chat to begin</div>
+              <div className="text-muted-foreground text-sm">No conversations yet</div>
+              <div className="text-muted-foreground/70 text-xs mt-1">Start a new chat to begin</div>
             </div>
           )}
         </div>

@@ -189,10 +189,10 @@ export function SimpleVoiceChat({
               exit={{ scale: 0.9, opacity: 0 }}
               className="w-full max-w-md"
             >
-              <Card className="border shadow-lg bg-background">
+              <Card className="rounded-xl border border-rose-500/15 bg-popover shadow-2xl shadow-rose-500/10 dark:border-rose-300/15 dark:shadow-black/50">
                 <CardContent className="p-6 text-center">
-                  <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-rose-100 dark:bg-rose-900/30 flex items-center justify-center">
-                    <MicOff className="w-8 h-8 text-rose-500 dark:text-rose-400" />
+                  <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-rose-500/10 dark:bg-rose-300/10 flex items-center justify-center">
+                    <MicOff className="w-8 h-8 text-rose-600 dark:text-rose-300" />
                   </div>
                   <h3 className="text-lg font-semibold mb-3">Voice Chat Not Supported</h3>
                   <p className="text-sm text-muted-foreground mb-6 leading-relaxed">
@@ -233,7 +233,7 @@ export function SimpleVoiceChat({
             transition={{ duration: 0.2 }}
             className="w-full max-w-4xl"
           >
-            <Card className="border shadow-lg bg-background relative">
+            <Card className="relative rounded-xl border border-rose-500/15 bg-popover shadow-2xl shadow-rose-500/10 dark:border-rose-300/15 dark:shadow-black/50">
               {/* Model Selection - Absolute Top Left Corner */}
               {!isActive && onModelChange && availableModels.length > 0 && (
                 <div className="absolute top-2 left-2 z-10">
@@ -262,12 +262,13 @@ export function SimpleVoiceChat({
               <div className="absolute top-2 right-2 z-10">
                 <Button
                   variant="ghost"
-                  size="icon"
+                  size="icon-xs"
                   onClick={handleClose}
                   disabled={isActive}
-                  className="text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded-full transition-colors w-7 h-7"
+                  aria-label="Close voice chat"
+                  className="text-muted-foreground hover:text-rose-600 dark:hover:text-rose-300"
                 >
-                  <X className="w-3.5 h-3.5" />
+                  <X />
                 </Button>
               </div>
 

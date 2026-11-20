@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
-import { Search, Plus, Command as CommandIcon, MessageSquare, Clock } from 'lucide-react'
+import { Plus, MessageSquare, Clock } from 'lucide-react'
+import { ItemHighlight } from '@/components/ui/item-highlight'
 import { CommandDialog, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from '@/components/ui/command'
 import { cn } from '@/lib/utils'
 import { Id } from '../../../../../convex/_generated/dataModel'
@@ -170,21 +171,15 @@ export function CommandPalette({
       onOpenChange={handleClose}
       className="max-w-3xl w-[90vw] md:w-[600px]"
     >
-      <div className="flex items-center border-b px-3 w-full gap-2 overflow-hidden">
-  <CommandIcon className="h-4 w-4 shrink-0 opacity-50" />
-
-  <div className="flex-1 min-w-0">
-    <CommandInput
-      placeholder="Search conversations..."
-      value={internalSearchQuery}
-      onValueChange={handleSearchChange}
-      className="h-12 w-full bg-transparent py-3 text-sm truncate outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50 border-none focus:ring-0 focus-visible:ring-0"
-    />
-  </div>
-</div>
+      <CommandInput
+        placeholder="Search conversations..."
+        value={internalSearchQuery}
+        onValueChange={handleSearchChange}
+        className="pr-8"
+      />
 
       <CommandList 
-        className="max-h-[400px] overflow-y-auto"
+        className="max-h-[400px] overflow-y-auto p-1"
         style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgb(244 63 94 / 0.3) transparent' }}
       >
         <CommandEmpty>
@@ -196,18 +191,13 @@ export function CommandPalette({
             onSelect={handleNewChat}
             disabled={isOnHomePage}
             className={cn(
-              "group relative overflow-hidden px-4 py-3 w-full data-[selected=true]:bg-transparent dark:data-[selected=true]:bg-transparent",
+              "group relative overflow-hidden rounded-lg px-3 py-2.5 w-full data-[selected=true]:bg-transparent data-[selected=true]:text-rose-600 dark:data-[selected=true]:bg-transparent dark:data-[selected=true]:text-rose-300",
               isOnHomePage
                 ? "opacity-50 cursor-not-allowed"
                 : "cursor-pointer hover:text-rose-600 dark:hover:text-rose-300"
             )}
           >
-            <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-150 ease-[0.25,1,0.5,1]">
-              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-rose-500/8 dark:via-rose-300/8 to-transparent"></div>
-              <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-rose-500/30 dark:via-rose-300/30 to-transparent"></div>
-              <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-rose-500/30 dark:via-rose-300/30 to-transparent"></div>
-              <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-4 bg-gradient-to-r from-transparent via-rose-500/5 dark:via-rose-300/5 to-transparent blur-sm"></div>
-            </div>
+            <ItemHighlight />
             <div className="relative z-10 flex items-center gap-3">
               <div className={cn(
                 "flex h-8 w-8 items-center justify-center rounded-lg flex-shrink-0",
@@ -238,17 +228,12 @@ export function CommandPalette({
               <CommandItem
                 key={chat.id}
                 onSelect={() => handleChatSelect(chat.id)}
-                className="group relative overflow-hidden px-4 py-3 w-full cursor-pointer data-[selected=true]:bg-transparent dark:data-[selected=true]:bg-transparent hover:text-rose-600 dark:hover:text-rose-300"
+                className="group relative overflow-hidden rounded-lg px-3 py-2.5 w-full cursor-pointer data-[selected=true]:bg-transparent data-[selected=true]:text-rose-600 dark:data-[selected=true]:bg-transparent dark:data-[selected=true]:text-rose-300 hover:text-rose-600 dark:hover:text-rose-300"
               >
-                <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-150 ease-[0.25,1,0.5,1]">
-                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-rose-500/8 dark:via-rose-300/8 to-transparent"></div>
-                  <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-rose-500/30 dark:via-rose-300/30 to-transparent"></div>
-                  <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-rose-500/30 dark:via-rose-300/30 to-transparent"></div>
-                  <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-4 bg-gradient-to-r from-transparent via-rose-500/5 dark:via-rose-300/5 to-transparent blur-sm"></div>
-                </div>
+            <ItemHighlight />
                 <div className="relative z-10 flex items-center gap-3 w-full">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-500/10 dark:bg-blue-300/10 flex-shrink-0">
-                    <Clock className="h-4 w-4 text-blue-600 dark:text-blue-300" />
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-rose-500/10 dark:bg-rose-300/10 flex-shrink-0">
+                    <Clock className="h-4 w-4 text-rose-600 dark:text-rose-300" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="font-medium truncate">{chat.title}</div>
@@ -269,17 +254,12 @@ export function CommandPalette({
               <CommandItem
                 key={chat.id}
                 onSelect={() => handleChatSelect(chat.id)}
-                className="group relative overflow-hidden px-4 py-3 w-full cursor-pointer data-[selected=true]:bg-transparent dark:data-[selected=true]:bg-transparent hover:text-rose-600 dark:hover:text-rose-300"
+                className="group relative overflow-hidden rounded-lg px-3 py-2.5 w-full cursor-pointer data-[selected=true]:bg-transparent data-[selected=true]:text-rose-600 dark:data-[selected=true]:bg-transparent dark:data-[selected=true]:text-rose-300 hover:text-rose-600 dark:hover:text-rose-300"
               >
-                <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-150 ease-[0.25,1,0.5,1]">
-                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-rose-500/8 dark:via-rose-300/8 to-transparent"></div>
-                  <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-rose-500/30 dark:via-rose-300/30 to-transparent"></div>
-                  <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-rose-500/30 dark:via-rose-300/30 to-transparent"></div>
-                  <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-4 bg-gradient-to-r from-transparent via-rose-500/5 dark:via-rose-300/5 to-transparent blur-sm"></div>
-                </div>
+            <ItemHighlight />
                 <div className="relative z-10 flex items-center gap-3">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-green-500/10 dark:bg-green-300/10 flex-shrink-0">
-                    <MessageSquare className="h-4 w-4 text-green-600 dark:text-green-300" />
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-rose-500/10 dark:bg-rose-300/10 flex-shrink-0">
+                    <MessageSquare className="h-4 w-4 text-rose-600 dark:text-rose-300" />
                   </div>
                   <div className="flex-1 min-w-0 flex items-center justify-between">
                     <div className="min-w-0 flex-1">

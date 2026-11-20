@@ -112,12 +112,12 @@ export function DataSettings({ unmigratedLocalChats }: DataSettingsProps) {
   return (
     <div className="space-y-6">
       {unmigratedLocalChats && unmigratedLocalChats.length > 0 && (
-        <div className="p-4 rounded-xl bg-muted/20 backdrop-blur-sm border border-border/50">
-          <h4 className="font-semibold text-blue-700 dark:text-blue-300 flex items-center gap-2 mb-3">
+        <div className="p-4 rounded-xl bg-muted/20 border border-border/50">
+          <h4 className="font-semibold text-rose-600 dark:text-rose-300 flex items-center gap-2 mb-3">
             <UploadCloud className="w-4 h-4" />
             Import Local Chats
           </h4>
-          <p className="text-sm text-blue-600/80 dark:text-blue-300/80 mb-3">
+          <p className="text-sm text-muted-foreground mb-3">
             You have {unmigratedLocalChats.length} conversation{unmigratedLocalChats.length > 1 ? 's' : ''} from a
             previous session. Import them to your account.
           </p>
@@ -125,11 +125,11 @@ export function DataSettings({ unmigratedLocalChats }: DataSettingsProps) {
             onClick={handleMigrate}
             disabled={isMigrating}
             variant="outline"
-            className="w-full text-sm bg-white/50 dark:bg-black/10"
+            className="w-full"
           >
             {isMigrating ? (
               <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                <Loader2 className="animate-spin" />
                 Importing...
               </>
             ) : (
@@ -141,14 +141,14 @@ export function DataSettings({ unmigratedLocalChats }: DataSettingsProps) {
 
       <div>
         <h3 className="text-lg font-semibold text-foreground mb-4">Export Data</h3>
-        <div className="space-y-3 rounded-xl bg-muted/20 backdrop-blur-sm border border-border/50 p-4">
+        <div className="space-y-3 rounded-xl bg-muted/20 border border-border/50 p-4">
           <Button
             variant="outline"
-            className="w-full justify-start text-base"
+            className="w-full justify-start"
             onClick={handleExport}
             disabled={isExporting || !exportData}
           >
-            {isExporting ? <Loader2 className="w-4 h-4 mr-3 animate-spin" /> : <Download className="w-4 h-4 mr-3" />}
+            {isExporting ? <Loader2 className="animate-spin" /> : <Download />}
             Export All Conversations
           </Button>
         </div>
@@ -156,17 +156,16 @@ export function DataSettings({ unmigratedLocalChats }: DataSettingsProps) {
 
       <div>
         <h3 className="text-lg font-semibold text-foreground mb-4">Danger Zone</h3>
-        <div className="p-4 rounded-xl bg-muted/20 backdrop-blur-sm border border-border/50">
-          <h4 className="font-semibold text-red-700 dark:text-red-300 flex items-center gap-2 mb-3">
+        <div className="p-4 rounded-xl bg-muted/20 border border-border/50">
+          <h4 className="font-semibold text-red-600 dark:text-red-400 flex items-center gap-2 mb-3">
             <Trash2 className="w-4 h-4" />
             Delete All Data
           </h4>
-          <p className="text-sm text-red-600/80 dark:text-red-300/80 mb-3">
+          <p className="text-sm text-muted-foreground mb-3">
             Deleting your conversations is a permanent action and cannot be undone.
           </p>
-          <Button variant="destructive" className="w-full text-sm" onClick={handleDeleteAll} disabled={isDeleting}>
-            {isDeleting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Trash2 className="w-4 h-4 mr-2" />}I
-            understand, delete all my data
+          <Button variant="destructive" className="w-full" onClick={handleDeleteAll} disabled={isDeleting}>
+            {isDeleting ? <Loader2 className="animate-spin" /> : <Trash2 />}I understand, delete all my data
           </Button>
         </div>
       </div>

@@ -114,40 +114,67 @@
 
 @layer base {
   * {
-    @apply border-border outline-ring/50;
+    @apply border-border;
   }
   body {
     @apply bg-background text-foreground;
   }
 
-  /* Remove all blue colors and default focus styles */
-  * {
-    outline: none !important;
+  /* No default browser outlines on pointer focus (no blue rings). */
+  :focus:not(:focus-visible) {
+    outline: none;
   }
 
-  *:focus {
-    outline: none !important;
-    box-shadow: none !important;
+  /* Keyboard focus: subtle ring that uses the theme's ring token instead of the browser blue. */
+  :where(button, a, summary, [role='button'], [role='switch'], [role='radio'], [role='tab'], [role='checkbox']):focus-visible {
+    outline: 2px solid color-mix(in oklab, var(--ring) 60%, transparent);
+    outline-offset: 2px;
   }
 
-  *:focus-visible {
-    outline: none !important;
-    box-shadow: none !important;
+  *::-moz-focus-inner {
+    border: 0;
   }
 
   /* Remove browser default button styling */
   button {
-    outline: none !important;
     border: none;
     background: none;
   }
+}
 
-  button:focus,
-  button:focus-visible {
-    outline: none !important;
-    box-shadow: none !important;
-    ring: none !important;
-  }
+/*
+ * T2Chat design-system surfaces.
+ * - surface-glass: floating chrome (top controls, composer, settings toolbar)
+ * - surface-popover: menus, tooltips, pickers and other floating overlays
+ * - menu-item: one row inside a surface-popover (Radix menus or plain buttons/links)
+ */
+@utility surface-glass {
+  @apply border border-rose-500/10 bg-card/70 bg-gradient-to-br from-rose-500/5 via-transparent to-rose-500/10 shadow-lg shadow-rose-500/5 backdrop-blur-xl dark:border-white/10 dark:bg-card/30 dark:from-rose-500/10 dark:to-rose-500/20 dark:shadow-black/20;
+}
+
+@utility surface-popover {
+  @apply border border-rose-500/20 bg-popover bg-gradient-to-br from-rose-500/5 via-transparent to-rose-500/10 text-popover-foreground shadow-2xl shadow-rose-500/10 backdrop-blur-2xl dark:border-rose-300/20 dark:from-rose-500/10 dark:to-rose-500/15 dark:shadow-black/50;
+}
+
+@utility menu-item {
+  @apply relative flex w-full cursor-pointer items-center gap-3 rounded-lg px-3 py-2 text-left text-sm font-medium text-foreground/80 outline-none transition-colors duration-150 select-none;
+  @apply hover:bg-rose-500/10 hover:text-rose-600 dark:hover:bg-rose-300/10 dark:hover:text-rose-300;
+  @apply data-[highlighted]:bg-rose-500/10 data-[highlighted]:text-rose-600 dark:data-[highlighted]:bg-rose-300/10 dark:data-[highlighted]:text-rose-300;
+  @apply data-[disabled]:pointer-events-none data-[disabled]:opacity-50;
+  @apply [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4;
+}
+
+@utility menu-item-destructive {
+  @apply text-red-600 hover:bg-red-500/10 hover:text-red-600 data-[highlighted]:bg-red-500/10 data-[highlighted]:text-red-600 dark:text-red-400 dark:hover:bg-red-400/10 dark:hover:text-red-400 dark:data-[highlighted]:bg-red-400/10 dark:data-[highlighted]:text-red-400;
+}
+
+/* Icon button inside a surface-glass control cluster (theme, settings, sidebar, new chat). */
+@utility control-button {
+  @apply flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-md text-rose-600 transition-colors duration-150 hover:bg-rose-500/10 hover:text-rose-700 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent dark:text-rose-300 dark:hover:bg-rose-300/10 dark:hover:text-rose-200 [&_svg]:size-[18px] [&_svg]:shrink-0;
+}
+
+@utility control-divider {
+  @apply mx-0.5 h-4 w-px shrink-0 bg-rose-500/20 dark:bg-rose-300/20;
 }
 
 @layer utilities {
@@ -200,163 +227,6 @@
   }
 }
 
-/* Remove ALL blue colors and default focus styles from context menus and all components */
-@layer components {
-  /* Context Menu Overrides - Remove all blue and ensure rose theme */
-  [data-radix-context-menu-content] {
-    outline: none !important;
-    border: none !important;
-    box-shadow: none !important;
-  }
-
-  [data-radix-context-menu-item] {
-    outline: none !important;
-    border: none !important;
-    box-shadow: none !important;
-  }
-
-  [data-radix-context-menu-item]:focus {
-    outline: none !important;
-    border: none !important;
-    box-shadow: none !important;
-    background-color: transparent !important;
-  }
-
-  [data-radix-context-menu-item]:focus-visible {
-    outline: none !important;
-    border: none !important;
-    box-shadow: none !important;
-    background-color: transparent !important;
-  }
-
-  [data-radix-context-menu-item][data-highlighted] {
-    outline: none !important;
-    border: none !important;
-    box-shadow: none !important;
-    background-color: transparent !important;
-  }
-
-  /* Dropdown Menu Overrides - Remove all blue and ensure rose theme */
-  [data-radix-dropdown-menu-content] {
-    outline: none !important;
-    border: none !important;
-    box-shadow: none !important;
-  }
-
-  [data-radix-dropdown-menu-item] {
-    outline: none !important;
-    border: none !important;
-    box-shadow: none !important;
-  }
-
-  [data-radix-dropdown-menu-item]:focus {
-    outline: none !important;
-    border: none !important;
-    box-shadow: none !important;
-    background-color: transparent !important;
-  }
-
-  [data-radix-dropdown-menu-item]:focus-visible {
-    outline: none !important;
-    border: none !important;
-    box-shadow: none !important;
-    background-color: transparent !important;
-  }
-
-  [data-radix-dropdown-menu-item][data-highlighted] {
-    outline: none !important;
-    border: none !important;
-    box-shadow: none !important;
-    background-color: transparent !important;
-  }
-
-  [data-radix-dropdown-menu-trigger] {
-    outline: none !important;
-    border: none !important;
-    box-shadow: none !important;
-  }
-
-  [data-radix-dropdown-menu-trigger]:focus {
-    outline: none !important;
-    border: none !important;
-    box-shadow: none !important;
-  }
-
-  [data-radix-dropdown-menu-trigger]:focus-visible {
-    outline: none !important;
-    border: none !important;
-    box-shadow: none !important;
-  }
-
-  /* Remove all default Radix UI focus styles */
-  [data-radix-context-menu-content],
-  [data-radix-context-menu-item],
-  [data-radix-context-menu-separator],
-  [data-radix-dropdown-menu-content],
-  [data-radix-dropdown-menu-item],
-  [data-radix-dropdown-menu-separator],
-  [data-radix-dropdown-menu-trigger],
-  [data-radix-tooltip-content],
-  [data-radix-tooltip-trigger] {
-    outline: none !important;
-    border: 0 !important;
-    box-shadow: none !important;
-    ring: none !important;
-  }
-
-  /* Ensure no blue colors anywhere */
-  *[style*='blue'],
-  *[class*='blue'],
-  *[data-state*='open']:focus,
-  *[data-state*='checked']:focus,
-  *[aria-expanded='true']:focus {
-    color: inherit !important;
-    border-color: transparent !important;
-    outline: none !important;
-    box-shadow: none !important;
-  }
-
-  /* Override any system focus colors */
-  :focus,
-  :focus-visible,
-  [data-focus],
-  [data-focus-visible] {
-    outline: none !important;
-    box-shadow: none !important;
-    border-color: transparent !important;
-  }
-
-  /* Additional overrides for Radix UI menu items */
-  [role='menuitem'],
-  [role='menuitemcheckbox'],
-  [role='menuitemradio'] {
-    outline: none !important;
-    box-shadow: none !important;
-  }
-
-  [role='menuitem']:focus,
-  [role='menuitem']:focus-visible,
-  [role='menuitemcheckbox']:focus,
-  [role='menuitemcheckbox']:focus-visible,
-  [role='menuitemradio']:focus,
-  [role='menuitemradio']:focus-visible {
-    outline: none !important;
-    box-shadow: none !important;
-    background-color: transparent !important;
-  }
-
-  /* Remove browser default highlights */
-  *::-moz-focus-inner {
-    border: 0 !important;
-    outline: none !important;
-  }
-
-  /* Remove webkit focus rings */
-  *:focus {
-    -webkit-focus-ring-color: transparent !important;
-    outline: none !important;
-  }
-}
 
 ::view-transition-group(root) {
   animation-duration: 0.7s;

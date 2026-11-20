@@ -228,7 +228,7 @@ export default function ChatInterface({ chatId, initialMessages }: ChatInterface
       <ScrollToBottomButton show={showScrollToBottom} onScrollToBottom={() => scrollToBottom('smooth')} />
 
       <div className="fixed md:absolute bottom-0 left-0 right-0 z-30">
-        <div className="max-w-4xl mx-auto w-full px-4 pb-4 md:px-4">
+        <div className="max-w-4xl mx-auto w-full px-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
           <AIInput
             value={inputValue}
             onValueChange={setInputValue}
@@ -296,7 +296,7 @@ export default function ChatInterface({ chatId, initialMessages }: ChatInterface
                     }}
                     appearance={{
                       button:
-                        'w-7 h-7 md:w-8 md:h-8 text-rose-500/60 dark:text-rose-300/60 hover:text-rose-600 dark:hover:text-rose-300 transition-all duration-200 rounded-lg bg-white/50 dark:bg-[oklch(0.22_0.015_25)]/40 hover:bg-rose-500/5 dark:hover:bg-white/5 flex items-center justify-center max-w-7 max-h-7 md:max-w-8 md:max-h-8',
+                        'size-8 rounded-md bg-transparent text-rose-500/70 hover:text-rose-600 hover:bg-rose-500/5 dark:text-rose-300/70 dark:hover:text-rose-300 dark:hover:bg-rose-300/5 transition-colors flex items-center justify-center focus-within:ring-0 focus-within:ring-offset-0 after:bg-rose-500/10',
                       container: 'w-auto h-auto',
                       allowedContent: 'hidden',
                     }}
@@ -304,10 +304,10 @@ export default function ChatInterface({ chatId, initialMessages }: ChatInterface
                       button({ ready, isUploading }) {
                         if (isUploading)
                           return (
-                            <div className="w-3.5 md:w-4 h-3.5 md:h-4 border-2 border-rose-500/30 border-t-rose-500 rounded-full animate-spin" />
+                            <div className="size-4 border-2 border-rose-500/30 border-t-rose-500 dark:border-rose-300/30 dark:border-t-rose-300 rounded-full animate-spin" />
                           )
                         return (
-                          <Paperclip className="w-3.5 md:w-4 h-3.5 md:h-4 text-rose-500/60 dark:text-rose-300/60 hover:text-rose-600 dark:hover:text-rose-300" />
+                          <Paperclip className="size-4" />
                         )
                       },
                       allowedContent() {

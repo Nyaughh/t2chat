@@ -17,7 +17,7 @@ export function SettingsSidebar({ settingsSections, activeSection, setActiveSect
         isMobile ? 'px-2 py-3 border-b border-border' : 'w-64 p-4 border-r border-border',
       )}
     >
-      <nav className={cn(isMobile ? 'grid grid-cols-5 gap-1' : 'flex flex-col space-y-2')}>
+      <nav className={cn(isMobile ? 'grid grid-cols-5 gap-1' : 'flex flex-col gap-1')}>
         {settingsSections.map((section) => (
           <SettingsSidebarItem
             key={section.id}

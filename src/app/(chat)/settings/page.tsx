@@ -72,8 +72,7 @@ export default function SettingsPage() {
   if (isPending) {
     return (
       <div className="flex-1 flex items-center justify-center">
-        {' '}
-        <Loader2 className="w-5 h-5 animate-spin" />{' '}
+        <Loader2 className="size-5 animate-spin text-rose-500/70 dark:text-rose-300/70" />
       </div>
     )
   }
@@ -221,44 +220,30 @@ export default function SettingsPage() {
     <div className="flex-1 flex flex-col min-h-0 bg-background relative">
       {/* Logout & Close buttons - merged container positioned where settings icon appears */}
       <div className="absolute top-2.5 right-2.5 z-10">
-        <div className="group relative p-2 rounded-lg bg-white/70 dark:bg-[oklch(0.18_0.015_25)]/30 backdrop-blur-xl border border-rose-500/10 dark:border-white/10 hover:border-rose-500/20 dark:hover:border-rose-300/20 shadow-lg shadow-rose-500/5 dark:shadow-lg dark:shadow-black/20 hover:shadow-xl hover:shadow-rose-500/10 dark:hover:shadow-rose-500/10 flex items-center gap-1.5">
-          {/* Gradient overlays for premium look */}
-          <div className="absolute inset-0 bg-gradient-to-br from-rose-500/5 via-transparent to-rose-500/10 dark:from-rose-500/10 dark:via-transparent dark:to-rose-500/20 pointer-events-none rounded-lg"></div>
-          <div className="absolute inset-0 bg-gradient-to-t from-transparent via-transparent to-white/20 dark:to-white/5 pointer-events-none rounded-lg"></div>
-
+        <div className="surface-glass flex items-center gap-0.5 rounded-lg p-1">
           <Tooltip>
             <TooltipTrigger asChild>
-              <button
-                onClick={handleSignOut}
-                className="relative z-10 text-rose-600 dark:text-rose-300 hover:text-rose-700 dark:hover:text-rose-200 h-5.5 w-5.5 p-0 hover:bg-transparent flex items-center justify-center"
-              >
-                <LogOut className="w-4.5 h-4.5" />
+              <button onClick={handleSignOut} className="control-button" aria-label="Sign Out">
+                <LogOut />
               </button>
             </TooltipTrigger>
             <TooltipContent side="bottom">Sign Out</TooltipContent>
           </Tooltip>
 
-          {/* Vertical divider */}
-          <div className="relative z-10 w-px h-4.5 bg-rose-500/20 dark:bg-rose-300/20"></div>
+          <div className="control-divider" />
 
           <Tooltip>
             <TooltipTrigger asChild>
-              <button
-                onClick={handleClose}
-                className="relative z-10 text-rose-600 dark:text-rose-300 hover:text-rose-700 dark:hover:text-rose-200 h-5.5 w-5.5 p-0 hover:bg-transparent flex items-center justify-center"
-              >
-                <X className="w-4.5 h-4.5" />
+              <button onClick={handleClose} className="control-button" aria-label="Close Settings">
+                <X />
               </button>
             </TooltipTrigger>
             <TooltipContent side="bottom">Close Settings</TooltipContent>
           </Tooltip>
-
-          {/* Premium glow effect in dark mode */}
-          <div className="absolute inset-0 -z-10 bg-gradient-to-r from-rose-300/0 via-rose-300/5 to-rose-300/0 rounded-lg blur-xl opacity-0 dark:opacity-20 pointer-events-none"></div>
         </div>
       </div>
 
-      <header className="flex items-center justify-between pt-2 pl-2.5 pr-4 pb-3 border-b border-border flex-shrink-0 bg-card/50 backdrop-blur-sm relative">
+      <header className="flex items-center justify-between pt-2.5 pl-2.5 pr-4 pb-2.5 border-b border-border flex-shrink-0 bg-card/50 backdrop-blur-sm relative">
         {/* Settings text centered over sidebar */}
         <div className={cn(
           'absolute left-0 flex items-center justify-center h-full',
@@ -269,14 +254,9 @@ export default function SettingsPage() {
           </h1>
         </div>
         
-        {/* Invisible content to maintain header height */}
-        <div className="invisible">
-          <h1 className="text-2xl font-bold leading-tight">Settings</h1>
-        </div>
-        <div className="flex items-center gap-2">
-          {/* Placeholders to maintain header layout */}
-          <div className="w-10 h-10"></div>
-          <div className="w-10 h-10"></div>
+        {/* Invisible content to maintain header height (matches the floating control cluster) */}
+        <div className="invisible h-[42px]" aria-hidden>
+          <span className="text-2xl font-bold leading-tight">Settings</span>
         </div>
       </header>
       <div className={cn('flex flex-1 min-h-0', isMobile && 'flex-col')}>

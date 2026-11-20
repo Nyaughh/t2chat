@@ -25,7 +25,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
-import { Button } from '@/components/ui/button'
+import { Button, buttonVariants } from '@/components/ui/button'
 import { Copy } from 'lucide-react'
 
 interface ChatLayoutProps {
@@ -61,7 +61,7 @@ function RenameDialog({
         <DialogHeader>
           <DialogTitle>Rename Chat</DialogTitle>
         </DialogHeader>
-        <div className="mt-4 space-y-4">
+        <div className="space-y-4">
           <Input
             value={newTitle}
             onChange={(e) => setNewTitle(e.target.value)}
@@ -73,7 +73,7 @@ function RenameDialog({
           />
         </div>
         <AlertDialogFooter>
-          <Button variant="ghost" onClick={onClose}>
+          <Button variant="outline" onClick={onClose}>
             Cancel
           </Button>
           <Button onClick={() => onConfirm(newTitle)}>Save</Button>
@@ -245,9 +245,6 @@ export default function ChatLayout({
 
         {/* Page Content */}
         {children}
-
-        {/* Premium subtle glow effect */}
-        <div className="absolute inset-0 -z-10 bg-gradient-to-r from-rose-300/0 via-rose-300/5 to-rose-300/0 rounded-xl blur-xl opacity-0 dark:opacity-30 pointer-events-none"></div>
       </div>
 
       {/* Delete Confirmation Dialog */}
@@ -261,7 +258,9 @@ export default function ChatLayout({
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleConfirmDelete}>Delete</AlertDialogAction>
+            <AlertDialogAction onClick={handleConfirmDelete} className={buttonVariants({ variant: 'destructive' })}>
+              Delete
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -280,12 +279,12 @@ export default function ChatLayout({
           <DialogHeader>
             <DialogTitle>Share Chat</DialogTitle>
           </DialogHeader>
-          <div className="mt-4 space-y-4">
-            <p className="text-sm text-gray-500">Anyone with this link will be able to view this chat.</p>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">Anyone with this link will be able to view this chat.</p>
             <div className="flex items-center space-x-2">
               <Input value={shareUrl} readOnly />
-              <Button onClick={handleCopyShareLink} size="icon">
-                <Copy className="h-4 w-4" />
+              <Button onClick={handleCopyShareLink} size="icon" className="shrink-0" aria-label="Copy share link">
+                <Copy />
               </Button>
             </div>
           </div>

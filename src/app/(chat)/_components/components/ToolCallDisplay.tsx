@@ -70,9 +70,9 @@ const ToolCallDisplay = ({ toolCalls }: { toolCalls: any[] }) => {
                           href={item.url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="block p-3 rounded-lg bg-white dark:bg-black/20 hover:bg-gray-50 dark:hover:bg-black/30 transition-colors shadow-sm border border-black/5 dark:border-white/5"
+                          className="block p-3 rounded-lg bg-muted/40 hover:bg-muted/70 transition-colors border border-border"
                         >
-                          <div className="font-semibold text-sm text-rose-600 dark:text-rose-400 truncate">
+                          <div className="font-semibold text-sm text-rose-600 dark:text-rose-300 truncate">
                             {item.title}
                           </div>
                           <p className="text-xs text-black/70 dark:text-white/70 mt-1 line-clamp-2">{item.content}</p>
