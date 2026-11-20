@@ -249,7 +249,7 @@ export default function ChatInterface({ chatId, initialMessages }: ChatInterface
             onVoiceChatToggle={isAuthenticated ? handleVoiceChatToggle : undefined}
             uploadButton={
               selectedModel.attachmentsSuppport.image || selectedModel.attachmentsSuppport.pdf ? (
-                <div className={cn('flex gap-1', attachments.length >= maxFiles && 'opacity-50 pointer-events-none')}>
+                <div className={cn('flex shrink-0', attachments.length >= maxFiles && 'opacity-50 pointer-events-none')}>
                   <UploadButton
                     endpoint="fileUploader"
                     onBeforeUploadBegin={(files) => {
@@ -296,7 +296,7 @@ export default function ChatInterface({ chatId, initialMessages }: ChatInterface
                     }}
                     appearance={{
                       button:
-                        'size-8 rounded-md bg-transparent text-rose-500/70 hover:text-rose-600 hover:bg-rose-500/5 dark:text-rose-300/70 dark:hover:text-rose-300 dark:hover:bg-rose-300/5 transition-colors flex items-center justify-center focus-within:ring-0 focus-within:ring-offset-0 after:bg-rose-500/10',
+                        'size-8 min-w-8 max-w-8 min-h-8 max-h-8 rounded-md bg-transparent text-rose-500/70 hover:text-rose-600 hover:bg-rose-500/5 dark:text-rose-300/70 dark:hover:text-rose-300 dark:hover:bg-rose-300/5 transition-colors flex items-center justify-center focus-within:ring-0 focus-within:ring-offset-0 after:bg-rose-500/10',
                       container: 'w-auto h-auto',
                       allowedContent: 'hidden',
                     }}
@@ -307,7 +307,7 @@ export default function ChatInterface({ chatId, initialMessages }: ChatInterface
                             <div className="size-4 border-2 border-rose-500/30 border-t-rose-500 dark:border-rose-300/30 dark:border-t-rose-300 rounded-full animate-spin" />
                           )
                         return (
-                          <Paperclip className="size-4" />
+                          <Paperclip className="size-4 text-rose-500/70 group-hover:text-rose-600 dark:text-rose-300/70 dark:group-hover:text-rose-300" />
                         )
                       },
                       allowedContent() {

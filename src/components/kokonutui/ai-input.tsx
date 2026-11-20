@@ -513,27 +513,27 @@ export default function AIInput({
         </div>
 
         <div className="h-14 md:h-16">
-          <div className="absolute left-3 md:left-4 right-3 md:right-4 bottom-3 md:bottom-4 flex items-center justify-between">
-            <div className="flex min-w-0 items-center gap-1.5">
-              <div className="relative">
+          <div className="absolute left-3 md:left-4 right-3 md:right-4 bottom-3 md:bottom-4 flex items-center justify-between gap-2">
+            <div className="flex min-w-0 flex-1 items-center gap-1 md:gap-1.5">
+              <div className="relative min-w-0">
                 <button
                   type="button"
                   onClick={() => setShowModelSelect(!showModelSelect)}
                   className={cn(
-                    'h-8 px-2.5 text-sm transition-colors duration-150 rounded-md cursor-pointer',
+                    'h-8 max-w-full px-2 md:px-2.5 text-sm transition-colors duration-150 rounded-md cursor-pointer',
                     'bg-foreground/5 hover:bg-foreground/10',
-                    'flex items-center gap-1.5',
+                    'flex min-w-0 items-center gap-1 md:gap-1.5',
                     'text-foreground/80 hover:text-foreground',
                   )}
                 >
-                  <div className="flex items-center gap-1 md:gap-1.5">
+                  <div className="flex min-w-0 items-center gap-1.5">
                     <div
                       className={cn(
                         'size-2 shrink-0 rounded-full bg-gradient-to-r',
                         getVendorColor(mounted ? selectedModel.vendor : models[0].vendor),
                       )}
                     ></div>
-                    <span className="truncate max-w-[96px] md:max-w-[160px]">
+                    <span className="min-w-0 truncate md:max-w-[160px]">
                       {mounted ? selectedModel.name : models[0].name}
                     </span>
                   </div>
@@ -765,14 +765,14 @@ export default function AIInput({
                 </AnimatePresence>
               </div>
               {isSignedIn && (selectedModel.attachmentsSuppport.image || selectedModel.attachmentsSuppport.pdf) && (
-                <div ref={uploadButtonRef}>{uploadButton}</div>
+                <div ref={uploadButtonRef} className="shrink-0">{uploadButton}</div>
               )}
               {isSignedIn && selectedModel.features.includes('web') && (
                 <button
                   type="button"
                   onClick={() => setWebSearchEnabled(!webSearchEnabled)}
                   aria-pressed={webSearchEnabled}
-                  className={buttonVariants({ variant: webSearchEnabled ? 'default' : 'ghost', size: 'icon-sm' })}
+                  className={cn(buttonVariants({ variant: webSearchEnabled ? 'default' : 'ghost', size: 'icon-sm' }), 'shrink-0')}
                 >
                   <Globe />
                 </button>
@@ -782,13 +782,13 @@ export default function AIInput({
                   type="button"
                   onClick={() => setImageGenEnabled(!imageGenEnabled)}
                   aria-pressed={imageGenEnabled}
-                  className={buttonVariants({ variant: imageGenEnabled ? 'default' : 'ghost', size: 'icon-sm' })}
+                  className={cn(buttonVariants({ variant: imageGenEnabled ? 'default' : 'ghost', size: 'icon-sm' }), 'shrink-0')}
                 >
                   <ImageIcon />
                 </button>
               )}
             </div>
-            <div className="flex shrink-0 items-center gap-1.5">
+            <div className="flex shrink-0 items-center gap-1 md:gap-1.5">
               <Tooltip>
                 <TooltipTrigger asChild>
                   <button
@@ -798,7 +798,7 @@ export default function AIInput({
                     aria-pressed={isListening}
                     className={cn(
                       buttonVariants({ variant: isListening ? 'default' : 'ghost', size: 'icon' }),
-                      'rounded-full',
+                      'size-8 md:size-9 rounded-full',
                       isListening && 'animate-pulse',
                     )}
                   >
@@ -813,7 +813,7 @@ export default function AIInput({
                   onClick={onStop}
                   title="Stop generation (Esc)"
                   aria-label="Stop generation"
-                  className={cn(buttonVariants({ variant: 'default', size: 'icon' }), 'rounded-full')}
+                  className={cn(buttonVariants({ variant: 'default', size: 'icon' }), 'size-8 md:size-9 rounded-full')}
                 >
                   <Square className="size-3.5 fill-current animate-pulse" />
                 </button>
@@ -823,7 +823,7 @@ export default function AIInput({
                   onClick={handleSend}
                   disabled={isStreaming}
                   aria-label="Send message"
-                  className={cn(buttonVariants({ variant: 'default', size: 'icon' }), 'group rounded-full')}
+                  className={cn(buttonVariants({ variant: 'default', size: 'icon' }), 'group size-8 md:size-9 rounded-full')}
                 >
                   <ArrowUp className="size-[18px] transition-transform duration-200 group-hover:-translate-y-0.5" />
                 </button>
@@ -859,7 +859,7 @@ export default function AIInput({
                       aria-disabled={!onVoiceChatToggle}
                       className={cn(
                         buttonVariants({ variant: 'default', size: 'icon' }),
-                        'group rounded-full',
+                        'group size-8 md:size-9 rounded-full',
                         onVoiceChatToggle ? 'cursor-pointer' : 'cursor-not-allowed opacity-50',
                       )}
                     >
