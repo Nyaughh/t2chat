@@ -23,12 +23,15 @@ export const { useSession, signIn, signOut } = authClient
  */
 export async function signOutAndClear(...args: Parameters<typeof authClient.signOut>) {
   // Loaded lazily so this module doesn't pull IndexedDB code into every importer.
-  const { signingOutStore, wipeClaimedLocalData } = await import('./local-data')
+  const { signingOutStore, snapshotClaimedLocalData, wipeClaimedLocalData } = await import('./local-data')
   signingOutStore.begin()
   try {
+    // Only the rows claimed before this sign-out are wiped, and only if they
+    // are unchanged by then (another tab may sign in meanwhile).
+    const snapshot = await snapshotClaimedLocalData().catch(() => null)
     const result = await authClient.signOut(...args)
-    if (!result?.error) {
-      await wipeClaimedLocalData().catch((error) => {
+    if (!result?.error && snapshot) {
+      await wipeClaimedLocalData(snapshot).catch((error) => {
         // The session guard retries once it sees the signed-out session.
         console.error('Failed to clear local chats after sign-out:', error)
       })

@@ -196,53 +196,127 @@ test('a chunk inside the throttle window is checkpointed by the trailing timer i
   await done
 })
 
-test('flush() (on unmount or pagehide) saves buffered text right away without stopping the reply', async () => {
+/** fetch stub that opens a new controllable body per call; `calls[i]` drives the i-th request. */
+function multiFetch() {
+  const encoder = new TextEncoder()
+  const calls: Array<{ push: (l: string) => void; end: () => void }> = []
+  const fetchImpl = (async (_url: unknown, init?: RequestInit) => {
+    let controller!: ReadableStreamDefaultController<Uint8Array>
+    const body = new ReadableStream<Uint8Array>({
+      start(c) {
+        controller = c
+      },
+    })
+    init?.signal?.addEventListener('abort', () => {
+      try {
+        controller.error(new DOMException('The operation was aborted.', 'AbortError'))
+      } catch {}
+    })
+    calls.push({ push: (l) => controller.enqueue(encoder.encode(l)), end: () => controller.close() })
+    return new Response(body)
+  }) as typeof fetch
+  return { fetchImpl, calls }
+}
+
+const contentOf = (rows: Map<string, DBMessage>, conversationId: string) =>
+  [...rows.values()].find((m) => m.conversationId === conversationId)?.content
+
+test('home -> new chat: flush on unmount saves buffered text and the reply keeps running for the next page', async () => {
   const { store, rows } = memoryStore()
-  const net = controllableFetch()
+  const net = multiFetch()
   const registry = createGuestReplyRegistry({ store, fetchImpl: net.fetchImpl, now: () => 0, createId, ...manualTimers() })
 
-  // Home page starts the first guest send and subscribes.
-  const views: Array<string | undefined> = []
-  const unsubscribeHome = registry.subscribe(() => views.push(registry.getSnapshot()?.snapshot?.content))
-  const done = registry.run({ ...base })
-  net.respond()
+  // The home page starts the first guest send for new chat X and subscribes.
+  const homeViews: Array<string | undefined> = []
+  const unsubscribeHome = registry.subscribe(() => homeViews.push(registry.getSnapshot().get('X')?.snapshot?.content))
+  const done = registry.run({ ...base, conversationId: 'X' })
   await tick()
-  net.push(line('text', 'Hello'))
+  net.calls[0].push(line('text', 'Hello'))
   await tick()
 
-  // Navigation home -> /chat/<id>: the home view unmounts and flushes; the chat view subscribes.
+  // Navigation home -> /chat/X: the home view unmounts and flushes X; the chat view subscribes.
   unsubscribeHome()
-  await registry.flush()
-  const id = [...rows.keys()][0]
-  assert.equal(rows.get(id)?.content, 'Hello', 'flushed on unmount')
+  await registry.flush('X')
+  assert.equal(contentOf(rows, 'X'), 'Hello', 'flushed on unmount')
   const chatViews: Array<string | undefined> = []
-  registry.subscribe(() => chatViews.push(registry.getSnapshot()?.snapshot?.content))
-  assert.equal(registry.getSnapshot()?.streaming, true, 'the new page sees the running reply')
+  registry.subscribe(() => chatViews.push(registry.getSnapshot().get('X')?.snapshot?.content))
+  assert.equal(registry.getSnapshot().get('X')?.streaming, true, 'the new page sees the running reply')
 
-  net.push(line('text', ' world'))
-  net.end()
+  net.calls[0].push(line('text', ' world'))
+  net.calls[0].end()
   const result = await done
   assert.equal(result.status, 'complete', 'the reply was not cut off by the navigation')
-  assert.equal(rows.get(id)?.content, 'Hello world')
+  assert.equal(contentOf(rows, 'X'), 'Hello world')
   assert.ok(chatViews.includes('Hello world'))
-  assert.equal(views.includes('Hello world'), false, 'no callbacks reach the unmounted view')
-  assert.equal(registry.getSnapshot()?.streaming, false)
+  assert.equal(homeViews.includes('Hello world'), false, 'no callbacks reach the unmounted view')
+  assert.equal(registry.getSnapshot().get('X')?.streaming, false)
 })
 
-test('stop via the registry saves the partial reply with the stopped note', async () => {
+test('two chats: an idle chat Y is not streaming, and stop in Y does not cancel X', async () => {
   const { store, rows } = memoryStore()
-  const net = controllableFetch()
+  const net = multiFetch()
   const registry = createGuestReplyRegistry({ store, fetchImpl: net.fetchImpl, now: () => 0, createId, ...manualTimers() })
-  const done = registry.run({ ...base })
-  net.respond()
+  const x = registry.run({ ...base, conversationId: 'X' })
   await tick()
-  net.push(line('text', 'Hello there'))
+  net.calls[0].push(line('text', 'x text'))
   await tick()
-  assert.equal(registry.stop(), true)
-  const result = await done
-  assert.equal(result.status, 'stopped')
-  assert.equal(rows.get(result.messageId!)?.content, `Hello there${STOPPED_NOTE}`)
-  assert.equal(registry.stop(), false, 'nothing left to stop')
+
+  // The user navigates to idle chat Y.
+  assert.equal(registry.getSnapshot().get('Y')?.streaming ?? false, false, 'Y shows Send, not Stop')
+  assert.equal(registry.stop('Y'), false, 'nothing to stop in Y')
+  assert.equal(registry.getSnapshot().get('X')?.streaming, true, 'X still running')
+
+  net.calls[0].end()
+  assert.equal((await x).status, 'complete')
+  assert.equal(contentOf(rows, 'X'), 'x text')
+})
+
+test('concurrent replies in X and Y are tracked, flushed and stopped independently', async () => {
+  const { store, rows } = memoryStore()
+  const net = multiFetch()
+  const registry = createGuestReplyRegistry({ store, fetchImpl: net.fetchImpl, now: () => 0, createId, ...manualTimers() })
+  const x = registry.run({ ...base, conversationId: 'X' })
+  const y = registry.run({ ...base, conversationId: 'Y' })
+  await tick()
+  net.calls[0].push(line('text', 'from X'))
+  net.calls[1].push(line('text', 'from Y'))
+  await tick()
+
+  await registry.flush('X')
+  assert.equal(contentOf(rows, 'X'), 'from X')
+  assert.equal(contentOf(rows, 'Y'), '', 'flushing X leaves Y to its own throttle')
+
+  assert.equal(registry.stop('X'), true)
+  assert.equal((await x).status, 'stopped')
+  assert.equal(contentOf(rows, 'X'), `from X${STOPPED_NOTE}`)
+  assert.equal(registry.getSnapshot().get('Y')?.streaming, true, 'stopping X does not touch Y')
+
+  net.calls[1].push(line('text', ' and more'))
+  net.calls[1].end()
+  assert.equal((await y).status, 'complete')
+  assert.equal(contentOf(rows, 'Y'), 'from Y and more')
+
+  // flush() with no id covers every running reply (pagehide).
+  await registry.flush()
+})
+
+test('a second reply in the same chat stops the first instead of losing track of it', async () => {
+  const { store, rows } = memoryStore()
+  const net = multiFetch()
+  const registry = createGuestReplyRegistry({ store, fetchImpl: net.fetchImpl, now: () => 0, createId, ...manualTimers() })
+  const first = registry.run({ ...base, conversationId: 'X' })
+  await tick()
+  net.calls[0].push(line('text', 'first'))
+  await tick()
+  const second = registry.run({ ...base, conversationId: 'X' })
+  assert.equal((await first).status, 'stopped', 'the first is stopped and saved')
+  await tick()
+  net.calls[1].push(line('text', 'second'))
+  net.calls[1].end()
+  assert.equal((await second).status, 'complete')
+  const contents = [...rows.values()].map((m) => m.content).sort()
+  assert.deepEqual(contents, [`first${STOPPED_NOTE}`, 'second'])
+  assert.equal(registry.getSnapshot().get('X')?.snapshot?.content, 'second')
 })
 
 test('a network error after only reasoning keeps the reasoning', async () => {

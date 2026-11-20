@@ -1,16 +1,20 @@
 // S7: chats must not leak across sign-out or a user switch on a shared browser,
-// and no local-only chat of the current user may be lost.
+// no local-only chat of the current user may be lost, and queued sends must
+// only run as the identity that made them.
 // Run: node --import ./tests/register-ts.mjs --test "tests/**/*.test.ts"
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
   LEGACY_GUEST_OWNER,
   RECOVERED_CHAT_TITLE,
+  boundPlan,
   chatsBelongTo,
-  createModeGate,
+  createSendGate,
+  decideQueuedSend,
   isGuestLocalId,
   isGuestWritable,
   isLocalRowVisible,
+  ownershipRetryDelayMs,
   planLegacyCleanup,
   planOwnershipSync,
   runOwnershipSync,
@@ -19,6 +23,8 @@ import {
   type LegacyMessage,
   type LocalSessionState,
   type OwnedRow,
+  type OwnershipPlan,
+  type SendDecision,
 } from '../src/lib/local-data-policy'
 
 const G1 = '3b241101-e2bb-4255-8caf-4136c566a962'
@@ -35,24 +41,35 @@ const OUT: LocalSessionState = { status: 'signed-out' }
 const PENDING: LocalSessionState = { status: 'pending' }
 const UNKNOWN: LocalSessionState = { status: 'unknown' }
 
-/** Tiny in-memory stand-in for the conversations table, applying plans like local-data.ts does. */
+const ids = (rows: ReadonlyArray<OwnedRow>) => rows.map((r) => r.id)
+
+/**
+ * In-memory stand-in for the conversations table. `apply` behaves like
+ * local-data.ts: compare-and-set against the rows as they are when it runs.
+ */
 function memoryRows(rows: OwnedRow[]) {
   let current = rows.map((r) => ({ ...r }))
   return {
     get: () => current,
-    visibleTo: (viewer: LocalSessionState) => current.filter((r) => isLocalRowVisible(r, viewer)).map((r) => r.id),
-    readRows: async () => current,
-    apply: async (session: LocalSessionState) => {
-      const plan = planOwnershipSync(current, session)
+    visibleTo: (viewer: LocalSessionState) => ids(current.filter((r) => isLocalRowVisible(r, viewer))),
+    readRows: async () => current.map((r) => ({ ...r })),
+    add: (row: OwnedRow) => current.push({ ...row }),
+    apply: async (session: LocalSessionState, plan: OwnershipPlan) => {
+      const bound = boundPlan(plan, current)
+      const del = new Set(ids(bound.deletions))
+      const claim = new Set(ids(bound.claims))
       current = current
-        .filter((r) => !plan.deleteConversationIds.includes(r.id))
-        .map((r) =>
-          plan.claimConversationIds.includes(r.id) && session.status === 'signed-in'
-            ? { id: r.id, userId: session.userId }
-            : r,
-        )
+        .filter((r) => !del.has(r.id))
+        .map((r) => (claim.has(r.id) && session.status === 'signed-in' ? { id: r.id, userId: session.userId } : r))
     },
   }
+}
+
+/** A promise you resolve by hand, to hold a server response back. */
+function deferred<T>() {
+  let resolve!: (v: T) => void
+  const promise = new Promise<T>((r) => (resolve = r))
+  return { promise, resolve }
 }
 
 test('guest ids are UUIDs, Convex ids are not', () => {
@@ -61,28 +78,30 @@ test('guest ids are UUIDs, Convex ids are not', () => {
   assert.equal(isGuestLocalId(undefined), false)
 })
 
-test('session state comes from the Better Auth result', () => {
+test('session state: only an explicit null payload is signed out', () => {
   assert.deepEqual(sessionStateFrom({ data: { user: { id: 'userA' } } }), A)
   // A failed refetch keeps the known user.
   assert.deepEqual(sessionStateFrom({ data: { user: { id: 'userA' } }, error: new Error('offline') }), A)
   assert.deepEqual(sessionStateFrom({ isPending: true }), PENDING)
   assert.deepEqual(sessionStateFrom({ data: null, error: new Error('offline') }), UNKNOWN)
   assert.deepEqual(sessionStateFrom({ data: null }), OUT)
+  // A payload without a user id, or no payload at all, is not a confirmed sign-out.
+  assert.deepEqual(sessionStateFrom({ data: {} as { user?: null } }), UNKNOWN)
+  assert.deepEqual(sessionStateFrom({ data: { user: null } }), UNKNOWN)
+  assert.deepEqual(sessionStateFrom({}), UNKNOWN)
 })
 
 test('S7 before/after: A signs in, signs out; the next visitor sees none of A’s local chats', async () => {
-  // A guest chat exists, A signs in and sees it (claimed), A also has a legacy row.
   const rows = memoryRows([{ id: G1 }, { id: G2, userId: 'userA', legacyOwner: true }])
-  const confirm = async () => A
-  assert.equal(await runOwnershipSync(A, { ...rows, confirm }), 'applied')
-  assert.deepEqual(
-    rows.get().map((r) => [r.id, r.userId, !!r.legacyOwner]),
-    [
-      [G1, 'userA', false],
-      [G2, 'userA', false],
-    ],
-  )
+  // Import is offered only once the claim has committed.
+  assert.deepEqual(rows.visibleTo(A), [])
+  assert.equal(await runOwnershipSync(A, { ...rows, confirm: async () => A }), 'applied')
+  assert.deepEqual(rows.get(), [
+    { id: G1, userId: 'userA' },
+    { id: G2, userId: 'userA' },
+  ])
   assert.deepEqual(rows.visibleTo(A), [G1, G2], 'A can import both')
+  assert.deepEqual(rows.visibleTo(B), [], 'B cannot')
 
   // A signs out. Until the wipe lands, the signed-out view already hides them.
   assert.deepEqual(rows.visibleTo(OUT), [])
@@ -90,26 +109,70 @@ test('S7 before/after: A signs in, signs out; the next visitor sees none of A’
   assert.deepEqual(rows.get(), [])
 })
 
+test('an unclaimed row is never offered for import and survives A’s sign-out as guest data', async () => {
+  const rows = memoryRows([{ id: G1 }])
+  // The claim's server confirmation fails: nothing changes, nothing is offered.
+  assert.equal(await runOwnershipSync(A, { ...rows, confirm: async () => UNKNOWN }), 'unconfirmed')
+  assert.deepEqual(rows.visibleTo(A), [])
+  assert.deepEqual(rows.visibleTo(B), [])
+  // A later retry for the same session succeeds.
+  assert.equal(await runOwnershipSync(A, { ...rows, confirm: async () => A }), 'applied')
+  assert.deepEqual(rows.visibleTo(A), [G1])
+})
+
 test('a failed sign-out (session still A) keeps A’s unimported chats', async () => {
   const rows = memoryRows([{ id: G1, userId: 'userA' }])
-  // The guard only sees A; nothing to change.
   assert.equal(await runOwnershipSync(A, { ...rows, confirm: async () => A }), 'skipped')
   assert.deepEqual(rows.visibleTo(A), [G1])
 })
 
-test('a stale signed-out view never deletes rows another tab just claimed', async () => {
+test('race: a delayed signed-out confirmation cannot delete what another tab claimed for B meanwhile', async () => {
+  const rows = memoryRows([{ id: G1, userId: 'userA' }, { id: G3 }])
+  const outConfirm = deferred<LocalSessionState>()
+
+  // Tab 1 sees A's session end and waits for the server.
+  const tab1 = runOwnershipSync(OUT, { ...rows, confirm: () => outConfirm.promise })
+  await new Promise((r) => setTimeout(r, 0))
+
+  // Meanwhile tab 2: B signs in, deletes A's row and claims the unowned one.
+  assert.equal(await runOwnershipSync(B, { ...rows, confirm: async () => B }), 'applied')
+  assert.deepEqual(rows.get(), [{ id: G3, userId: 'userB' }])
+
+  // The late OUT confirmation arrives (B's cookie was set afterwards).
+  outConfirm.resolve(OUT)
+  assert.equal(await tab1, 'applied')
+  assert.deepEqual(rows.get(), [{ id: G3, userId: 'userB' }], 'B’s only copy survives')
+})
+
+test('race: a stale signed-out view never deletes rows another tab just claimed', async () => {
   const rows = memoryRows([{ id: G1, userId: 'userA' }])
-  // This tab still thinks no one is signed in; the server says A is.
   assert.equal(await runOwnershipSync(OUT, { ...rows, confirm: async () => A }), 'unconfirmed')
-  assert.deepEqual(rows.get(), [{ id: G1, userId: 'userA' }])
-  // Same for an unreachable server.
   assert.equal(await runOwnershipSync(OUT, { ...rows, confirm: async () => UNKNOWN }), 'unconfirmed')
-  assert.equal(rows.get().length, 1)
+  assert.deepEqual(rows.get(), [{ id: G1, userId: 'userA' }])
+})
+
+test('the sign-out wipe deletes only the rows it snapshotted before the request', async () => {
+  const rows = memoryRows([{ id: G1, userId: 'userA' }, { id: G3 }])
+  const snapshot = planOwnershipSync(rows.get(), OUT)
+  // While the sign-out request (and the caller's onSuccess) runs, B signs in
+  // elsewhere and claims the unowned row; a new guest row also appears.
+  await rows.apply(B, planOwnershipSync(rows.get(), B))
+  rows.add({ id: G2 })
+  await rows.apply(OUT, snapshot)
+  assert.deepEqual(rows.get(), [{ id: G3, userId: 'userB' }, { id: G2 }])
+})
+
+test('compare-and-set: rows changed since planning are skipped', () => {
+  const plan = planOwnershipSync([{ id: G1, userId: 'userA' }, { id: G2 }], B)
+  assert.deepEqual(ids(plan.deletions), [G1])
+  assert.deepEqual(ids(plan.claims), [G2])
+  const bound = boundPlan(plan, [{ id: G1, userId: 'userB' }, undefined])
+  assert.deepEqual(bound, { deletions: [], claims: [] })
 })
 
 test('pending or unknown sessions never change ownership', async () => {
   const rows = memoryRows([{ id: G1, userId: 'userA' }, { id: G2 }])
-  const confirm = async () => {
+  const confirm = async (): Promise<LocalSessionState> => {
     throw new Error('should not be asked')
   }
   assert.equal(await runOwnershipSync(PENDING, { ...rows, confirm }), 'skipped')
@@ -117,28 +180,26 @@ test('pending or unknown sessions never change ownership', async () => {
   assert.equal(rows.get().length, 2)
 })
 
+test('retries back off and are capped', () => {
+  assert.deepEqual([0, 1, 2, 3, 10].map(ownershipRetryDelayMs), [1000, 2000, 4000, 8000, 30000])
+})
+
 test('user switch: B signing in deletes A’s claimed and legacy rows, claims unowned ones', () => {
   const plan = planOwnershipSync(
     [{ id: G1, userId: 'userA' }, { id: G2, userId: 'userA', legacyOwner: true }, { id: G3 }],
     B,
   )
-  assert.deepEqual(plan, { deleteConversationIds: [G1, G2], claimConversationIds: [G3] })
+  assert.deepEqual(ids(plan.deletions), [G1, G2])
+  assert.deepEqual(ids(plan.claims), [G3])
 })
 
 test('legacy rows survive a signed-out first open, hidden, and stay with their owner', () => {
   const rows: OwnedRow[] = [{ id: G1, userId: 'userA', legacyOwner: true }, { id: G2 }]
-  assert.deepEqual(planOwnershipSync(rows, OUT), { deleteConversationIds: [], claimConversationIds: [] })
-  assert.deepEqual(
-    rows.filter((r) => isLocalRowVisible(r, OUT)).map((r) => r.id),
-    [G2],
-    'legacy-owned rows are not guest data',
-  )
-  assert.deepEqual(
-    rows.filter((r) => isLocalRowVisible(r, B)).map((r) => r.id),
-    [G2],
-    'another account can’t see them',
-  )
-  assert.deepEqual(planOwnershipSync(rows, A).claimConversationIds, [G1, G2], 'their owner keeps them')
+  assert.deepEqual(planOwnershipSync(rows, OUT), { deletions: [], claims: [] })
+  assert.deepEqual(ids(rows.filter((r) => isLocalRowVisible(r, OUT))), [G2], 'legacy-owned rows are not guest data')
+  assert.deepEqual(ids(rows.filter((r) => isLocalRowVisible(r, B))), [], 'another account can’t see them')
+  assert.deepEqual(ids(rows.filter((r) => isLocalRowVisible(r, A))), [], 'not offered before the claim commits')
+  assert.deepEqual(ids(planOwnershipSync(rows, A).claims), [G1, G2], 'their owner keeps them')
 })
 
 test('guest writes are allowed only into an existing unowned chat', () => {
@@ -177,7 +238,6 @@ test('v4 upgrade: drops server copies, recovers local messages sent into a copie
   const recovered = plan.putConversations.find((c) => c.title === RECOVERED_CHAT_TITLE)!
   assert.ok(recovered && isGuestLocalId(recovered.id))
   assert.equal(recovered.userId, undefined, 'recovered chat is an unowned guest chat')
-  assert.notEqual(recovered.title, 'A’s private server title')
   assert.deepEqual(recovered.createdAt, created(3))
   assert.deepEqual(recovered.lastMessageAt, created(5))
   assert.deepEqual(plan.moveMessages, [
@@ -196,15 +256,78 @@ test('v4 upgrade: drops server copies, recovers local messages sent into a copie
   )
 })
 
-test('a send made while the session is being checked waits instead of being dropped', async () => {
-  const gate = createModeGate<'convex' | 'guest'>()
-  let sentTo: string | null = null
-  const pending = gate.wait().then((mode) => (sentTo = mode))
-  gate.set(null) // still undecided (pending, unknown, or waiting for a Convex token)
-  await new Promise((r) => setTimeout(r, 5))
-  assert.equal(sentTo, null)
-  gate.set('guest') // confirmed signed out
-  await pending
-  assert.equal(sentTo, 'guest')
-  assert.equal(await gate.wait(), 'guest')
+// --- Queued sends ----------------------------------------------------------
+
+const CONVEX_A = { kind: 'convex', userId: 'userA' } as const
+const CONVEX_B = { kind: 'convex', userId: 'userB' } as const
+const GUEST = { kind: 'guest' } as const
+const CANCELLED = { kind: 'cancelled', reason: 'identity-changed' } as const
+
+const settled = async (p: Promise<SendDecision>) => {
+  let value: SendDecision | 'waiting' = 'waiting'
+  p.then((v) => (value = v))
+  await new Promise((r) => setTimeout(r, 0))
+  return value
+}
+
+test('a send made by A while waiting for the Convex token goes to A once Convex is verified as A', async () => {
+  const gate = createSendGate({ session: A, destination: null })
+  const { queued, decision } = gate.request()
+  assert.equal(queued, true)
+  // A token for another user (stale) is not enough.
+  gate.update({ session: A, destination: null })
+  assert.equal(await settled(decision), 'waiting')
+  gate.update({ session: A, destination: CONVEX_A })
+  assert.deepEqual(await decision, CONVEX_A)
+})
+
+test('A’s queued send is cancelled if A signs out or B signs in before it can go', async () => {
+  const g1 = createSendGate({ session: A, destination: null })
+  const r1 = g1.request()
+  g1.update({ session: OUT, destination: GUEST })
+  assert.deepEqual(await r1.decision, CANCELLED, 'not written into the new guest session')
+
+  const g2 = createSendGate({ session: A, destination: null })
+  const r2 = g2.request()
+  g2.update({ session: B, destination: CONVEX_B })
+  assert.deepEqual(await r2.decision, CANCELLED, 'not sent to B’s account')
+})
+
+test('decideQueuedSend never routes A’s send to a Convex destination of another user', () => {
+  assert.equal(decideQueuedSend(A, { session: A, destination: CONVEX_B }), null)
+  assert.equal(decideQueuedSend(A, { session: A, destination: GUEST }), null)
+})
+
+test('a guest’s queued send stays local and is cancelled if someone signs in', async () => {
+  const gate = createSendGate({ session: UNKNOWN, destination: null })
+  const r = gate.request()
+  gate.update({ session: A, destination: CONVEX_A })
+  assert.deepEqual(await r.decision, CANCELLED)
+
+  const g2 = createSendGate({ session: UNKNOWN, destination: null })
+  const r2 = g2.request()
+  g2.update({ session: OUT, destination: GUEST })
+  assert.deepEqual(await r2.decision, GUEST)
+})
+
+test('a send made during the first session check binds to the identity it reports', async () => {
+  const gate = createSendGate({ session: PENDING, destination: null })
+  const r = gate.request()
+  gate.update({ session: A, destination: null }) // signed in, token not ready
+  assert.equal(await settled(r.decision), 'waiting')
+  gate.update({ session: A, destination: CONVEX_A })
+  assert.deepEqual(await r.decision, CONVEX_A)
+})
+
+test('closing the view settles waiting sends as cancelled; reopening accepts new ones', async () => {
+  const gate = createSendGate({ session: A, destination: null })
+  const r = gate.request()
+  gate.close()
+  assert.deepEqual(await r.decision, { kind: 'cancelled', reason: 'closed' })
+  assert.deepEqual(await gate.request().decision, { kind: 'cancelled', reason: 'closed' })
+  gate.open()
+  gate.update({ session: A, destination: CONVEX_A })
+  const again = gate.request()
+  assert.equal(again.queued, false)
+  assert.deepEqual(await again.decision, CONVEX_A)
 })

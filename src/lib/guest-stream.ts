@@ -239,26 +239,30 @@ export async function streamGuestReply(options: StreamGuestReplyOptions): Promis
 // ---------------------------------------------------------------------------
 // Guest replies outlive the component that started them: the first guest send
 // starts on the home page, which unmounts when the app navigates to the new
-// chat. A module-level registry owns the running reply, so the next page sees
-// its live text and can stop it, and no callbacks go to unmounted hooks.
+// chat. A module-level registry owns running replies, keyed by conversation,
+// so the next page sees its chat's live text and can stop it, other chats are
+// unaffected, and no callbacks go to unmounted hooks.
 
 export interface GuestReplyView {
-  /** True while a reply is being generated. */
+  /** True while a reply is being generated in this conversation. */
   streaming: boolean
-  conversationId: string
-  /** Latest text of the reply. Kept after it ends, until the next reply starts. */
+  /** Latest text of the reply. Kept after it ends, until the next reply in this conversation. */
   snapshot: GuestStreamSnapshot | null
 }
 
 export interface GuestReplyRegistry {
   subscribe(listener: () => void): () => void
-  getSnapshot(): GuestReplyView | null
+  /** Per-conversation state. A new Map object on every change. */
+  getSnapshot(): ReadonlyMap<string, GuestReplyView>
+  /** Start a reply. A reply still running in the same conversation is stopped first. */
   run(args: { conversationId: string; history: ModelMessage[]; modelId: string }): Promise<GuestReplyResult>
-  /** Abort the running reply. Resolves to false if nothing was running. */
-  stop(): boolean
-  /** Save any buffered text of the running reply now. */
-  flush(): Promise<void>
+  /** Abort the reply running in `conversationId`. Resolves to false if none was running there. */
+  stop(conversationId: string): boolean
+  /** Save buffered text now: of one conversation's reply, or of all running replies. */
+  flush(conversationId?: string): Promise<void>
 }
+
+const EMPTY_VIEW: ReadonlyMap<string, GuestReplyView> = new Map()
 
 export function createGuestReplyRegistry(
   deps: Pick<
@@ -267,30 +271,41 @@ export function createGuestReplyRegistry(
   >,
 ): GuestReplyRegistry {
   type Entry = {
-    conversationId: string
     controller: AbortController
+    streaming: boolean
     snapshot: GuestStreamSnapshot | null
     flush?: () => Promise<void>
   }
-  let active: Entry | null = null
-  let view: GuestReplyView | null = null
+  // The current entry per conversation (running or the last finished one).
+  const entries = new Map<string, Entry>()
+  let view = EMPTY_VIEW
   const listeners = new Set<() => void>()
 
-  const emit = (entry: Entry, streaming: boolean) => {
-    view = { streaming, conversationId: entry.conversationId, snapshot: entry.snapshot }
+  const emit = () => {
+    const next = new Map<string, GuestReplyView>()
+    for (const [conversationId, entry] of entries) {
+      next.set(conversationId, { streaming: entry.streaming, snapshot: entry.snapshot })
+    }
+    view = next
     listeners.forEach((listener) => listener())
   }
 
   return {
     subscribe(listener) {
       listeners.add(listener)
-      return () => listeners.delete(listener)
+      return () => {
+        listeners.delete(listener)
+      }
     },
     getSnapshot: () => view,
     async run({ conversationId, history, modelId }) {
-      const entry: Entry = { conversationId, controller: new AbortController(), snapshot: null }
-      active = entry
-      emit(entry, true)
+      const previous = entries.get(conversationId)
+      if (previous?.streaming) previous.controller.abort()
+
+      const entry: Entry = { controller: new AbortController(), streaming: true, snapshot: null }
+      entries.set(conversationId, entry)
+      emit()
+      const isCurrent = () => entries.get(conversationId) === entry
       try {
         return await streamGuestReply({
           ...deps,
@@ -300,26 +315,29 @@ export function createGuestReplyRegistry(
           signal: entry.controller.signal,
           onUpdate: (snapshot) => {
             entry.snapshot = snapshot
-            if (active === entry) emit(entry, true)
+            if (isCurrent()) emit()
           },
           onFlushReady: (flush) => {
             entry.flush = flush
           },
         })
       } finally {
-        if (active === entry) {
-          active = null
-          emit(entry, false)
-        }
+        entry.streaming = false
+        if (isCurrent()) emit()
       }
     },
-    stop() {
-      if (!active) return false
-      active.controller.abort()
+    stop(conversationId) {
+      const entry = entries.get(conversationId)
+      if (!entry?.streaming) return false
+      entry.controller.abort()
       return true
     },
-    flush() {
-      return active?.flush?.().catch(() => undefined) ?? Promise.resolve()
+    async flush(conversationId) {
+      const targets =
+        conversationId === undefined ? [...entries.values()] : [entries.get(conversationId)].filter(Boolean)
+      await Promise.all(
+        (targets as Entry[]).filter((e) => e.streaming && e.flush).map((e) => e.flush!().catch(() => undefined)),
+      )
     },
   }
 }

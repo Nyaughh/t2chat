@@ -33,7 +33,11 @@ export type LocalSessionState =
   | { status: 'signed-in'; userId: string }
   | { status: 'signed-out' }
 
-/** Map a Better Auth `useSession()` / `getSession()` result to a session state. */
+/**
+ * Map a Better Auth `useSession()` / `getSession()` result to a session state.
+ * Only an explicit `null` payload with no error counts as signed out. A payload
+ * that is present but carries no user id is treated as unknown.
+ */
 export function sessionStateFrom(auth: {
   data?: { user?: { id?: string | null } | null } | null
   isPending?: boolean
@@ -43,7 +47,8 @@ export function sessionStateFrom(auth: {
   if (userId) return { status: 'signed-in', userId }
   if (auth.isPending) return { status: 'pending' }
   if (auth.error) return { status: 'unknown' }
-  return { status: 'signed-out' }
+  if (auth.data === null) return { status: 'signed-out' }
+  return { status: 'unknown' }
 }
 
 /** Stable key for a session state, used to discard results computed for an older state. */
@@ -58,38 +63,68 @@ export interface OwnedRow {
   legacyOwner?: boolean
 }
 
+/**
+ * Rows to delete and claim, each recorded with the ownership state it had when
+ * the plan was made. Applying a plan only touches rows that still have exactly
+ * that state (compare-and-set), so a plan made for an older session can never
+ * undo a newer transition, for example another tab signing in and claiming
+ * rows while this tab waited for the server.
+ */
 export interface OwnershipPlan {
-  deleteConversationIds: string[]
-  claimConversationIds: string[]
+  deletions: OwnedRow[]
+  claims: OwnedRow[]
 }
+
+const observed = (row: OwnedRow): OwnedRow => ({
+  id: row.id,
+  ...(row.userId !== undefined ? { userId: row.userId } : {}),
+  ...(row.legacyOwner ? { legacyOwner: true } : {}),
+})
 
 /** What to delete and claim so the local rows match the current session. */
 export function planOwnershipSync(rows: ReadonlyArray<OwnedRow>, session: LocalSessionState): OwnershipPlan {
-  const plan: OwnershipPlan = { deleteConversationIds: [], claimConversationIds: [] }
+  const plan: OwnershipPlan = { deletions: [], claims: [] }
   if (session.status === 'signed-out') {
     // The session we saw has ended: wipe what that user claimed. Legacy rows
     // are kept (hidden): we never saw their owner's session end.
-    for (const row of rows) if (row.userId && !row.legacyOwner) plan.deleteConversationIds.push(row.id)
+    for (const row of rows) if (row.userId && !row.legacyOwner) plan.deletions.push(observed(row))
   } else if (session.status === 'signed-in') {
     for (const row of rows) {
-      if (row.userId && row.userId !== session.userId) plan.deleteConversationIds.push(row.id)
-      else if (!row.userId || row.legacyOwner) plan.claimConversationIds.push(row.id)
+      if (row.userId && row.userId !== session.userId) plan.deletions.push(observed(row))
+      else if (!row.userId || row.legacyOwner) plan.claims.push(observed(row))
     }
   }
   // pending / unknown: never change anything.
   return plan
 }
 
-export const isEmptyPlan = (plan: OwnershipPlan) =>
-  plan.deleteConversationIds.length === 0 && plan.claimConversationIds.length === 0
+export const isEmptyPlan = (plan: OwnershipPlan) => plan.deletions.length === 0 && plan.claims.length === 0
+
+/** True when `current` still has exactly the ownership state recorded in `expected`. */
+export const rowStillMatches = (current: OwnedRow | undefined | null, expected: OwnedRow): boolean =>
+  !!current &&
+  current.id === expected.id &&
+  (current.userId ?? null) === (expected.userId ?? null) &&
+  !!current.legacyOwner === !!expected.legacyOwner
+
+/** Narrow a plan to the rows that haven't changed since it was made. */
+export function boundPlan(plan: OwnershipPlan, current: ReadonlyArray<OwnedRow | undefined | null>): OwnershipPlan {
+  const byId = new Map<string, OwnedRow>()
+  for (const row of current) if (row) byId.set(row.id, row)
+  return {
+    deletions: plan.deletions.filter((row) => rowStillMatches(byId.get(row.id), row)),
+    claims: plan.claims.filter((row) => rowStillMatches(byId.get(row.id), row)),
+  }
+}
 
 /**
- * Whether a local conversation may be shown. Signed-in users see their own rows
- * and still-unclaimed guest rows (to import them). Everyone else, including a
- * pending or unknown session, sees unowned guest rows only.
+ * Whether a local conversation may be shown. A signed-in user sees only rows
+ * whose claim has committed to them, so import is offered only for chats that
+ * are really theirs. Everyone else, including a pending or unknown session,
+ * sees unowned guest rows only.
  */
-export function isLocalRowVisible(row: { userId?: string }, viewer: LocalSessionState): boolean {
-  if (viewer.status === 'signed-in') return !row.userId || row.userId === viewer.userId
+export function isLocalRowVisible(row: { userId?: string; legacyOwner?: boolean }, viewer: LocalSessionState): boolean {
+  if (viewer.status === 'signed-in') return row.userId === viewer.userId && !row.legacyOwner
   return !row.userId
 }
 
@@ -201,36 +236,116 @@ export async function runOwnershipSync(
   deps: {
     readRows: () => Promise<ReadonlyArray<OwnedRow>>
     confirm: () => Promise<LocalSessionState>
-    apply: (session: LocalSessionState) => Promise<void>
+    /** Must apply the plan with compare-and-set semantics (see boundPlan). */
+    apply: (session: LocalSessionState, plan: OwnershipPlan) => Promise<void>
   },
 ): Promise<OwnershipSyncOutcome> {
   if (session.status !== 'signed-in' && session.status !== 'signed-out') return 'skipped'
-  if (isEmptyPlan(planOwnershipSync(await deps.readRows(), session))) return 'skipped'
+  const plan = planOwnershipSync(await deps.readRows(), session)
+  if (isEmptyPlan(plan)) return 'skipped'
   if (!sameSession(await deps.confirm(), session)) return 'unconfirmed'
-  await deps.apply(session)
+  await deps.apply(session, plan)
   return 'applied'
 }
 
+/** Delay before retrying an unconfirmed or failed ownership sync (attempt starts at 0). */
+export const ownershipRetryDelayMs = (attempt: number) => Math.min(30_000, 1_000 * 2 ** attempt)
+
+// ---------------------------------------------------------------------------
+// Queued sends. A send made before it is known where it may go waits, and is
+// bound to the identity that was on screen when it was made.
+
+export type SendDestination = { kind: 'convex'; userId: string } | { kind: 'guest' }
+export type SendCancelReason = 'identity-changed' | 'closed'
+export type SendDecision = SendDestination | { kind: 'cancelled'; reason: SendCancelReason }
+
+export interface SendGateState {
+  session: LocalSessionState
+  /** Where writes may go right now, or null while undecided. */
+  destination: SendDestination | null
+}
+
 /**
- * Holds where writes may go. `wait()` resolves once a mode is known and never
- * resolves with "undecided", so a send made while the session is still being
- * checked is delayed, not dropped.
+ * Decide a queued send that was made while `origin` was the session. Returns
+ * null to keep waiting.
+ * - Made by signed-in user X: goes only to X's Convex account, once Convex is
+ *   verified to be X. Cancelled if X signs out or another account appears.
+ * - Made while signed out (or while the session was unknown, which shows the
+ *   guest view): stays local. Cancelled if someone signs in.
+ * - Made while the first session check was still pending: bound to the first
+ *   identity that check reports.
  */
-export function createModeGate<T>() {
-  let mode: T | null = null
-  const waiters = new Set<(mode: T) => void>()
+export function decideQueuedSend(origin: LocalSessionState, state: SendGateState): SendDecision | null {
+  const { session, destination } = state
+  const cancelled = { kind: 'cancelled', reason: 'identity-changed' } as const
+  switch (origin.status) {
+    case 'signed-in':
+      if (session.status === 'signed-out') return cancelled
+      if (session.status === 'signed-in' && session.userId !== origin.userId) return cancelled
+      if (
+        session.status === 'signed-in' &&
+        destination?.kind === 'convex' &&
+        destination.userId === origin.userId
+      ) {
+        return destination
+      }
+      return null
+    case 'signed-out':
+    case 'unknown':
+      if (session.status === 'signed-in') return cancelled
+      return destination?.kind === 'guest' ? destination : null
+    case 'pending':
+      return destination
+  }
+}
+
+export interface SendGate {
+  update(state: SendGateState): void
+  /** Queue a send made now. Resolves with where it may go, or why it was cancelled. */
+  request(): { queued: boolean; decision: Promise<SendDecision> }
+  /** Cancel everything still waiting and refuse new requests (the view went away). */
+  close(): void
+  /** Accept requests again (the view mounted, or remounted under React StrictMode). */
+  open(): void
+}
+
+export function createSendGate(initial: SendGateState): SendGate {
+  let state = initial
+  let closed = false
+  const waiters = new Set<{ origin: LocalSessionState; resolve: (d: SendDecision) => void }>()
+
+  const settle = () => {
+    for (const waiter of [...waiters]) {
+      const decision = decideQueuedSend(waiter.origin, state)
+      if (decision) {
+        waiters.delete(waiter)
+        waiter.resolve(decision)
+      }
+    }
+  }
+
   return {
-    set(next: T | null) {
-      mode = next
-      if (next !== null) {
-        const ready = [...waiters]
-        waiters.clear()
-        ready.forEach((resolve) => resolve(next))
+    update(next) {
+      state = next
+      settle()
+    },
+    request() {
+      if (closed) return { queued: false, decision: Promise.resolve({ kind: 'cancelled', reason: 'closed' }) }
+      const origin = state.session
+      const now = decideQueuedSend(origin, state)
+      if (now) return { queued: false, decision: Promise.resolve(now) }
+      return {
+        queued: true,
+        decision: new Promise<SendDecision>((resolve) => waiters.add({ origin, resolve })),
       }
     },
-    get: () => mode,
-    wait(): Promise<T> {
-      return mode !== null ? Promise.resolve(mode) : new Promise<T>((resolve) => waiters.add(resolve))
+    close() {
+      closed = true
+      for (const waiter of waiters) waiter.resolve({ kind: 'cancelled', reason: 'closed' })
+      waiters.clear()
+    },
+    open() {
+      closed = false
     },
   }
 }

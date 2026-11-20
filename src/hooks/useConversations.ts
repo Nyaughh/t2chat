@@ -11,7 +11,7 @@ import { models, type ModelInfo } from '@/lib/models'
 import type { ClientMessage, Attachment, ConvexChat, ConvexMessage } from '@/lib/types'
 import type { Id } from '../../convex/_generated/dataModel'
 import type { ModelMessage } from 'ai'
-import { toModelHistory, type GuestReplyResult } from '@/lib/guest-stream'
+import { toModelHistory, type GuestReplyResult, type GuestReplyView } from '@/lib/guest-stream'
 import {
   GuestChatUnavailableError,
   addGuestMessage,
@@ -22,7 +22,13 @@ import {
   readGuestHistory,
   updateGuestMessageContent,
 } from '@/lib/local-data'
-import { chatsBelongTo, createModeGate, isGuestLocalId, isLocalRowVisible } from '@/lib/local-data-policy'
+import {
+  chatsBelongTo,
+  createSendGate,
+  isGuestLocalId,
+  isLocalRowVisible,
+  type SendDestination,
+} from '@/lib/local-data-policy'
 import { useLocalOwnership } from './useLocalOwnership'
 import { useQuery } from 'convex/react'
 import { api } from '../../convex/_generated/api'
@@ -65,8 +71,7 @@ const toChatList = (chats: ConvexChat[]) =>
     }))
     .sort((a, b) => b.lastMessageAt.getTime() - a.lastMessageAt.getTime())
 
-/** Where a send goes: Convex (signed in), local IndexedDB (confirmed signed out), or not decided yet. */
-type SendMode = 'convex' | 'guest' | null
+const NO_GUEST_REPLIES: ReadonlyMap<string, GuestReplyView> = new Map()
 
 const reportGuestError = (error: unknown, fallback: string) => {
   if (error instanceof GuestChatUnavailableError) {
@@ -115,11 +120,23 @@ export const useConversations = (
   const { session, signingOut } = useLocalOwnership()
   const verifiedUserId = session.status === 'signed-in' ? session.userId : null
 
+  // The identity Convex itself is using. It can lag behind the session (an old
+  // token is still in use after a sign-out or account switch), so Convex data
+  // and Convex writes count only when it is the verified user. getCurrentUser
+  // looks the user up by the token's subject, so its `userId` is that subject.
+  const convexIdentity = useQuery(api.auth.getCurrentUser, isAuthenticated ? {} : 'skip') as
+    | { userId?: string }
+    | null
+    | undefined
+  const convexBoundUserId =
+    isAuthenticated && verifiedUserId && convexIdentity?.userId === verifiedUserId ? verifiedUserId : null
+
   // --- Signed-in data: only results that belong to the verified identity ----
 
   const verifiedConvexChats = useMemo(
-    () => (convexChats && verifiedUserId && chatsBelongTo(convexChats, verifiedUserId) ? convexChats : undefined),
-    [convexChats, verifiedUserId],
+    () =>
+      convexChats && convexBoundUserId && chatsBelongTo(convexChats, convexBoundUserId) ? convexChats : undefined,
+    [convexChats, convexBoundUserId],
   )
   const verifiedChatExists = useMemo(
     () => !!currentChatId && !!verifiedConvexChats?.some((chat) => chat._id === currentChatId),
@@ -198,23 +215,35 @@ export const useConversations = (
     return liveGuestThread.messages
   }, [isGuestView, liveGuestThread, currentChatId, session])
 
-  const guestReply = useSyncExternalStore(guestReplies.subscribe, guestReplies.getSnapshot, () => null)
+  // Guest replies are tracked per conversation. A new chat started from the
+  // home page is followed by this view until the URL switches to it.
+  const guestReplyViews = useSyncExternalStore(guestReplies.subscribe, guestReplies.getSnapshot, () => NO_GUEST_REPLIES)
+  const [launchedChatId, setLaunchedChatId] = useState<string | null>(null)
+  useEffect(() => {
+    if (currentChatId) setLaunchedChatId(null)
+  }, [currentChatId])
+  const streamChatId = currentChatId ?? launchedChatId
+  const guestReply = streamChatId ? guestReplyViews.get(streamChatId) : undefined
   const isLocalStreaming = !!guestReply?.streaming
+  const streamChatIdRef = useRef(streamChatId)
+  streamChatIdRef.current = streamChatId
 
   // Save buffered guest reply text when this view goes away or the page is hidden.
   // The reply itself keeps running, so the first guest send survives the
   // navigation from the home page to the new chat.
   useEffect(() => {
-    const flush = () => void guestReplies.flush()
+    const flushAll = () => void guestReplies.flush()
     const onVisibility = () => {
-      if (document.visibilityState === 'hidden') flush()
+      if (document.visibilityState === 'hidden') flushAll()
     }
-    window.addEventListener('pagehide', flush)
+    window.addEventListener('pagehide', flushAll)
     document.addEventListener('visibilitychange', onVisibility)
     return () => {
-      window.removeEventListener('pagehide', flush)
+      window.removeEventListener('pagehide', flushAll)
       document.removeEventListener('visibilitychange', onVisibility)
-      flush()
+      // This view's chat; the reply keeps running for the next page.
+      const id = streamChatIdRef.current
+      if (id) void guestReplies.flush(id)
     }
   }, [])
 
@@ -342,14 +371,50 @@ export const useConversations = (
   const guestAllowed =
     session.status === 'signed-out' ||
     (session.status === 'unknown' && liveLocalConversations !== undefined && !hasOwnedLocalChats)
-  const sendMode: SendMode = isAuthenticated ? 'convex' : !isAuthLoading && guestAllowed ? 'guest' : null
-  const [sendGate] = useState(() => createModeGate<'convex' | 'guest'>())
-  useEffect(() => {
-    sendGate.set(sendMode)
-  }, [sendGate, sendMode])
+  const destinationKey = convexBoundUserId
+    ? `convex:${convexBoundUserId}`
+    : !isAuthenticated && !isAuthLoading && guestAllowed
+      ? 'guest'
+      : null
+  const destination = useMemo(
+    (): SendDestination | null =>
+      destinationKey === 'guest'
+        ? { kind: 'guest' }
+        : destinationKey && convexBoundUserId
+          ? { kind: 'convex', userId: convexBoundUserId }
+          : null,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [destinationKey],
+  )
 
-  /** Resolves once it is known where a write must go. Never drops the request. */
-  const waitForSendMode = useCallback(() => sendGate.wait(), [sendGate])
+  // Sends made before it is known where they may go wait here, bound to the
+  // identity on screen when they were made (see decideQueuedSend). They are
+  // cancelled, with a message, if that identity changes or this view closes.
+  const [sendGate] = useState(() => createSendGate({ session, destination }))
+  useEffect(() => {
+    sendGate.update({ session, destination })
+  }, [sendGate, session, destination])
+  useEffect(() => {
+    sendGate.open()
+    return () => sendGate.close()
+  }, [sendGate])
+
+  /** Where a write made now may go, or null if it was cancelled (the user is told). */
+  const resolveDestination = useCallback(async (): Promise<SendDestination | null> => {
+    const { queued, decision } = sendGate.request()
+    const waitingToast = queued ? toast.loading('Waiting for sign-in to finish before sending…') : undefined
+    const result = await decision
+    if (waitingToast !== undefined) toast.dismiss(waitingToast)
+    if (result.kind === 'cancelled') {
+      toast.error(
+        result.reason === 'closed'
+          ? 'Not sent: the page changed before sign-in finished.'
+          : 'Not sent: you signed out or switched accounts.',
+      )
+      return null
+    }
+    return result
+  }, [sendGate])
 
   // This effect correctly sets the displayed model on mount and on auth change
   // without incorrectly writing to localStorage.
@@ -403,9 +468,10 @@ export const useConversations = (
     ) => {
       // The chat the user typed into, captured before waiting.
       const targetChatId = currentChatId
-      const mode = await waitForSendMode()
+      const target = await resolveDestination()
+      if (!target) return
 
-      if (mode === 'convex') {
+      if (target.kind === 'convex') {
         // A local chat id can't be sent to Convex: start a new server chat.
         let chatId = targetChatId && !isGuestLocalId(targetChatId) ? (targetChatId as Id<'chats'>) : null
         if (!chatId) {
@@ -443,6 +509,7 @@ export const useConversations = (
             updatedAt: now,
             lastMessageAt: now,
           })
+          if (!targetChatId) setLaunchedChatId(newConversationId)
           setTimeout(() => {
             router.push(`/chat/${newConversationId}`)
           }, 0)
@@ -463,7 +530,7 @@ export const useConversations = (
         reportGuestError(error, 'An error occurred while getting the response.')
       }
     },
-    [currentChatId, selectedModel, createChat, sendMessage, router, waitForSendMode, runGuestReply],
+    [currentChatId, selectedModel, createChat, sendMessage, router, resolveDestination, runGuestReply],
   )
 
   const handleRetryMessage = useCallback(
@@ -478,8 +545,9 @@ export const useConversations = (
         const messageToRetry = activeMessages[messageIndex]
         if (messageToRetry.role !== 'assistant') return
 
-        const mode = await waitForSendMode()
-        if (mode === 'convex') {
+        const target = await resolveDestination()
+        if (!target) return
+        if (target.kind === 'convex') {
           if (isGuestLocalId(chatId)) throw new GuestChatUnavailableError()
           await retryMessage({
             chatId: chatId as Id<'chats'>,
@@ -500,7 +568,7 @@ export const useConversations = (
         reportGuestError(error, 'Failed to retry message.')
       }
     },
-    [currentChatId, activeMessages, selectedModel, retryMessage, waitForSendMode, runGuestReply],
+    [currentChatId, activeMessages, selectedModel, retryMessage, resolveDestination, runGuestReply],
   )
 
   const handleEditMessage = useCallback(
@@ -509,8 +577,9 @@ export const useConversations = (
       const chatId = currentChatId
 
       try {
-        const mode = await waitForSendMode()
-        if (mode === 'convex') {
+        const target = await resolveDestination()
+        if (!target) return
+        if (target.kind === 'convex') {
           if (isGuestLocalId(chatId)) throw new GuestChatUnavailableError()
           await editMessageAndRegenerate({
             messageId: messageId as Id<'messages'>,
@@ -552,7 +621,7 @@ export const useConversations = (
         reportGuestError(error, 'Failed to edit message.')
       }
     },
-    [editMessageAndRegenerate, selectedModel, currentChatId, waitForSendMode, runGuestReply],
+    [editMessageAndRegenerate, selectedModel, currentChatId, resolveDestination, runGuestReply],
   )
 
   const handleStopGeneration = useCallback(async () => {
@@ -573,14 +642,14 @@ export const useConversations = (
       } else {
         toast.info('No active generation to stop.')
       }
-    } else if (isLocalStreaming && guestReplies.stop()) {
+    } else if (isLocalStreaming && streamChatId && guestReplies.stop(streamChatId)) {
       // The guest stream loop appends the "stopped" note and saves the partial
       // reply as soon as the request is aborted.
       toast.success('Generation stopped.')
     } else {
       toast.info('No active generation to stop.')
     }
-  }, [isAuthenticated, isConvexStreaming, isLocalStreaming, verifiedConvexMessages, cancelMessage])
+  }, [isAuthenticated, isConvexStreaming, isLocalStreaming, streamChatId, verifiedConvexMessages, cancelMessage])
 
   const deleteConversation = useCallback(
     async (id: string) => {

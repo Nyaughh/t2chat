@@ -1,9 +1,12 @@
 import { db, type Conversation, type DBMessage } from './dexie'
 import {
+  boundPlan,
   isGuestWritable,
+  localSessionKey,
   planOwnershipSync,
   runOwnershipSync,
   type LocalSessionState,
+  type OwnershipPlan,
   type OwnershipSyncOutcome,
 } from './local-data-policy'
 import { createGuestReplyRegistry, type GuestMessageStore } from './guest-stream'
@@ -103,18 +106,25 @@ export const guardedGuestMessageStore: GuestMessageStore = {
 /** The running guest reply, shared by every mounted chat view. */
 export const guestReplies = createGuestReplyRegistry({ store: guardedGuestMessageStore })
 
-async function applyPlan(session: LocalSessionState) {
+/**
+ * Apply a plan with compare-and-set semantics: only rows that still have the
+ * exact ownership state recorded in the plan are deleted or claimed. A plan
+ * made for an older session therefore can't undo a newer transition (another
+ * tab signing in, deleting the old owner's rows and claiming the rest).
+ */
+async function applyPlan(session: LocalSessionState, plan: OwnershipPlan) {
   await rw(async () => {
-    // Re-plan inside the transaction: other tabs may have changed the rows.
-    const plan = planOwnershipSync(await db.conversations.toArray(), session)
-    if (plan.deleteConversationIds.length > 0) {
-      await db.messages.where('conversationId').anyOf(plan.deleteConversationIds).delete()
-      await db.conversations.bulkDelete(plan.deleteConversationIds)
+    const ids = [...plan.deletions, ...plan.claims].map((row) => row.id)
+    const bound = boundPlan(plan, await db.conversations.bulkGet(ids))
+    const deleteIds = bound.deletions.map((row) => row.id)
+    if (deleteIds.length > 0) {
+      await db.messages.where('conversationId').anyOf(deleteIds).delete()
+      await db.conversations.bulkDelete(deleteIds)
     }
-    if (session.status === 'signed-in' && plan.claimConversationIds.length > 0) {
+    if (session.status === 'signed-in' && bound.claims.length > 0) {
       await db.conversations
         .where('id')
-        .anyOf(plan.claimConversationIds)
+        .anyOf(bound.claims.map((row) => row.id))
         .modify((conv) => {
           conv.userId = session.userId
           delete conv.legacyOwner
@@ -138,15 +148,36 @@ export function syncLocalOwnership(
   session: LocalSessionState,
   confirm: () => Promise<LocalSessionState>,
 ): Promise<OwnershipSyncOutcome> {
-  const run = () => runOwnershipSync(session, { readRows: () => db.conversations.toArray(), confirm, apply: applyPlan })
+  // Several mounted hooks ask for the same sync at once; run it once.
+  const key = localSessionKey(session)
+  const existing = queuedSyncs.get(key)
+  if (existing) return existing
+  const run = () => {
+    queuedSyncs.delete(key)
+    return runOwnershipSync(session, { readRows: () => db.conversations.toArray(), confirm, apply: applyPlan })
+  }
   const result = queue.then(run, run)
+  queuedSyncs.set(key, result)
   queue = result.catch(() => undefined)
   return result
 }
 
-/** Wipe what signed-in users claimed. Call only after a sign-out has succeeded. */
-export function wipeClaimedLocalData(): Promise<void> {
-  const run = () => applyPlan({ status: 'signed-out' })
+const queuedSyncs = new Map<string, Promise<OwnershipSyncOutcome>>()
+
+/**
+ * Record which claimed rows exist right before an explicit sign-out. Pass the
+ * result to `wipeClaimedLocalData` once the sign-out has succeeded.
+ */
+export async function snapshotClaimedLocalData(): Promise<OwnershipPlan> {
+  return planOwnershipSync(await db.conversations.toArray(), { status: 'signed-out' })
+}
+
+/**
+ * Delete the rows recorded by `snapshotClaimedLocalData`, if they are still in
+ * that state. Rows claimed or changed after the snapshot are left alone.
+ */
+export function wipeClaimedLocalData(snapshot: OwnershipPlan): Promise<void> {
+  const run = () => applyPlan({ status: 'signed-out' }, snapshot)
   const result = queue.then(run, run)
   queue = result.catch(() => undefined)
   return result
