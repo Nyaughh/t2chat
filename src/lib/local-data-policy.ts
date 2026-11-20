@@ -272,8 +272,9 @@ export interface SendGateState {
  *   verified to be X. Cancelled if X signs out or another account appears.
  * - Made while signed out (or while the session was unknown, which shows the
  *   guest view): stays local. Cancelled if someone signs in.
- * - Made while the first session check was still pending: bound to the first
- *   identity that check reports.
+ * - Made while the first session check was still pending: the gate binds it
+ *   to the first session that check reports (see latchOrigin), and from then on
+ *   the rules above apply. Until then it never goes anywhere.
  */
 export function decideQueuedSend(origin: LocalSessionState, state: SendGateState): SendDecision | null {
   const { session, destination } = state
@@ -295,9 +296,18 @@ export function decideQueuedSend(origin: LocalSessionState, state: SendGateState
       if (session.status === 'signed-in') return cancelled
       return destination?.kind === 'guest' ? destination : null
     case 'pending':
-      return destination
+      // Not bound to an identity yet; createSendGate latches one first.
+      return null
   }
 }
+
+/**
+ * The identity a queued send is bound to. A send made while the first session
+ * check was pending is bound to the first non-pending session reported, even
+ * if Convex isn't ready yet; later sessions don't rebind it.
+ */
+export const latchOrigin = (origin: LocalSessionState, session: LocalSessionState): LocalSessionState =>
+  origin.status === 'pending' && session.status !== 'pending' ? session : origin
 
 export interface SendGate {
   update(state: SendGateState): void
@@ -316,6 +326,7 @@ export function createSendGate(initial: SendGateState): SendGate {
 
   const settle = () => {
     for (const waiter of [...waiters]) {
+      waiter.origin = latchOrigin(waiter.origin, state.session)
       const decision = decideQueuedSend(waiter.origin, state)
       if (decision) {
         waiters.delete(waiter)
@@ -331,7 +342,7 @@ export function createSendGate(initial: SendGateState): SendGate {
     },
     request() {
       if (closed) return { queued: false, decision: Promise.resolve({ kind: 'cancelled', reason: 'closed' }) }
-      const origin = state.session
+      const origin: LocalSessionState = state.session
       const now = decideQueuedSend(origin, state)
       if (now) return { queued: false, decision: Promise.resolve(now) }
       return {

@@ -11,7 +11,12 @@ import { models, type ModelInfo } from '@/lib/models'
 import type { ClientMessage, Attachment, ConvexChat, ConvexMessage } from '@/lib/types'
 import type { Id } from '../../convex/_generated/dataModel'
 import type { ModelMessage } from 'ai'
-import { toModelHistory, type GuestReplyResult, type GuestReplyView } from '@/lib/guest-stream'
+import {
+  toModelHistory,
+  type GuestReplyResult,
+  type GuestReplyView,
+  type GuestStreamSnapshot,
+} from '@/lib/guest-stream'
 import {
   GuestChatUnavailableError,
   addGuestMessage,
@@ -84,6 +89,7 @@ const reportGuestError = (error: unknown, fallback: string) => {
 
 const reportGuestResult = (result: GuestReplyResult) => {
   if (result.error) toast.error(result.error)
+  else if (result.status === 'claimed') toast.info('You signed in, so this reply stopped. What arrived is kept for import.')
   else if (result.status === 'rejected') toast.error('This chat is no longer available.')
 }
 
@@ -225,6 +231,27 @@ export const useConversations = (
   const streamChatId = currentChatId ?? launchedChatId
   const guestReply = streamChatId ? guestReplyViews.get(streamChatId) : undefined
   const isLocalStreaming = !!guestReply?.streaming
+
+  // A reply's registry entry is released as soon as it ends. Its last text is
+  // held here only until IndexedDB shows the same text (so the older throttled
+  // write never flashes), the message is gone or hidden, or the view moves to
+  // another chat.
+  const [heldOverlay, setHeldOverlay] = useState<GuestStreamSnapshot | null>(null)
+  const runningSnapshot = guestReply?.snapshot ?? null
+  // Reset first, so a view that mounts mid-reply keeps the snapshot it then captures.
+  useEffect(() => {
+    setHeldOverlay(null)
+  }, [streamChatId])
+  useEffect(() => {
+    if (runningSnapshot) setHeldOverlay(runningSnapshot)
+  }, [runningSnapshot])
+  useEffect(() => {
+    if (!heldOverlay || isLocalStreaming) return
+    const row = liveLocalMessages.find((m) => m.id === heldOverlay.id)
+    if (!row || (row.content === heldOverlay.content && (row.thinking || undefined) === heldOverlay.thinking)) {
+      setHeldOverlay(null)
+    }
+  }, [heldOverlay, isLocalStreaming, liveLocalMessages])
   const streamChatIdRef = useRef(streamChatId)
   streamChatIdRef.current = streamChatId
 
@@ -267,7 +294,7 @@ export const useConversations = (
     }
 
     // Guests: IndexedDB, with the live text of a streaming reply on top.
-    const live = guestReply?.snapshot
+    const live = runningSnapshot ?? heldOverlay
     return liveLocalMessages.map((msg) => {
       const client = localToClientMessage(msg)
       if (live && live.id === msg.id) {
@@ -283,7 +310,8 @@ export const useConversations = (
     verifiedConvexMessages,
     verifiedChatExists,
     liveLocalMessages,
-    guestReply,
+    runningSnapshot,
+    heldOverlay,
     initialMessages,
     currentChatId,
     session,

@@ -85,7 +85,11 @@ export async function deleteGuestConversation(conversationId: string) {
   })
 }
 
-/** Store used by guest replies: every write re-checks that the chat is still an unowned guest chat. */
+/**
+ * Store used by guest replies. Every write re-checks the chat: a deleted
+ * (wiped) message or chat is never recreated, and a chat claimed by a user who
+ * signed in mid-reply gets only the one final `saveClaimed` write.
+ */
 export const guardedGuestMessageStore: GuestMessageStore = {
   add: (message) =>
     rw(async () => {
@@ -96,7 +100,16 @@ export const guardedGuestMessageStore: GuestMessageStore = {
   update: (id, changes) =>
     rw(async () => {
       const msg = await db.messages.get(id)
-      if (!msg || !(await writableConversation(msg.conversationId))) return false
+      const conv = msg ? await db.conversations.get(msg.conversationId) : undefined
+      if (!msg || !conv) return 'gone'
+      if (!isGuestWritable(conv)) return 'claimed'
+      await db.messages.update(id, changes)
+      return 'ok'
+    }),
+  saveClaimed: (id, changes) =>
+    rw(async () => {
+      const msg = await db.messages.get(id)
+      if (!msg || !(await db.conversations.get(msg.conversationId))) return false
       await db.messages.update(id, changes)
       return true
     }),

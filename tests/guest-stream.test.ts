@@ -4,6 +4,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
+  CLAIMED_NOTE,
   GUEST_PERSIST_INTERVAL_MS,
   STOPPED_NOTE,
   createGuestReplyRegistry,
@@ -16,22 +17,34 @@ import type { DBMessage } from '../src/lib/dexie'
 const line = (type: string, value: unknown) => `2:${JSON.stringify([{ type, value }])}\n`
 const tick = () => new Promise((r) => setTimeout(r, 0))
 
-/** In-memory stand-in for the guarded db.messages store that counts writes. */
+/**
+ * In-memory stand-in for guardedGuestMessageStore that counts writes. The chat
+ * is an unowned guest chat until `claim()` (a user signed in and owns it now)
+ * or `revoke()` (the chat and its messages were wiped).
+ */
 function memoryStore() {
   const rows = new Map<string, DBMessage>()
-  const counts = { add: 0, update: 0, delete: 0 }
-  let writable = true
+  const counts = { add: 0, update: 0, delete: 0, saveClaimed: 0 }
+  let chat: 'guest' | 'claimed' | 'gone' = 'guest'
   const store: GuestMessageStore = {
     async add(message) {
-      if (!writable) return false
+      if (chat !== 'guest') return false
       counts.add++
       rows.set(message.id, { ...message })
       return true
     },
     async update(id, changes) {
       const row = rows.get(id)
-      if (!writable || !row) return false
+      if (chat === 'gone' || !row) return 'gone'
+      if (chat === 'claimed') return 'claimed'
       counts.update++
+      rows.set(id, { ...row, ...changes })
+      return 'ok'
+    },
+    async saveClaimed(id, changes) {
+      const row = rows.get(id)
+      if (chat === 'gone' || !row) return false
+      counts.saveClaimed++
       rows.set(id, { ...row, ...changes })
       return true
     },
@@ -44,9 +57,13 @@ function memoryStore() {
     store,
     rows,
     counts,
-    /** Simulates the owner wipe / claim: the chat is no longer an unowned guest chat. */
+    /** The guest signed in (maybe in another tab) and the chat was claimed; its rows survive. */
+    claim: () => {
+      chat = 'claimed'
+    },
+    /** The owner wipe: the chat and its messages are deleted. */
     revoke: () => {
-      writable = false
+      chat = 'gone'
       rows.clear()
     },
   }
@@ -199,7 +216,7 @@ test('a chunk inside the throttle window is checkpointed by the trailing timer i
 /** fetch stub that opens a new controllable body per call; `calls[i]` drives the i-th request. */
 function multiFetch() {
   const encoder = new TextEncoder()
-  const calls: Array<{ push: (l: string) => void; end: () => void }> = []
+  const calls: Array<{ push: (l: string) => void; end: () => void; fail: (e: Error) => void }> = []
   const fetchImpl = (async (_url: unknown, init?: RequestInit) => {
     let controller!: ReadableStreamDefaultController<Uint8Array>
     const body = new ReadableStream<Uint8Array>({
@@ -212,7 +229,11 @@ function multiFetch() {
         controller.error(new DOMException('The operation was aborted.', 'AbortError'))
       } catch {}
     })
-    calls.push({ push: (l) => controller.enqueue(encoder.encode(l)), end: () => controller.close() })
+    calls.push({
+      push: (l) => controller.enqueue(encoder.encode(l)),
+      end: () => controller.close(),
+      fail: (e) => controller.error(e),
+    })
     return new Response(body)
   }) as typeof fetch
   return { fetchImpl, calls }
@@ -249,7 +270,7 @@ test('home -> new chat: flush on unmount saves buffered text and the reply keeps
   assert.equal(contentOf(rows, 'X'), 'Hello world')
   assert.ok(chatViews.includes('Hello world'))
   assert.equal(homeViews.includes('Hello world'), false, 'no callbacks reach the unmounted view')
-  assert.equal(registry.getSnapshot().get('X')?.streaming, false)
+  assert.equal(registry.getSnapshot().has('X'), false, 'released once the reply is saved')
 })
 
 test('two chats: an idle chat Y is not streaming, and stop in Y does not cancel X', async () => {
@@ -316,7 +337,110 @@ test('a second reply in the same chat stops the first instead of losing track of
   assert.equal((await second).status, 'complete')
   const contents = [...rows.values()].map((m) => m.content).sort()
   assert.deepEqual(contents, [`first${STOPPED_NOTE}`, 'second'])
-  assert.equal(registry.getSnapshot().get('X')?.snapshot?.content, 'second')
+  assert.equal(registry.getSnapshot().has('X'), false)
+})
+
+test('nothing is retained after replies end: completed, stopped, failed and refused entries are released', async () => {
+  const { store, revoke } = memoryStore()
+  const net = multiFetch()
+  const registry = createGuestReplyRegistry({ store, fetchImpl: net.fetchImpl, now: () => 0, createId, ...manualTimers() })
+
+  const done = registry.run({ ...base, conversationId: 'done' })
+  const stopped = registry.run({ ...base, conversationId: 'stopped' })
+  const failed = registry.run({ ...base, conversationId: 'failed' })
+  await tick()
+  for (const call of net.calls) call.push(line('text', 'text'))
+  await tick()
+  assert.deepEqual([...registry.getSnapshot().keys()].sort(), ['done', 'failed', 'stopped'])
+
+  net.calls[0].end()
+  registry.stop('stopped')
+  net.calls[2].fail(new TypeError('network down'))
+  assert.equal((await done).status, 'complete')
+  assert.equal((await stopped).status, 'stopped')
+  await assert.rejects(failed, /network down/)
+  assert.equal(registry.getSnapshot().size, 0)
+
+  // A reply refused after a wipe is released too.
+  revoke()
+  const refused = registry.run({ ...base, conversationId: 'wiped' })
+  await tick()
+  assert.equal((await refused).status, 'rejected')
+  assert.equal(registry.getSnapshot().size, 0)
+})
+
+test('claim mid-reply: the text already shown is kept in the surviving chat for import, then the reply stops', async () => {
+  const { store, rows, counts, claim } = memoryStore()
+  const net = controllableFetch()
+  const timers = manualTimers()
+  let t = 0
+  const shown: string[] = []
+  const done = streamGuestReply({
+    ...base,
+    signal: new AbortController().signal,
+    store,
+    onUpdate: (s) => shown.push(s.content),
+    fetchImpl: net.fetchImpl,
+    now: () => t,
+    createId,
+    ...timers,
+  })
+  net.respond()
+  await tick()
+  net.push(line('text', 'visible'))
+  await tick()
+  const id = [...rows.keys()][0]
+  assert.equal(rows.get(id)?.content, '', 'still inside the throttle window')
+
+  // The same guest signs in (second tab) and the chat is claimed, not wiped.
+  claim()
+  t += GUEST_PERSIST_INTERVAL_MS
+  timers.fireAll()
+  const result = await done
+  assert.equal(result.status, 'claimed')
+  assert.equal(result.messageId, id)
+  assert.equal(rows.get(id)?.content, `visible${CLAIMED_NOTE}`, 'the shown partial text survives for import')
+  assert.equal(counts.saveClaimed, 1, 'exactly one final write into the claimed chat')
+  assert.equal(shown.at(-1), `visible${CLAIMED_NOTE}`)
+
+  // Later chunks write nothing more.
+  try {
+    net.push(line('text', ' later'))
+  } catch {}
+  await tick()
+  assert.equal(rows.get(id)?.content, `visible${CLAIMED_NOTE}`)
+})
+
+test('claim right at completion keeps the full reply without a note', async () => {
+  const { store, rows, claim } = memoryStore()
+  const net = controllableFetch()
+  const done = streamGuestReply({
+    ...base,
+    signal: new AbortController().signal,
+    store,
+    fetchImpl: net.fetchImpl,
+    now: () => 0,
+    createId,
+    ...manualTimers(),
+  })
+  net.respond()
+  await tick()
+  net.push(line('text', 'all of it'))
+  await tick()
+  claim()
+  net.end()
+  const result = await done
+  assert.equal(result.status, 'claimed')
+  assert.equal(rows.get(result.messageId!)?.content, 'all of it')
+})
+
+test('wipe vs claim: a wiped chat is never recreated, even by the final claimed write', async () => {
+  const { store, rows, counts, revoke } = memoryStore()
+  assert.equal(await store.saveClaimed('missing', { content: 'x' }), false)
+  revoke()
+  assert.equal(await store.update('missing', { content: 'x' }), 'gone')
+  assert.equal(rows.size, 0)
+  assert.equal(counts.saveClaimed, 0)
 })
 
 test('a network error after only reasoning keeps the reasoning', async () => {

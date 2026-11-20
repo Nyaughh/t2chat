@@ -10,18 +10,32 @@ import { parseDataStream } from './stream-parser'
 // Older code awaited an IndexedDB write on every chunk (audit P2).
 
 export const STOPPED_NOTE = '\n\n*Generation was stopped by user.*'
+/** Appended when the reply was cut short because the guest signed in and the chat was claimed. */
+export const CLAIMED_NOTE = '\n\n*Generation stopped because you signed in.*'
 export const GUEST_PERSIST_INTERVAL_MS = 250
 
 export type GuestMessageChanges = Partial<Pick<DBMessage, 'content' | 'thinking' | 'thinkingDuration'>>
 
 /**
- * Where guest replies are stored. `add` and `update` resolve to false when the
- * write isn't allowed: the conversation is gone, or now belongs to a signed-in
- * user. The stream then stops without writing anything else.
+ * Result of a guest write:
+ * - `ok`: written.
+ * - `claimed`: the chat still exists but a signed-in user now owns it (the
+ *   guest signed in, maybe in another tab). Nothing was written.
+ * - `gone`: the message or its chat was deleted (wiped). Nothing was written.
  */
+export type GuestWriteResult = 'ok' | 'claimed' | 'gone'
+
+/** Where guest replies are stored. Every write re-checks the chat's state. */
 export interface GuestMessageStore {
+  /** Resolves to false (nothing written) unless the chat exists and is an unowned guest chat. */
   add(message: DBMessage): Promise<boolean>
-  update(id: string, changes: GuestMessageChanges): Promise<boolean>
+  update(id: string, changes: GuestMessageChanges): Promise<GuestWriteResult>
+  /**
+   * One last write into a chat that was claimed while its reply was running,
+   * so the text already shown is kept for import. Never recreates a message or
+   * chat that was deleted. Resolves to false if nothing was written.
+   */
+  saveClaimed(id: string, changes: GuestMessageChanges): Promise<boolean>
   delete(id: string): Promise<unknown>
 }
 
@@ -49,12 +63,17 @@ export interface StreamGuestReplyOptions {
   clearTimer?: (handle: unknown) => void
 }
 
-export type GuestReplyStatus = 'complete' | 'stopped' | 'empty' | 'rejected'
+export type GuestReplyStatus = 'complete' | 'stopped' | 'empty' | 'claimed' | 'rejected'
 
 export interface GuestReplyResult {
   /** Id of the assistant message, or null if none was kept. */
   messageId: string | null
-  /** `rejected`: the conversation was removed or claimed mid-stream; nothing more was written. */
+  /**
+   * - `claimed`: the chat was claimed by a user who signed in; the text received
+   *   so far was saved into it and the reply stopped.
+   * - `rejected`: the chat was deleted, or claimed before any reply was written;
+   *   nothing more was written.
+   */
   status: GuestReplyStatus
   /** Error text the server sent in the stream, if any. */
   error?: string
@@ -84,12 +103,14 @@ export async function streamGuestReply(options: StreamGuestReplyOptions): Promis
     clearTimer = (handle) => clearTimeout(handle as ReturnType<typeof setTimeout>),
   } = options
 
-  // Aborted by the caller (user pressed stop) or by us (write rejected).
+  // Aborted by the caller (user pressed stop) or by us (write refused).
   const internal = new AbortController()
   const onCallerAbort = () => internal.abort()
   if (signal.aborted) internal.abort()
   else signal.addEventListener('abort', onCallerAbort, { once: true })
-  let rejected = false
+  // Set once a write is refused; no further writes happen after that.
+  let refused: null | 'claimed' | 'gone' = null
+  let completed = false
 
   try {
     let response: Response
@@ -147,16 +168,23 @@ export async function streamGuestReply(options: StreamGuestReplyOptions): Promis
     // Writes are chained so they land in order.
     const persist = (): Promise<void> => {
       cancelTimer()
-      if (rejected) return Promise.resolve()
+      if (refused) return Promise.resolve()
       dirty = false
       lastPersist = now()
       const changes = { content, thinking: thinking || undefined, thinkingDuration }
       const write = writes.then(async () => {
-        if (rejected) return
-        const ok = await store.update(id, changes)
-        if (!ok) {
-          rejected = true
-          internal.abort()
+        if (refused) return
+        const result = await store.update(id, changes)
+        if (result === 'ok') return
+        refused = result
+        internal.abort()
+        if (result === 'claimed') {
+          // The guest signed in and the chat survived for import: keep
+          // everything received so far (what was on screen), then stop.
+          if (!completed) content += CLAIMED_NOTE
+          dirty = false
+          await store.saveClaimed(id, { content, thinking: thinking || undefined, thinkingDuration })
+          onUpdate?.(snapshot())
         }
       })
       writes = write.catch(() => undefined)
@@ -207,18 +235,19 @@ export async function streamGuestReply(options: StreamGuestReplyOptions): Promis
     }
     cancelTimer()
 
-    if (rejected) {
+    const refusedResult = async (): Promise<GuestReplyResult> => {
       await writes
-      return { messageId: null, status: 'rejected', error: streamError }
+      return refused === 'claimed'
+        ? { messageId: id, status: 'claimed', error: streamError }
+        : { messageId: null, status: 'rejected', error: streamError }
     }
+    if (refused) return refusedResult()
 
     if (signal.aborted) {
       content += STOPPED_NOTE
       onUpdate?.(snapshot())
       await persist()
-      return rejected
-        ? { messageId: null, status: 'rejected', error: streamError }
-        : { messageId: id, status: 'stopped', error: streamError }
+      return refused ? refusedResult() : { messageId: id, status: 'stopped', error: streamError }
     }
 
     if (!content.trim() && !thinking.trim()) {
@@ -227,8 +256,9 @@ export async function streamGuestReply(options: StreamGuestReplyOptions): Promis
       return { messageId: null, status: 'empty', error: streamError }
     }
 
+    completed = true
     await persist()
-    if (rejected) return { messageId: null, status: 'rejected', error: streamError }
+    if (refused) return refusedResult()
     onUpdate?.(snapshot())
     return { messageId: id, status: 'complete', error: streamError }
   } finally {
@@ -246,13 +276,17 @@ export async function streamGuestReply(options: StreamGuestReplyOptions): Promis
 export interface GuestReplyView {
   /** True while a reply is being generated in this conversation. */
   streaming: boolean
-  /** Latest text of the reply. Kept after it ends, until the next reply in this conversation. */
+  /** Latest text of the running reply. */
   snapshot: GuestStreamSnapshot | null
 }
 
 export interface GuestReplyRegistry {
   subscribe(listener: () => void): () => void
-  /** Per-conversation state. A new Map object on every change. */
+  /**
+   * Running replies by conversation. A new Map object on every change. An entry
+   * is removed as soon as its reply ends and its last write has finished, so
+   * nothing (text, flush closure) is kept after that.
+   */
   getSnapshot(): ReadonlyMap<string, GuestReplyView>
   /** Start a reply. A reply still running in the same conversation is stopped first. */
   run(args: { conversationId: string; history: ModelMessage[]; modelId: string }): Promise<GuestReplyResult>
@@ -276,7 +310,7 @@ export function createGuestReplyRegistry(
     snapshot: GuestStreamSnapshot | null
     flush?: () => Promise<void>
   }
-  // The current entry per conversation (running or the last finished one).
+  // The running entry per conversation.
   const entries = new Map<string, Entry>()
   let view = EMPTY_VIEW
   const listeners = new Set<() => void>()
@@ -322,8 +356,13 @@ export function createGuestReplyRegistry(
           },
         })
       } finally {
+        // streamGuestReply has awaited its last write by now.
         entry.streaming = false
-        if (isCurrent()) emit()
+        entry.flush = undefined
+        if (isCurrent()) {
+          entries.delete(conversationId)
+          emit()
+        }
       }
     },
     stop(conversationId) {

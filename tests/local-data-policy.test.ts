@@ -14,6 +14,7 @@ import {
   isGuestLocalId,
   isGuestWritable,
   isLocalRowVisible,
+  latchOrigin,
   ownershipRetryDelayMs,
   planLegacyCleanup,
   planOwnershipSync,
@@ -317,6 +318,33 @@ test('a send made during the first session check binds to the identity it report
   assert.equal(await settled(r.decision), 'waiting')
   gate.update({ session: A, destination: CONVEX_A })
   assert.deepEqual(await r.decision, CONVEX_A)
+})
+
+test('a send made while pending is bound to the first identity reported, even before its token is ready', async () => {
+  // pending -> A (no token yet) -> B with a ready token: must not go to B.
+  const g1 = createSendGate({ session: PENDING, destination: null })
+  const r1 = g1.request()
+  g1.update({ session: A, destination: null })
+  g1.update({ session: B, destination: CONVEX_B })
+  assert.deepEqual(await r1.decision, CANCELLED)
+
+  // pending -> A (no token yet) -> signed out: must not be written as guest data.
+  const g2 = createSendGate({ session: PENDING, destination: null })
+  const r2 = g2.request()
+  g2.update({ session: A, destination: null })
+  g2.update({ session: OUT, destination: GUEST })
+  assert.deepEqual(await r2.decision, CANCELLED)
+
+  // pending -> signed out: stays local.
+  const g3 = createSendGate({ session: PENDING, destination: null })
+  const r3 = g3.request()
+  g3.update({ session: OUT, destination: GUEST })
+  assert.deepEqual(await r3.decision, GUEST)
+
+  // pending never goes anywhere on its own.
+  assert.equal(decideQueuedSend(PENDING, { session: PENDING, destination: GUEST }), null)
+  assert.deepEqual(latchOrigin(PENDING, A), A)
+  assert.deepEqual(latchOrigin(A, B), A)
 })
 
 test('closing the view settles waiting sends as cancelled; reopening accepts new ones', async () => {
