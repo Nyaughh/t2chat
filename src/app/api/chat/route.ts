@@ -3,7 +3,8 @@ import { createGoogleGenerativeAI } from '@ai-sdk/google'
 import { createGroq } from '@ai-sdk/groq'
 import { createOpenRouter } from '@openrouter/ai-sdk-provider'
 
-import { models, DEFAULT_MODEL_ID, getProviderDisplayName, type ModelInfo } from '@/lib/models'
+import { models, DEFAULT_MODEL_ID, getProviderDisplayName, groqReasoningOptions, type ModelInfo } from '@/lib/models'
+import { describeProviderError, userFacingProviderError } from '@/lib/provider-errors'
 import { basePersonality } from '../../../../prompts/base'
 
 export const maxDuration = 30
@@ -104,8 +105,8 @@ export async function POST(req: Request) {
       providerOptions:
         thinking && info.provider === 'gemini'
           ? { google: { thinkingConfig: { includeThoughts: true } } }
-          : thinking && info.provider === 'groq' && !info.id.startsWith('openai/gpt-oss')
-            ? { groq: { reasoningFormat: 'parsed' } }
+          : thinking && groqReasoningOptions(info)
+            ? { groq: groqReasoningOptions(info)! }
             : undefined,
       abortSignal: req.signal,
       // Errors are forwarded to the client in the stream loop below
@@ -142,14 +143,28 @@ export async function POST(req: Request) {
                 }),
               )
             } else if (chunk.type === 'error') {
+              // Never forward or log the provider's own error text (it can echo request details)
+              console.error(
+                'Chat API stream error:',
+                describeProviderError({ provider: info.provider, model: info.id }, chunk.error),
+              )
               controller.enqueue(
-                dataLine('error', (chunk.error as { message?: string } | undefined)?.message || 'Unknown error'),
+                dataLine(
+                  'error',
+                  userFacingProviderError(chunk.error, getProviderDisplayName(info.provider), info.name),
+                ),
               )
             }
           }
         } catch (error) {
           if (!req.signal.aborted) {
-            controller.enqueue(dataLine('error', error instanceof Error ? error.message : 'Unknown error'))
+            console.error(
+              'Chat API stream error:',
+              describeProviderError({ provider: info.provider, model: info.id }, error),
+            )
+            controller.enqueue(
+              dataLine('error', userFacingProviderError(error, getProviderDisplayName(info.provider), info.name)),
+            )
           }
         } finally {
           controller.close()
@@ -159,10 +174,7 @@ export async function POST(req: Request) {
 
     return new Response(body, { status: 200, headers: streamHeaders })
   } catch (error) {
-    console.error('Error in chat API:', error instanceof Error ? error.message : error)
-    if (error instanceof Error) {
-      return new Response(JSON.stringify({ error: error.message }), { status: 500 })
-    }
+    console.error('Error in chat API:', describeProviderError({ provider: 'unknown', model: 'unknown' }, error))
     return new Response(JSON.stringify({ error: 'An unknown error occurred' }), { status: 500 })
   }
 }

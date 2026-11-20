@@ -113,8 +113,29 @@ const verifyProviderKey = async (service: ApiKeyService, key: string) => {
   } catch {
     return
   }
-  if (response.status === 401 || response.status === 403) {
-    throw new ConvexError(`That ${service === 'openai' ? 'OpenAI' : 'Anthropic'} API key was rejected. Check it and try again.`)
+  if (response.ok || (response.status !== 401 && response.status !== 403)) return
+
+  // Only the error code/type is read from the body. It is never logged or shown.
+  let errorInfo: { code?: unknown; type?: unknown } | undefined
+  try {
+    errorInfo = ((await response.json()) as { error?: { code?: unknown; type?: unknown } })?.error
+  } catch {
+    errorInfo = undefined
+  }
+
+  // Reject only a credential the provider says is invalid. A valid key can still be
+  // denied the models list: OpenAI restricted keys without the api.model.read scope
+  // get 401 insufficient_permissions, and Anthropic answers 403 permission_error.
+  // Those keys can still chat, so they are accepted.
+  const isInvalidCredential =
+    service === 'openai'
+      ? response.status === 401 && errorInfo?.code === 'invalid_api_key'
+      : response.status === 401 && (errorInfo === undefined || errorInfo.type === 'authentication_error')
+
+  if (isInvalidCredential) {
+    throw new ConvexError(
+      `That ${service === 'openai' ? 'OpenAI' : 'Anthropic'} API key was rejected. Check it and try again.`,
+    )
   }
 }
 

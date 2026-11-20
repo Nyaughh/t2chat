@@ -9,7 +9,7 @@ import { ScrollToBottomButton } from './components/ScrollToBottomButton'
 import { SimpleVoiceChat } from './components/SimpleVoiceChat'
 import { ChatErrorBoundary } from '@/components/ChatErrorBoundary'
 import { useVoiceChatAPI } from '@/hooks/useVoiceChatAPI'
-import { models } from '@/lib/models'
+import { voiceModels, type ModelInfo } from '@/lib/models'
 import { UploadButton } from '@/lib/uploadthing'
 import { Paperclip, FileText, Phone } from 'lucide-react'
 import { toast } from 'sonner'
@@ -81,6 +81,8 @@ export default function ChatInterface({ chatId, initialMessages }: ChatInterface
   const [uploadProgress, setUploadProgress] = useState<{ [key: string]: number }>({})
   const [isUploading, setIsUploading] = useState(false)
   const [isVoiceChatOpen, setIsVoiceChatOpen] = useState(false)
+  // Voice chat runs on server-key models only; its selection is kept separate from the text chat's
+  const [voiceModel, setVoiceModel] = useState<ModelInfo>(voiceModels[0])
   const branchChat = useMutation(api.chat.mutations.branchChat)
   const createChat = useMutation(api.chat.mutations.createChat)
   const addMessage = useMutation(api.chat.mutations.addMessage)
@@ -138,6 +140,11 @@ export default function ChatInterface({ chatId, initialMessages }: ChatInterface
   }
 
   const handleVoiceChatToggle = () => {
+    if (!isVoiceChatOpen) {
+      // Use the text chat's model when voice supports it; otherwise keep the current voice model
+      const supported = voiceModels.find((m) => m.id === selectedModel.id)
+      if (supported) setVoiceModel(supported)
+    }
     setIsVoiceChatOpen(!isVoiceChatOpen)
   }
 
@@ -167,7 +174,7 @@ export default function ChatInterface({ chatId, initialMessages }: ChatInterface
           chatId: newChatId,
           role: message.role,
           content: message.content,
-          modelId: selectedModel.id,
+          modelId: voiceModel.id,
         })
       }
 
@@ -184,7 +191,7 @@ export default function ChatInterface({ chatId, initialMessages }: ChatInterface
     message: string,
     conversationHistory: Array<{ role: 'user' | 'assistant'; content: string }>,
   ) => {
-    return await sendVoiceMessage(message, selectedModel.id, conversationHistory, userSettings)
+    return await sendVoiceMessage(message, voiceModel.id, conversationHistory, userSettings)
   }
 
   return (
@@ -329,9 +336,9 @@ export default function ChatInterface({ chatId, initialMessages }: ChatInterface
         onClose={() => setIsVoiceChatOpen(false)}
         onSaveConversation={handleSaveConversation}
         onSendMessage={handleVoiceMessageSend}
-        selectedModel={selectedModel}
-        onModelChange={setSelectedModel}
-        availableModels={models.filter((model) => !model.isApiKeyOnly)}
+        selectedModel={voiceModel}
+        onModelChange={setVoiceModel}
+        availableModels={voiceModels}
       />
     </>
   )

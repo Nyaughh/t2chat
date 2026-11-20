@@ -126,11 +126,12 @@ const modelList: ModelInfo[] = [
   {
     id: 'openai/gpt-oss-20b',
     name: 'GPT-OSS 20B',
-    description: 'Fast open-weight model via Groq',
+    description: 'Fast open-weight reasoning model via Groq',
     provider: 'groq',
     vendor: 'openai',
     features: ['web', 'code'],
-    supportsThinking: false,
+    // GPT-OSS on Groq always returns its reasoning, so it is a thinking model
+    supportsThinking: true,
     attachmentsSuppport: noAttachments,
     toolCalls: true,
     isFree: true,
@@ -337,6 +338,23 @@ export const models: ModelInfo[] = modelList.map((model) => {
     isFree: keyGated ? false : model.isFree,
   }
 })
+
+/**
+ * Groq reasoning options (https://console.groq.com/docs/reasoning). GPT-OSS
+ * returns its reasoning by default and doesn't accept reasoning_format; Qwen 3.8
+ * only returns reasoning when an effort other than "default" is set.
+ */
+export const groqReasoningOptions = (model: ModelInfo) =>
+  model.provider === 'groq' && model.supportsThinking && !model.id.startsWith('openai/gpt-oss')
+    ? { reasoningFormat: 'parsed' as const, reasoningEffort: 'medium' as const }
+    : undefined
+
+/**
+ * Models voice chat can use. Voice goes through /api/chat, which only has the
+ * server keys, so models that need the user's own key are excluded. The first
+ * entry is the default model.
+ */
+export const voiceModels: ModelInfo[] = models.filter((model) => !model.isApiKeyOnly)
 
 export const getVendorColor = (vendor: string): string => {
   const getFullBgColor = (rest: string) => {

@@ -49,14 +49,18 @@ export function useVoiceChatAPI() {
 
         const dataStream = parseDataStream(response.body)
         let fullResponse = ''
+        let errorMessage = ''
 
         for await (const chunk of dataStream) {
           if (chunk.type === 'text') {
             fullResponse += chunk.value
+          } else if (chunk.type === 'error' && typeof chunk.value === 'string') {
+            // The chat route only sends its own fixed, user-facing error messages
+            errorMessage = chunk.value
           }
         }
 
-        return fullResponse.trim() || 'Sorry, I could not generate a response.'
+        return fullResponse.trim() || errorMessage || 'Sorry, I could not generate a response.'
       } catch (error) {
         console.error('Voice chat API error:', error)
         return 'Sorry, there was an error processing your message.'

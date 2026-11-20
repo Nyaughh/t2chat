@@ -7,6 +7,7 @@ import { generateText, ModelMessage } from 'ai'
 import { createGoogleGenerativeAI } from '@ai-sdk/google'
 import { generateAIResponse } from './shared'
 import { TITLE_MODEL_ID } from '../../src/lib/models'
+import { describeProviderError } from '../../src/lib/provider-errors'
 
 export const retryMessage = action({
   args: {
@@ -324,10 +325,20 @@ export const generateTitle = action({
 
     let titlePrompt = `Based on the following user message, generate a short, concise title for the chat (4-5 words max) No Markdown Allowed:\n\nUser: "${messageContent}"\n\nTitle:`
 
-    const { text } = await generateText({
-      model: aiModel,
-      prompt: titlePrompt,
-    })
+    let text: string
+    try {
+      ;({ text } = await generateText({
+        model: aiModel,
+        prompt: titlePrompt,
+      }))
+    } catch (error) {
+      // Log controlled fields only: the provider's error text can echo request details
+      console.error(
+        'Title generation error:',
+        describeProviderError({ provider: 'gemini', model: TITLE_MODEL_ID }, error),
+      )
+      return
+    }
 
     let finalTitle = ''
     finalTitle = text

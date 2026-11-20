@@ -1,7 +1,13 @@
 import { api } from '../_generated/api'
 import { Id } from '../_generated/dataModel'
 import { ConvexError } from 'convex/values'
-import { models, ModelInfo, IMAGE_GENERATION_MODEL_ID, getProviderDisplayName } from '../../src/lib/models'
+import {
+  models,
+  ModelInfo,
+  IMAGE_GENERATION_MODEL_ID,
+  getProviderDisplayName,
+  groqReasoningOptions,
+} from '../../src/lib/models'
 import { streamText, tool, ModelMessage, smoothStream, isStepCount, type LanguageModel, type ToolSet } from 'ai'
 import { createGoogleGenerativeAI, type GoogleLanguageModelOptions } from '@ai-sdk/google'
 import { createAnthropic, type AnthropicLanguageModelOptions } from '@ai-sdk/anthropic'
@@ -13,6 +19,7 @@ import { Modality } from '@google/genai'
 import { basePersonality } from '../../prompts/base'
 import { Buffer } from 'buffer'
 import { getUserApiKey } from '../api_keys'
+import { describeProviderError, providerErrorStatus, userFacingProviderError } from '../../src/lib/provider-errors'
 
 export const mapModel = (modelId: string) => {
   const model = models.find((m) => m.id === modelId)
@@ -89,9 +96,10 @@ const reasoningProviderOptions = (model: ModelInfo, thinking: boolean): Provider
         : undefined
     case 'openai':
       return thinking ? { openai: { reasoningSummary: 'auto' } } : undefined
-    case 'groq':
-      // gpt-oss returns reasoning separately by default; other Groq reasoning models need "parsed"
-      return thinking && !model.id.startsWith('openai/gpt-oss') ? { groq: { reasoningFormat: 'parsed' } } : undefined
+    case 'groq': {
+      const groq = thinking ? groqReasoningOptions(model) : undefined
+      return groq ? { groq } : undefined
+    }
     case 'openrouter':
       return thinking ? { openrouter: { reasoning: { effort: 'medium' } } } : undefined
   }
@@ -189,7 +197,7 @@ export const generateAIResponse = async (
             timestamp: new Date().toISOString(),
           }
         } catch (error) {
-          console.error('Web search error:', error)
+          console.error('Web search error:', describeProviderError({ provider: 'tavily', model: 'search' }, error))
           return {
             query,
             error: 'Failed to perform web search',
@@ -269,11 +277,17 @@ export const generateAIResponse = async (
               timestamp: new Date().toISOString(),
             }
           }
-        } catch (error: any) {
-          console.error('Image generation error:', error?.message || error)
+        } catch (error) {
+          // The Gemini error text can echo request details: log and return fixed fields only
+          console.error(
+            'Image generation error:',
+            describeProviderError({ provider: 'gemini', model: IMAGE_GENERATION_MODEL_ID }, error),
+          )
           return {
             success: false,
-            error: `Failed to generate image: ${error?.message || error}`,
+            error: providerErrorStatus(error)
+              ? `Failed to generate image (status ${providerErrorStatus(error)})`
+              : 'Failed to generate image',
             prompt: prompt,
             timestamp: new Date().toISOString(),
           }
@@ -348,134 +362,158 @@ export const generateAIResponse = async (
     }
   }
 
-  for await (const chunk of stream) {
-    try {
-      // Only content-bearing parts need a cancellation check
-      if (
-        chunk.type !== 'text-delta' &&
-        chunk.type !== 'reasoning-delta' &&
-        chunk.type !== 'tool-call' &&
-        chunk.type !== 'tool-result' &&
-        chunk.type !== 'tool-error' &&
-        chunk.type !== 'finish' &&
-        chunk.type !== 'error'
-      ) {
-        continue
-      }
+  // Appends a fixed, user-facing error note (never the provider's own error text)
+  const withErrorNote = (error: unknown) => {
+    const note = userFacingProviderError(error, getProviderDisplayName(model.provider), model.name)
+    return accumulatedContent ? `${accumulatedContent}\n\n*${note}*` : `*${note}*`
+  }
 
-      // Check if the message has been cancelled
-      const message = await ctx.runQuery(api.chat.queries.getMessage, { messageId: assistantMessageId })
-      if (message?.isCancelled) {
-        break
-      }
-
-      if (chunk.type === 'text-delta') {
-        // Reasoning ends when the first answer text arrives
-        if (thinkingStartTime && !thinkingEndTime) {
-          thinkingEndTime = Date.now()
-        }
-        accumulatedContent += chunk.text
-        hasGeneratedTextBeforeTools = true
-        pendingContentUpdate = true
-
-        // Schedule batched update
-        await scheduleUpdate()
-      } else if (chunk.type === 'reasoning-delta') {
-        if (!chunk.text) continue
-
-        // Track thinking start time
-        if (!thinkingStartTime) {
-          thinkingStartTime = Date.now()
+  try {
+    for await (const chunk of stream) {
+      try {
+        // Only content-bearing parts need a cancellation check
+        if (
+          chunk.type !== 'text-delta' &&
+          chunk.type !== 'reasoning-delta' &&
+          chunk.type !== 'tool-call' &&
+          chunk.type !== 'tool-result' &&
+          chunk.type !== 'tool-error' &&
+          chunk.type !== 'finish' &&
+          chunk.type !== 'error'
+        ) {
+          continue
         }
 
-        accumulatedThinking += chunk.text
-        pendingThinkingUpdate = true
+        // Check if the message has been cancelled
+        const message = await ctx.runQuery(api.chat.queries.getMessage, { messageId: assistantMessageId })
+        if (message?.isCancelled) {
+          break
+        }
 
-        // Schedule batched update for thinking
-        await scheduleUpdate()
-      } else if (chunk.type === 'tool-call') {
-        // If no text was generated before this tool call, add some explanatory text
-        if (!hasGeneratedTextBeforeTools && accumulatedContent.trim() === '') {
-          let explanatoryText = ''
-          if (chunk.toolName === 'generateImage') {
-            explanatoryText = `I'll generate an image for you based on your request. `
-          } else if (chunk.toolName === 'search') {
-            explanatoryText = `Let me search for current information about that. `
-          } else {
-            explanatoryText = `I'll use a tool to help with your request. `
+        if (chunk.type === 'text-delta') {
+          // Reasoning ends when the first answer text arrives
+          if (thinkingStartTime && !thinkingEndTime) {
+            thinkingEndTime = Date.now()
           }
-          accumulatedContent += explanatoryText
+          accumulatedContent += chunk.text
+          hasGeneratedTextBeforeTools = true
+          pendingContentUpdate = true
+
+          // Schedule batched update
+          await scheduleUpdate()
+        } else if (chunk.type === 'reasoning-delta') {
+          if (!chunk.text) continue
+
+          // Track thinking start time
+          if (!thinkingStartTime) {
+            thinkingStartTime = Date.now()
+          }
+
+          accumulatedThinking += chunk.text
+          pendingThinkingUpdate = true
+
+          // Schedule batched update for thinking
+          await scheduleUpdate()
+        } else if (chunk.type === 'tool-call') {
+          // If no text was generated before this tool call, add some explanatory text
+          if (!hasGeneratedTextBeforeTools && accumulatedContent.trim() === '') {
+            let explanatoryText = ''
+            if (chunk.toolName === 'generateImage') {
+              explanatoryText = `I'll generate an image for you based on your request. `
+            } else if (chunk.toolName === 'search') {
+              explanatoryText = `Let me search for current information about that. `
+            } else {
+              explanatoryText = `I'll use a tool to help with your request. `
+            }
+            accumulatedContent += explanatoryText
+          }
+
+          const placeholder = `\n[TOOL_CALL:${chunk.toolCallId}]\n`
+          accumulatedContent += placeholder
+          accumulatedToolCalls.push({
+            toolCallId: chunk.toolCallId,
+            toolName: chunk.toolName,
+            args: chunk.input,
+          })
+          await ctx.runMutation(api.chat.mutations.updateMessage, {
+            messageId: assistantMessageId,
+            content: accumulatedContent,
+            toolCalls: accumulatedToolCalls,
+          })
+        } else if (chunk.type === 'tool-result' || chunk.type === 'tool-error') {
+          const toolCall = accumulatedToolCalls.find((tc) => tc.toolCallId === chunk.toolCallId)
+          if (toolCall) {
+            toolCall.result =
+              chunk.type === 'tool-result'
+                ? chunk.output
+                : { success: false, error: 'The tool failed to run', results: [] }
+          }
+          await ctx.runMutation(api.chat.mutations.updateMessage, {
+            messageId: assistantMessageId,
+            toolCalls: accumulatedToolCalls,
+          })
+        } else if (chunk.type === 'finish') {
+          // Track thinking end time
+          if (thinkingStartTime && !thinkingEndTime) {
+            thinkingEndTime = Date.now()
+          }
+
+          // Calculate thinking duration in seconds
+          const duration =
+            thinkingStartTime && thinkingEndTime ? Math.round((thinkingEndTime - thinkingStartTime) / 1000) : undefined
+
+          // Force final update to ensure all content is saved
+          await scheduleUpdate(true)
+
+          // Mark the message as complete with final thinking data
+          await ctx.runMutation(api.chat.mutations.updateMessage, {
+            messageId: assistantMessageId,
+            content: accumulatedContent,
+            thinking: accumulatedThinking || undefined,
+            thinkingDuration: duration,
+            isComplete: true,
+            toolCalls: accumulatedToolCalls,
+          })
+          isFinalized = true
+          break
+        } else if (chunk.type === 'error') {
+          // Log controlled fields only: the provider's error text can echo request details
+          console.error('Model stream error:', describeProviderError({ provider, model: model.id }, chunk.error))
+
+          // Force final update before handling error
+          await scheduleUpdate(true)
+
+          // Handle error
+          await ctx.runMutation(api.chat.mutations.updateMessage, {
+            messageId: assistantMessageId,
+            content: withErrorNote(chunk.error),
+            thinking: accumulatedThinking || undefined,
+            isComplete: true,
+            toolCalls: accumulatedToolCalls,
+          })
+          isFinalized = true
+          break
         }
-
-        const placeholder = `\n[TOOL_CALL:${chunk.toolCallId}]\n`
-        accumulatedContent += placeholder
-        accumulatedToolCalls.push({
-          toolCallId: chunk.toolCallId,
-          toolName: chunk.toolName,
-          args: chunk.input,
-        })
-        await ctx.runMutation(api.chat.mutations.updateMessage, {
-          messageId: assistantMessageId,
-          content: accumulatedContent,
-          toolCalls: accumulatedToolCalls,
-        })
-      } else if (chunk.type === 'tool-result' || chunk.type === 'tool-error') {
-        const toolCall = accumulatedToolCalls.find((tc) => tc.toolCallId === chunk.toolCallId)
-        if (toolCall) {
-          toolCall.result =
-            chunk.type === 'tool-result'
-              ? chunk.output
-              : { success: false, error: 'The tool failed to run', results: [] }
-        }
-        await ctx.runMutation(api.chat.mutations.updateMessage, {
-          messageId: assistantMessageId,
-          toolCalls: accumulatedToolCalls,
-        })
-      } else if (chunk.type === 'finish') {
-        // Track thinking end time
-        if (thinkingStartTime && !thinkingEndTime) {
-          thinkingEndTime = Date.now()
-        }
-
-        // Calculate thinking duration in seconds
-        const duration =
-          thinkingStartTime && thinkingEndTime ? Math.round((thinkingEndTime - thinkingStartTime) / 1000) : undefined
-
-        // Force final update to ensure all content is saved
-        await scheduleUpdate(true)
-
-        // Mark the message as complete with final thinking data
-        await ctx.runMutation(api.chat.mutations.updateMessage, {
-          messageId: assistantMessageId,
-          content: accumulatedContent,
-          thinking: accumulatedThinking || undefined,
-          thinkingDuration: duration,
-          isComplete: true,
-          toolCalls: accumulatedToolCalls,
-        })
-        isFinalized = true
-        break
-      } else if (chunk.type === 'error') {
-        console.error(`Model stream error (${provider}/${model.id}):`, describeStreamError(chunk.error))
-
-        // Force final update before handling error
-        await scheduleUpdate(true)
-
-        // Handle error
-        await ctx.runMutation(api.chat.mutations.updateMessage, {
-          messageId: assistantMessageId,
-          content: `${accumulatedContent ? `${accumulatedContent}\n\n` : ''}*${userFacingStreamError(chunk.error, model)}*`,
-          thinking: accumulatedThinking || undefined,
-          isComplete: true,
-          toolCalls: accumulatedToolCalls,
-        })
-        isFinalized = true
-        break
+      } catch (updateError) {
+        // If we can't update the message (e.g., due to conflicts), continue streaming
+        // but don't fail the entire operation
+        console.warn('Failed to update message during streaming:', updateError)
       }
+    }
+  } catch (streamError) {
+    // Errors thrown by the stream itself (rather than sent as error parts)
+    console.error('Model stream error:', describeProviderError({ provider, model: model.id }, streamError))
+    try {
+      await ctx.runMutation(api.chat.mutations.updateMessage, {
+        messageId: assistantMessageId,
+        content: withErrorNote(streamError),
+        thinking: accumulatedThinking || undefined,
+        isComplete: true,
+        toolCalls: accumulatedToolCalls,
+      })
+      isFinalized = true
     } catch (updateError) {
-      // If we can't update the message (e.g., due to conflicts), continue streaming
-      // but don't fail the entire operation
-      console.warn('Failed to update message during streaming:', updateError)
+      console.warn('Failed to record stream error on message:', updateError)
     }
   }
 
@@ -495,31 +533,4 @@ export const generateAIResponse = async (
   } catch (finalUpdateError) {
     console.warn('Failed to mark message as complete:', finalUpdateError)
   }
-}
-
-/** HTTP status of a provider error, looking through the SDK's retry wrapper. */
-const statusCodeOf = (error: unknown): number | undefined => {
-  const err = error as { statusCode?: number; lastError?: { statusCode?: number } } | undefined
-  return err?.statusCode ?? err?.lastError?.statusCode
-}
-
-/** Status code and a short message only: never log request details. */
-const describeStreamError = (error: unknown) => ({
-  statusCode: statusCodeOf(error),
-  message: (error as { message?: string } | undefined)?.message?.slice(0, 300),
-})
-
-const userFacingStreamError = (error: unknown, model: ModelInfo) => {
-  const statusCode = statusCodeOf(error)
-  const provider = getProviderDisplayName(model.provider)
-  if (statusCode === 401 || statusCode === 403) {
-    return `${provider} rejected the API key. Check your key in Settings → Models & Keys.`
-  }
-  if (statusCode === 429) {
-    return `${provider} rate limit or quota reached. Please try again later.`
-  }
-  if (statusCode === 500 || statusCode === 503 || statusCode === 529) {
-    return `${model.name} is temporarily overloaded. Please try again in a moment or pick another model.`
-  }
-  return 'Error occurred while generating response.'
 }
