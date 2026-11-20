@@ -96,13 +96,30 @@ export default defineSchema({
     createdAt: v.number(),
   }).index('by_chat_created', ['chatId', 'createdAt']),
 
-  // In-progress text of an assistant reply while it streams. Kept apart from
-  // `messages` so frequent progress writes don't invalidate the chat's message
-  // list; the final text is written to the message once, then this row is deleted.
+  // In-progress text of an assistant reply while it streams (see
+  // convex/chat/streaming.ts). Kept apart from `messages` so progress writes
+  // don't invalidate the chat's message list. Text is append-only: full
+  // segments move to immutable `streamSegments` rows and only the short open
+  // tail changes on each write, so every update stays small. Everything is
+  // removed when the final text is written to the message.
   streamingMessages: defineTable({
     messageId: v.id('messages'),
-    content: v.string(),
-    thinking: v.optional(v.string()),
+    chatId: v.id('chats'),
+    contentTail: v.string(),
+    contentSegments: v.number(),
+    contentLength: v.number(),
+    thinkingTail: v.string(),
+    thinkingSegments: v.number(),
+    thinkingLength: v.number(),
     updatedAt: v.number(),
-  }).index('by_message', ['messageId']),
+  })
+    .index('by_message', ['messageId'])
+    .index('by_chat', ['chatId']),
+
+  streamSegments: defineTable({
+    messageId: v.id('messages'),
+    kind: v.union(v.literal('content'), v.literal('thinking')),
+    index: v.number(),
+    text: v.string(),
+  }).index('by_message_kind_index', ['messageId', 'kind', 'index']),
 })

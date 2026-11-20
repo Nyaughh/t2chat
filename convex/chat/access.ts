@@ -76,6 +76,15 @@ export const attachmentValidator = v.object({
 
 export type Attachment = Infer<typeof attachmentValidator>
 
+export const toolCallsValidator = v.array(
+  v.object({
+    toolCallId: v.string(),
+    toolName: v.string(),
+    args: v.any(),
+    result: v.optional(v.any()),
+  }),
+)
+
 // Uploads go through UploadThing, which serves files from utfs.io or <app>.ufs.sh.
 const isUploadThingHost = (hostname: string) =>
   hostname === 'utfs.io' || hostname.endsWith('.utfs.io') || hostname === 'ufs.sh' || hostname.endsWith('.ufs.sh')

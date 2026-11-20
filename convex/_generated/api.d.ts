@@ -10,11 +10,13 @@
 
 import type * as api_keys from "../api_keys.js";
 import type * as auth from "../auth.js";
+import type * as chat_access from "../chat/access.js";
 import type * as chat_actions from "../chat/actions.js";
 import type * as chat_mutations from "../chat/mutations.js";
 import type * as chat_node from "../chat/node.js";
 import type * as chat_queries from "../chat/queries.js";
 import type * as chat_shared from "../chat/shared.js";
+import type * as chat_streaming from "../chat/streaming.js";
 import type * as http from "../http.js";
 import type * as users from "../users.js";
 
@@ -35,11 +37,13 @@ import type {
 declare const fullApi: ApiFromModules<{
   api_keys: typeof api_keys;
   auth: typeof auth;
+  "chat/access": typeof chat_access;
   "chat/actions": typeof chat_actions;
   "chat/mutations": typeof chat_mutations;
   "chat/node": typeof chat_node;
   "chat/queries": typeof chat_queries;
   "chat/shared": typeof chat_shared;
+  "chat/streaming": typeof chat_streaming;
   http: typeof http;
   users: typeof users;
 }>;

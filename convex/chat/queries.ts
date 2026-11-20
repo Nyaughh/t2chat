@@ -2,6 +2,7 @@
 import { query } from '../_generated/server'
 import { v } from 'convex/values'
 import { requireOwnedChat, requireOwnedMessage, requireUserId } from './access'
+import { getStreamRow, readStreamText } from './streaming'
 
 export const getChatMessages = query({
   args: { chatId: v.id('chats') },
@@ -26,29 +27,6 @@ export const getMessage = query({
     }
     const { message } = await requireOwnedMessage(ctx, messageId)
     return message
-  },
-})
-
-/**
- * The in-progress text of a reply that is still streaming (null once it
- * finishes). Clients overlay it on the incomplete message from
- * getChatMessages, so streaming progress doesn't re-send the whole chat.
- */
-export const getStreamingMessage = query({
-  args: { messageId: v.id('messages') },
-  handler: async (ctx, { messageId }) => {
-    await requireUserId(ctx)
-    // A deleted message reads as null, like getMessage
-    if (!(await ctx.db.get(messageId))) {
-      return null
-    }
-    await requireOwnedMessage(ctx, messageId)
-
-    const streaming = await ctx.db
-      .query('streamingMessages')
-      .withIndex('by_message', (q) => q.eq('messageId', messageId))
-      .first()
-    return streaming ? { messageId, content: streaming.content, thinking: streaming.thinking } : null
   },
 })
 
@@ -209,11 +187,23 @@ export const getSharedChat = query({
       return null
     }
 
-    const messages = await ctx.db
+    const stored = await ctx.db
       .query('messages')
       .withIndex('by_chat_created', (q) => q.eq('chatId', chat._id))
       .order('asc')
       .collect()
+
+    // A reply that is still streaming keeps its text in the streaming tables:
+    // show it live, through the same projection as finished replies
+    const messages = await Promise.all(
+      stored.map(async (m) => {
+        if (m.role !== 'assistant' || m.isComplete !== false) return m
+        const row = await getStreamRow(ctx, m._id)
+        if (!row) return m
+        const live = await readStreamText(ctx, row)
+        return { ...m, content: live.content, thinking: live.thinking || m.thinking }
+      }),
+    )
 
     return {
       chat: { title: chat.title, createdAt: chat.createdAt },

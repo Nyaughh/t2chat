@@ -1,5 +1,5 @@
-import { useMemo, useEffect } from 'react'
-import { useAction, useConvexAuth, useMutation, useQuery } from 'convex/react'
+import { useMemo, useRef } from 'react'
+import { useAction, useConvexAuth, useMutation, useQueries, useQuery, type RequestForQueries } from 'convex/react'
 import { api } from '../../convex/_generated/api'
 import { Id } from '../../convex/_generated/dataModel'
 
@@ -21,24 +21,63 @@ export const useConvexChat = (chatId?: Id<'chats'>) => {
     chatId && isAuthenticated && chatExists ? { chatId } : 'skip',
   )
 
-  // While a reply streams, its text lives in a separate streaming row (so the
-  // message list isn't re-sent on every update). Overlay it on that message.
-  const streamingMessageId = useMemo(() => {
-    const last = storedMessages?.[storedMessages.length - 1]
-    return last && last.role === 'assistant' && last.isComplete === false ? last._id : undefined
-  }, [storedMessages])
-  const streaming = useQuery(
-    api.chat.queries.getStreamingMessage,
-    streamingMessageId && isAuthenticated ? { messageId: streamingMessageId } : 'skip',
+  // While replies stream, their text lives outside the message list (see
+  // convex/chat/streaming.ts): a small row per reply with the open tail, plus
+  // immutable segments. Each segment is loaded once; only tails change per
+  // update. Overlay the text on every in-progress reply in this chat.
+  const streams = useQuery(
+    api.chat.streaming.getStreamingMessages,
+    chatId && isAuthenticated && chatExists ? { chatId } : 'skip',
   )
+  const segmentRequests = useMemo(() => {
+    const requests: RequestForQueries = {}
+    for (const stream of streams ?? []) {
+      for (const kind of ['content', 'thinking'] as const) {
+        const count = kind === 'content' ? stream.contentSegments : stream.thinkingSegments
+        for (let index = 0; index < count; index++) {
+          requests[`${stream.messageId}:${kind}:${index}`] = {
+            query: api.chat.streaming.getStreamSegment,
+            args: { messageId: stream.messageId, kind, index },
+          }
+        }
+      }
+    }
+    return requests
+  }, [streams])
+  const segments = useQueries(segmentRequests)
+
+  // Last complete text per reply, shown while a just-created segment loads
+  const lastStreamText = useRef(new Map<string, { content: string; thinking: string }>())
   const messages = useMemo(() => {
-    if (!storedMessages || !streaming) return storedMessages
-    return storedMessages.map((message) =>
-      message._id === streaming.messageId
-        ? { ...message, content: streaming.content, thinking: streaming.thinking ?? message.thinking }
-        : message,
-    )
-  }, [storedMessages, streaming])
+    if (!storedMessages || !streams || streams.length === 0) {
+      lastStreamText.current.clear()
+      return storedMessages
+    }
+    const byMessage = new Map(streams.map((stream) => [stream.messageId, stream]))
+    const assemble = (messageId: string, kind: 'content' | 'thinking', count: number, tail: string) => {
+      let text = ''
+      for (let index = 0; index < count; index++) {
+        const segment = segments[`${messageId}:${kind}:${index}`]
+        if (typeof segment !== 'string') return undefined
+        text += segment
+      }
+      return text + tail
+    }
+    const overlaid = storedMessages.map((message) => {
+      const stream = byMessage.get(message._id)
+      if (!stream || message.role !== 'assistant' || message.isComplete !== false) return message
+      const previous = lastStreamText.current.get(message._id)
+      const content = assemble(message._id, 'content', stream.contentSegments, stream.contentTail) ?? previous?.content
+      const thinking = assemble(message._id, 'thinking', stream.thinkingSegments, stream.thinkingTail) ?? previous?.thinking
+      if (content === undefined) return message
+      lastStreamText.current.set(message._id, { content, thinking: thinking ?? '' })
+      return { ...message, content, thinking: thinking || message.thinking }
+    })
+    for (const id of [...lastStreamText.current.keys()]) {
+      if (!byMessage.has(id as Id<'messages'>)) lastStreamText.current.delete(id)
+    }
+    return overlaid
+  }, [storedMessages, streams, segments])
 
   // Mutations & Actions
   const createChat = useMutation(api.chat.mutations.createChat)

@@ -19,7 +19,6 @@ import { Modality } from '@google/genai'
 import { basePersonality } from '../../prompts/base'
 import { Buffer } from 'buffer'
 import { getUserApiKey } from '../api_keys'
-import { STOPPED_NOTE } from './mutations'
 import { describeProviderError, providerErrorStatus, userFacingProviderError } from '../../src/lib/provider-errors'
 
 export const mapModel = (modelId: string) => {
@@ -166,7 +165,7 @@ export const generateAIResponse = async (
       inputSchema: z.object({
         query: z.string().describe('The search query to find relevant information'),
       }),
-      execute: async ({ query }) => {
+      execute: async ({ query }, { abortSignal }) => {
         try {
           // Use Tavily API for web search
           const response = await fetch('https://api.tavily.com/search', {
@@ -182,6 +181,7 @@ export const generateAIResponse = async (
               include_raw_content: false,
               max_results: 5,
             }),
+            signal: abortSignal,
           })
 
           if (!response.ok) {
@@ -217,7 +217,7 @@ export const generateAIResponse = async (
       inputSchema: z.object({
         prompt: z.string().describe('The detailed description of the image to generate'),
       }),
-      execute: async ({ prompt }) => {
+      execute: async ({ prompt }, { abortSignal }) => {
         try {
           // Use the user's Gemini key if they added one, otherwise the system key
           const userGeminiKey = await getUserApiKey(ctx, 'gemini')
@@ -232,6 +232,7 @@ export const generateAIResponse = async (
             contents: prompt,
             config: {
               responseModalities: [Modality.IMAGE, Modality.TEXT],
+              abortSignal,
             },
           })
 
@@ -300,8 +301,8 @@ export const generateAIResponse = async (
   // Newer Anthropic and OpenAI reasoning models reject custom sampling settings
   const supportsTemperature = provider !== 'anthropic' && provider !== 'openai'
 
-  // Stream the response. Progress reaches the client through the batched
-  // streaming-row writes below, so there's no server-side smoothing (it only
+  // Stream the response. Progress reaches clients through small append-only
+  // writes (chat/streaming.ts), so there's no server-side smoothing (it only
   // delayed the action and multiplied chunk handling).
   const abortController = new AbortController()
   const { stream } = streamText({
@@ -314,6 +315,7 @@ export const generateAIResponse = async (
     temperature: supportsTemperature ? 0.7 : undefined,
     maxOutputTokens: provider === 'openrouter' ? 4000 : undefined,
     providerOptions: reasoningProviderOptions(model, thinking),
+    // Aborted when the user stops the reply (or it is closed): ends the provider request and any running tool
     abortSignal: abortController.signal,
     // Errors are handled (and logged without request details) in the stream loop below
     onError: () => {},
@@ -327,20 +329,34 @@ export const generateAIResponse = async (
   let hasGeneratedTextBeforeTools = false
 
   // ---------------------------------------------------------------------------
-  // Batched progress writes
+  // Progress writes and stop detection
   //
-  // At most one streaming-row write per FLUSH_INTERVAL_MS, plus a trailing write
-  // so text that arrives just before a pause still shows. Writes run one at a
-  // time, in order. Each write also reports whether the user pressed stop, so
-  // there's no per-chunk cancellation query.
+  // - Text goes out at most once per FLUSH_INTERVAL_MS, plus a trailing write so
+  //   text that arrives just before a pause still shows. Each write carries only
+  //   the text added since the stored length (offset-checked, so a retry is
+  //   idempotent). Writes run one at a time, in order.
+  // - Every write reports whether to stop. While the stream is quiet (before
+  //   the first text, during a provider or tool stall) a heartbeat asks every
+  //   STOP_POLL_MS instead, so a stopped reply never waits for more output.
+  // - Stopping aborts the provider request and any running tool.
   // ---------------------------------------------------------------------------
   const FLUSH_INTERVAL_MS = 150
+  const STOP_POLL_MS = 1_000
   let lastFlushAt = 0
+  let lastStopCheckAt = Date.now()
   let dirty = false
   let finalizing = false
-  let cancelled = false
+  let stopRequested = false
+  let storedContentLength = 0
+  let storedThinkingLength = 0
   let flushTimer: ReturnType<typeof setTimeout> | null = null
   let flushChain: Promise<void> = Promise.resolve()
+
+  const requestStop = () => {
+    if (stopRequested) return
+    stopRequested = true
+    abortController.abort()
+  }
 
   const clearFlushTimer = () => {
     if (flushTimer) {
@@ -351,23 +367,26 @@ export const generateAIResponse = async (
 
   const flushNow = () => {
     clearFlushTimer()
-    if (!dirty || finalizing || cancelled) return flushChain
+    if (!dirty || finalizing || stopRequested) return flushChain
     dirty = false
     lastFlushAt = Date.now()
-    const content = accumulatedContent
-    const thinkingText = accumulatedThinking || undefined
     flushChain = flushChain.then(async () => {
+      if (finalizing || stopRequested) return
       try {
-        const result = await ctx.runMutation(internal.chat.mutations.writeStreamProgress, {
+        const result = await ctx.runMutation(internal.chat.streaming.writeStreamProgress, {
           messageId: assistantMessageId,
-          content,
-          thinking: thinkingText,
+          contentOffset: storedContentLength,
+          contentDelta: accumulatedContent.slice(storedContentLength),
+          thinkingOffset: storedThinkingLength,
+          thinkingDelta: accumulatedThinking.slice(storedThinkingLength),
         })
-        if (result.cancelled && !cancelled) {
-          cancelled = true
-          abortController.abort()
-        }
+        storedContentLength = result.contentLength
+        storedThinkingLength = result.thinkingLength
+        lastStopCheckAt = Date.now()
+        if (result.stop) requestStop()
       } catch (writeError) {
+        // Nothing was stored; the next write resends from the stored length
+        dirty = true
         console.warn('Failed to write streaming progress:', writeError)
       }
     })
@@ -384,9 +403,21 @@ export const generateAIResponse = async (
     }
   }
 
+  const heartbeat = setInterval(() => {
+    if (finalizing || stopRequested || Date.now() - lastStopCheckAt < STOP_POLL_MS) return
+    lastStopCheckAt = Date.now()
+    ctx
+      .runQuery(internal.chat.streaming.getStreamStatus, { messageId: assistantMessageId })
+      .then((status: { stop: boolean }) => {
+        if (status.stop) requestStop()
+      })
+      .catch((statusError: unknown) => console.warn('Failed to check whether the reply was stopped:', statusError))
+  }, STOP_POLL_MS / 4)
+
   /** Stops progress writes and waits for any in flight, so the final write lands last. */
   const stopProgressWrites = async () => {
     finalizing = true
+    clearInterval(heartbeat)
     clearFlushTimer()
     await flushChain
   }
@@ -402,16 +433,18 @@ export const generateAIResponse = async (
     return accumulatedContent ? `${accumulatedContent}\n\n*${note}*` : `*${note}*`
   }
 
-  /** Writes the final text to the message (this also removes the streaming row). */
+  /**
+   * The single terminal write. finalizeStream decides authoritatively: a stopped
+   * reply keeps its stop note, and a reply closed some other way isn't reopened.
+   */
   const finalize = async (fields: { content: string; thinkingDuration?: number }) => {
     await stopProgressWrites()
     try {
-      await ctx.runMutation(internal.chat.mutations.updateMessage, {
+      await ctx.runMutation(internal.chat.streaming.finalizeStream, {
         messageId: assistantMessageId,
         content: fields.content,
         thinking: accumulatedThinking || undefined,
         thinkingDuration: fields.thinkingDuration,
-        isComplete: true,
         toolCalls: accumulatedToolCalls,
       })
     } catch (finalUpdateError) {
@@ -423,7 +456,7 @@ export const generateAIResponse = async (
 
   try {
     for await (const chunk of stream) {
-      if (cancelled) break
+      if (stopRequested) break
 
       if (chunk.type === 'text-delta') {
         // Reasoning ends when the first answer text arrives
@@ -496,17 +529,13 @@ export const generateAIResponse = async (
   } catch (streamError) {
     // Errors thrown by the stream itself (rather than sent as error parts).
     // Stopping the reply aborts the request, which surfaces here too.
-    if (!cancelled) outcome = { kind: 'error', error: streamError }
+    if (!stopRequested) outcome = { kind: 'error', error: streamError }
   }
 
-  if (cancelled) {
-    // cancelMessage already completed the message with the text shown so far;
-    // replace it with everything received, keeping the stop note.
-    await finalize({ content: accumulatedContent + STOPPED_NOTE, thinkingDuration: thinkingDurationSeconds() })
-    return
-  }
-
-  if (outcome.kind === 'finished') {
+  if (stopRequested) {
+    // Stopped or closed while streaming: finalizeStream adds the stop note (or leaves a closed reply alone)
+    await finalize({ content: accumulatedContent, thinkingDuration: thinkingDurationSeconds() })
+  } else if (outcome.kind === 'finished') {
     await finalize({ content: accumulatedContent, thinkingDuration: thinkingDurationSeconds() })
   } else if (outcome.kind === 'error') {
     // Log controlled fields only: the provider's error text can echo request details

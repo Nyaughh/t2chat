@@ -15,23 +15,16 @@ import {
   requireOwnedChat,
   requireOwnedMessage,
   requireUserId,
+  toolCallsValidator,
   type Attachment,
 } from './access'
+import { STOPPED_NOTE, STREAM_EXPIRY_MS, discardStreamArtifacts, getStreamRow, readStreamText } from './streaming'
 
 // MUTATIONS - for database modifications
 //
 // Public mutations check the session and chat ownership on every call.
 // Writes that only the server's own actions should make (assistant
 // placeholders, streaming updates, generated titles) are internal mutations.
-
-const toolCallsValidator = v.array(
-  v.object({
-    toolCallId: v.string(),
-    toolName: v.string(),
-    args: v.any(),
-    result: v.optional(v.any()),
-  }),
-)
 
 export const createChat = mutation({
   args: {
@@ -128,6 +121,10 @@ const insertOwnedMessage = async (ctx: MutationCtx, args: NewMessage) => {
     updatedAt: Date.now(),
   })
 
+  if (role === 'assistant' && messageData.isComplete === false) {
+    await ctx.scheduler.runAfter(STREAM_EXPIRY_MS, internal.chat.streaming.expireStream, { messageId })
+  }
+
   return messageId
 }
 
@@ -165,20 +162,11 @@ export const insertMessage = internalMutation({
   },
 })
 
-export const STOPPED_NOTE = '\n\n*Generation was stopped by user.*'
-
-const getStreamingRow = (ctx: MutationCtx, messageId: Id<'messages'>) =>
-  ctx.db
-    .query('streamingMessages')
-    .withIndex('by_message', (q) => q.eq('messageId', messageId))
-    .first()
-
 /**
- * Updates a message. Internal: only the chat actions write assistant content.
- * Used for the final text (isComplete: true), which also removes the reply's
- * streaming row, and for the rare in-progress writes that must land on the
- * message itself (tool calls). The ownership check still runs against the
- * action's (propagated) session.
+ * Records changes on a reply that is still open: tool calls while it streams,
+ * or an error text that closes it. Internal: only the chat actions write
+ * assistant content. A closed reply (finished, stopped or expired) is never
+ * changed here; the streamed text's terminal write is chat.streaming.finalizeStream.
  */
 export const updateMessage = internalMutation({
   args: {
@@ -187,57 +175,27 @@ export const updateMessage = internalMutation({
     thinking: v.optional(v.string()),
     thinkingDuration: v.optional(v.number()),
     isComplete: v.optional(v.boolean()),
-    isCancelled: v.optional(v.boolean()),
     toolCalls: v.optional(toolCallsValidator),
   },
-  handler: async (ctx, { messageId, content, thinking, thinkingDuration, isComplete, isCancelled, toolCalls }) => {
-    await requireOwnedMessage(ctx, messageId)
+  handler: async (ctx, { messageId, content, thinking, thinkingDuration, isComplete, toolCalls }) => {
+    const { message } = await requireOwnedMessage(ctx, messageId)
+    if (message.isComplete) {
+      return messageId
+    }
 
     const updateData: Partial<Doc<'messages'>> = {}
     if (content !== undefined) updateData.content = content
     if (thinking !== undefined) updateData.thinking = thinking
     if (thinkingDuration !== undefined) updateData.thinkingDuration = thinkingDuration
     if (isComplete !== undefined) updateData.isComplete = isComplete
-    if (isCancelled !== undefined) updateData.isCancelled = isCancelled
     if (toolCalls !== undefined) updateData.toolCalls = toolCalls
 
     await ctx.db.patch(messageId, updateData)
-
-    // The final text now lives on the message: drop the in-progress copy in the same transaction
     if (isComplete) {
-      const streaming = await getStreamingRow(ctx, messageId)
-      if (streaming) await ctx.db.delete(streaming._id)
+      await discardStreamArtifacts(ctx, messageId)
     }
 
     return messageId
-  },
-})
-
-/**
- * Records a streaming reply's progress (internal, called by the chat actions
- * about every 150 ms). Writes only the small streaming row, never the message,
- * so the chat's message list isn't re-sent on every tick. Returns whether the
- * user stopped the reply, so the action needs no separate polling query.
- */
-export const writeStreamProgress = internalMutation({
-  args: {
-    messageId: v.id('messages'),
-    content: v.string(),
-    thinking: v.optional(v.string()),
-  },
-  handler: async (ctx, { messageId, content, thinking }): Promise<{ cancelled: boolean }> => {
-    const { message } = await requireOwnedMessage(ctx, messageId)
-    if (message.isCancelled || message.isComplete) {
-      return { cancelled: !!message.isCancelled }
-    }
-
-    const streaming = await getStreamingRow(ctx, messageId)
-    if (streaming) {
-      await ctx.db.patch(streaming._id, { content, thinking, updatedAt: Date.now() })
-    } else {
-      await ctx.db.insert('streamingMessages', { messageId, content, thinking, updatedAt: Date.now() })
-    }
-    return { cancelled: false }
   },
 })
 
@@ -253,15 +211,17 @@ export const cancelMessage = mutation({
       throw new ConvexError('Cannot cancel this message')
     }
 
-    // Keep what was streamed so far (it lives on the streaming row until the reply finishes)
-    const streaming = await getStreamingRow(ctx, messageId)
+    // Keep the text shown so far. The action's own final write (more text, same
+    // note) is guarded by chat.streaming.finalizeStream, so the note can't be lost.
+    const row = await getStreamRow(ctx, messageId)
+    const shown = row ? await readStreamText(ctx, row) : { content: message.content, thinking: message.thinking ?? '' }
     await ctx.db.patch(messageId, {
       isCancelled: true,
       isComplete: true,
-      content: (streaming?.content ?? message.content) + STOPPED_NOTE,
-      ...(streaming?.thinking !== undefined && { thinking: streaming.thinking }),
+      content: shown.content + STOPPED_NOTE,
+      ...(shown.thinking && { thinking: shown.thinking }),
     })
-    if (streaming) await ctx.db.delete(streaming._id)
+    await discardStreamArtifacts(ctx, messageId)
 
     return messageId
   },
@@ -312,8 +272,8 @@ export const deleteMessage = mutation({
     messageId: v.id('messages'),
   },
   handler: async (ctx, { messageId }) => {
-    await requireOwnedMessage(ctx, messageId)
-    await ctx.db.delete(messageId)
+    const { message } = await requireOwnedMessage(ctx, messageId)
+    await deleteMessageDoc(ctx, message)
     return { success: true }
   },
 })
@@ -341,7 +301,7 @@ export const deleteMessagesFromIndex = mutation({
     const fromIndex = tail.findIndex((msg) => msg._id === fromMessageId)
     const messagesToDelete = tail.slice(fromIndex)
     for (const message of messagesToDelete) {
-      await deleteMessageAndStreamingRow(ctx, message)
+      await deleteMessageDoc(ctx, message)
     }
 
     return { success: true, deletedCount: messagesToDelete.length }
@@ -390,7 +350,7 @@ export const deleteChat = mutation({
 
     // The chat disappears now; its messages (no longer reachable) go in bounded batches
     await ctx.db.delete(chatId)
-    await purgeMessageBatch(ctx, chatId)
+    await purgeMessagePage(ctx, chatId)
 
     return { success: true }
   },
@@ -400,7 +360,9 @@ export const deleteAllConversations = mutation({
   args: {},
   handler: async (ctx) => {
     const userId = await requireUserId(ctx)
-    await deleteChatBatch(ctx, userId)
+    // Only chats that exist now: a chat created after this request (including an
+    // import with an old createdAt) has a later _creationTime and is kept.
+    await deleteChatPage(ctx, userId, Date.now())
     return { success: true }
   },
 })
@@ -409,49 +371,69 @@ export const deleteAllConversations = mutation({
 // Bounded deletes
 //
 // Deleting a large chat (or every chat) in one transaction can exceed Convex's
-// per-transaction read/write limits. Chats are removed first (so they vanish
-// from the UI at once) and their messages are deleted in batches by internal
-// mutations that reschedule themselves until nothing is left.
+// per-transaction limits (16 MiB read, 8,192 documents written). Chats are
+// removed first, so they vanish from the UI at once, and their messages are
+// deleted in pages by internal mutations that reschedule themselves.
+//
+// A page reads messages a few at a time and stops before the next small read
+// could pass the read budget, whatever the message sizes (each document is at
+// most 1 MiB), and before the write cap.
 // ---------------------------------------------------------------------------
 
-const MESSAGE_DELETE_BATCH = 500
+const MAX_DOC_BYTES = 1 << 20
+const READ_LIMIT_BYTES = 14 * MAX_DOC_BYTES // headroom under Convex's 16 MiB
+const READ_STEP = 8
+const MAX_DELETES_PER_PAGE = 2_000
 const CHAT_DELETE_BATCH = 100
 
-/** Deletes a message, plus its streaming row if it was still in progress. */
-const deleteMessageAndStreamingRow = async (ctx: MutationCtx, message: Doc<'messages'>) => {
+const encoder = new TextEncoder()
+const docBytes = (doc: unknown) => encoder.encode(JSON.stringify(doc)).length
+
+/** Deletes a message; an in-progress reply's stream is discarded by a scheduled job (unbounded size). */
+const deleteMessageDoc = async (ctx: MutationCtx, message: Doc<'messages'>) => {
   if (message.isComplete === false) {
-    const streaming = await getStreamingRow(ctx, message._id)
-    if (streaming) await ctx.db.delete(streaming._id)
+    await ctx.scheduler.runAfter(0, internal.chat.streaming.discardStream, { messageId: message._id })
   }
   await ctx.db.delete(message._id)
 }
 
-/** Deletes one batch of a chat's messages and schedules the next batch if more remain. */
-const purgeMessageBatch = async (ctx: MutationCtx, chatId: Id<'chats'>) => {
-  const batch = await ctx.db
-    .query('messages')
-    .withIndex('by_chat_created', (q) => q.eq('chatId', chatId))
-    .take(MESSAGE_DELETE_BATCH)
-  for (const message of batch) {
-    await deleteMessageAndStreamingRow(ctx, message)
+/**
+ * Deletes one page of a chat's messages within the read and write budgets and
+ * schedules the next page if any remain. Returns the bytes read (for tests).
+ */
+const purgeMessagePage = async (ctx: MutationCtx, chatId: Id<'chats'>) => {
+  let bytesRead = 0
+  let deleted = 0
+  while (bytesRead + READ_STEP * MAX_DOC_BYTES <= READ_LIMIT_BYTES && deleted + READ_STEP <= MAX_DELETES_PER_PAGE) {
+    const step = await ctx.db
+      .query('messages')
+      .withIndex('by_chat_created', (q) => q.eq('chatId', chatId))
+      .take(READ_STEP)
+    for (const message of step) {
+      bytesRead += docBytes(message)
+      await deleteMessageDoc(ctx, message)
+      deleted++
+    }
+    if (step.length < READ_STEP) {
+      return { bytesRead, deleted, more: false }
+    }
   }
-  if (batch.length === MESSAGE_DELETE_BATCH) {
-    await ctx.scheduler.runAfter(0, internal.chat.mutations.purgeChatMessages, { chatId })
-  }
+  await ctx.scheduler.runAfter(0, internal.chat.mutations.purgeChatMessages, { chatId })
+  return { bytesRead, deleted, more: true }
 }
 
-/** Deletes one batch of a user's chats (scheduling their messages) and schedules the next batch. */
-const deleteChatBatch = async (ctx: MutationCtx, userId: Id<'users'>) => {
+/** Deletes one batch of a user's chats created at or before `before`, then schedules the rest. */
+const deleteChatPage = async (ctx: MutationCtx, userId: Id<'users'>, before: number) => {
   const chats = await ctx.db
     .query('chats')
-    .withIndex('by_user', (q) => q.eq('userId', userId))
+    .withIndex('by_user', (q) => q.eq('userId', userId).lte('_creationTime', before))
     .take(CHAT_DELETE_BATCH)
   for (const chat of chats) {
     await ctx.db.delete(chat._id)
     await ctx.scheduler.runAfter(0, internal.chat.mutations.purgeChatMessages, { chatId: chat._id })
   }
   if (chats.length === CHAT_DELETE_BATCH) {
-    await ctx.scheduler.runAfter(0, internal.chat.mutations.purgeUserChats, { userId })
+    await ctx.scheduler.runAfter(0, internal.chat.mutations.purgeUserChats, { userId, before })
   }
 }
 
@@ -460,16 +442,16 @@ export const purgeChatMessages = internalMutation({
   args: { chatId: v.id('chats') },
   handler: async (ctx, { chatId }) => {
     // Only ever purge messages whose chat is gone
-    if (await ctx.db.get(chatId)) return
-    await purgeMessageBatch(ctx, chatId)
+    if (await ctx.db.get(chatId)) return null
+    return await purgeMessagePage(ctx, chatId)
   },
 })
 
-/** Internal: continues deleting a user's chats for deleteAllConversations. */
+/** Internal: continues deleteAllConversations for the chats that existed when it was requested. */
 export const purgeUserChats = internalMutation({
-  args: { userId: v.id('users') },
-  handler: async (ctx, { userId }) => {
-    await deleteChatBatch(ctx, userId)
+  args: { userId: v.id('users'), before: v.number() },
+  handler: async (ctx, { userId, before }) => {
+    await deleteChatPage(ctx, userId, before)
   },
 })
 
