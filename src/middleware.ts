@@ -23,7 +23,11 @@ export function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
-  const url = new URL(request.nextUrl.pathname + request.nextUrl.search, canonical.origin)
+  // Start from the trusted origin and only copy path and query, so a request
+  // path like "//evil.example" can never change the redirect's host.
+  const url = new URL(canonical.origin)
+  url.pathname = request.nextUrl.pathname
+  url.search = request.nextUrl.search
   return NextResponse.redirect(url, 308)
 }
 

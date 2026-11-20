@@ -26,7 +26,9 @@ const errorMessages: Record<string, string> = {
 
 function describeError(code?: string) {
   if (!code) return undefined
-  return errorMessages[code] ?? 'Sign-in failed. Please try again.'
+  // Only own, string-valued entries: inherited keys like "constructor" must fall through to the generic text.
+  const message = Object.prototype.hasOwnProperty.call(errorMessages, code) ? errorMessages[code] : undefined
+  return typeof message === 'string' ? message : 'Sign-in failed. Please try again.'
 }
 
 async function isSignedIn() {
