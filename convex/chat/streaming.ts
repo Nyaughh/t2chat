@@ -39,17 +39,16 @@ export const SEGMENT_CHARS = 4_000
 export const STREAM_EXPIRY_MS = (30 + 10 + 1) * 60 * 1000
 
 /**
- * Segments deleted per discard transaction. A segment is at most
- * SEGMENT_CHARS UTF-16 units, so at most ~12 KB of UTF-8: 512 segments stay
- * far below the 16 MiB read limit.
+ * Read budget of one discard transaction (Convex allows 16 MiB). Text is at
+ * most 3 bytes of UTF-8 per UTF-16 unit, so:
+ * - a segment (at most SEGMENT_CHARS units) is at most ~12 KB, and
+ * - a streaming row (two tails, each under SEGMENT_CHARS units) is at most ~24 KB.
+ * 512 segments (~6.2 MB) plus 250 rows (~6 MB) stay well under the limit.
  */
 const DISCARD_SEGMENT_BUDGET = 512
 
-/**
- * Message ids per discard job: two index lookups each keeps a job small. A
- * delete page (at most 1,000 messages) needs at most two such jobs.
- */
-export const MAX_DISCARD_IDS = 500
+/** Message ids per discard job (each may have a ~24 KB streaming row; see above). */
+export const MAX_DISCARD_IDS = 250
 
 type Kind = 'content' | 'thinking'
 

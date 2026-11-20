@@ -365,9 +365,18 @@ export const deleteAllConversations = mutation({
   args: {},
   handler: async (ctx) => {
     const userId = await requireUserId(ctx)
-    // Only chats that exist now: a chat created after this request (including an
-    // import with an old createdAt) has a later _creationTime and is kept.
-    await deleteChatPage(ctx, userId, Date.now())
+    // Only chats that exist now. The boundary is the newest existing chat's own
+    // _creationTime, read in this transaction (not the clock, which has only
+    // millisecond precision): every chat created afterwards, including an
+    // import with an old createdAt, has a larger _creationTime and is kept.
+    const newest = await ctx.db
+      .query('chats')
+      .withIndex('by_user', (q) => q.eq('userId', userId))
+      .order('desc')
+      .first()
+    if (newest) {
+      await deleteChatPage(ctx, userId, newest._creationTime)
+    }
     return { success: true }
   },
 })
@@ -382,8 +391,8 @@ export const deleteAllConversations = mutation({
 //
 // A page reads messages a few at a time and stops before the next small read
 // could pass the read budget, whatever the message sizes (each document is at
-// most 1 MiB), and before 1,000 deletes. It schedules at most three functions
-// (stream-discard jobs for its unfinished replies, 500 ids each, and one
+// most 1 MiB), and before 1,000 deletes. It schedules at most five functions
+// (stream-discard jobs for its unfinished replies, 250 ids each, and one
 // continuation), far below the 1,000 scheduled calls Convex allows per mutation.
 // ---------------------------------------------------------------------------
 
