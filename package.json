@@ -11,13 +11,15 @@
     "format": "prettier --write \"src/**/*.{js,jsx,ts,tsx,json,css,md}\" \"convex/**/*.{js,jsx,ts,tsx,json,css,md}\""
   },
   "dependencies": {
-    "@ai-sdk/google": "^1.2.19",
-    "@ai-sdk/groq": "^1.2.9",
+    "@ai-sdk/anthropic": "^4.0.106",
+    "@ai-sdk/google": "^4.0.122",
+    "@ai-sdk/groq": "^4.0.85",
+    "@ai-sdk/openai": "^4.0.121",
     "@convex-dev/better-auth": "^0.7.7",
-    "@google/genai": "^1.5.1",
+    "@google/genai": "^3.6.1",
     "@hookform/resolvers": "^5.1.1",
     "@kinde-oss/kinde-auth-nextjs": "^2.7.0",
-    "@openrouter/ai-sdk-provider": "^0.7.1",
+    "@openrouter/ai-sdk-provider": "^3.1.0",
     "@radix-ui/react-accordion": "^1.2.11",
     "@radix-ui/react-alert-dialog": "^1.1.14",
     "@radix-ui/react-aspect-ratio": "^1.1.7",
@@ -50,7 +52,7 @@
     "@types/react-syntax-highlighter": "^15.5.13",
     "@types/uuid": "^10.0.0",
     "@uploadthing/react": "^7.3.1",
-    "ai": "^4.3.16",
+    "ai": "^7.0.177",
     "better-auth": "^1.2.12",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
@@ -90,7 +92,7 @@
     "uploadthing": "^7.7.2",
     "uuid": "^11.1.0",
     "vaul": "^1.1.2",
-    "zod": "^3.25.56",
+    "zod": "^3.25.76",
     "zustand": "^5.0.5"
   },
   "devDependencies": {

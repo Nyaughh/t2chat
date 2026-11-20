@@ -37,9 +37,17 @@ export default defineSchema({
 
   apiKeys: defineTable({
     userId: v.id('users'),
-    service: v.union(v.literal('gemini'), v.literal('groq'), v.literal('openrouter'), v.literal('deepgram')),
+    service: v.union(
+      v.literal('gemini'),
+      v.literal('groq'),
+      v.literal('openrouter'),
+      v.literal('anthropic'),
+      v.literal('openai'),
+      v.literal('deepgram'),
+    ),
     name: v.string(),
-    key: v.string(),
+    key: v.string(), // AES-GCM ciphertext ("enc:v1:..."); older rows may still be plain text
+    keyHint: v.optional(v.string()), // last 4 characters, shown in settings
     is_default: v.optional(v.boolean()),
   }).index('by_user_and_service', ['userId', 'service']),
 

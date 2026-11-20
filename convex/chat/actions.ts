@@ -3,9 +3,10 @@ import { action, mutation, query } from '../_generated/server'
 import { api } from '../_generated/api'
 import { Id } from '../_generated/dataModel'
 import { betterAuthComponent } from '../auth'
-import { generateText, CoreMessage } from 'ai'
+import { generateText, ModelMessage } from 'ai'
 import { createGoogleGenerativeAI } from '@ai-sdk/google'
 import { generateAIResponse } from './shared'
+import { TITLE_MODEL_ID } from '../../src/lib/models'
 
 export const retryMessage = action({
   args: {
@@ -42,7 +43,7 @@ export const retryMessage = action({
       const messages = await ctx.runQuery(api.chat.queries.getChatMessages, { chatId })
 
       // Convert to AI SDK format
-      const chatMessages: CoreMessage[] = messages
+      const chatMessages: ModelMessage[] = messages
         .filter((msg: any) => msg.isComplete !== false)
         .map((msg: any) => ({
           role: msg.role as 'user' | 'assistant',
@@ -155,7 +156,7 @@ export const editMessageAndRegenerate = action({
       const messages = await ctx.runQuery(api.chat.queries.getChatMessages, { chatId: message.chatId })
 
       // Convert to AI SDK format
-      const chatMessages: CoreMessage[] = messages
+      const chatMessages: ModelMessage[] = messages
         .filter((msg: any) => msg.isComplete !== false)
         .map((msg: any) => ({
           role: msg.role as 'user' | 'assistant',
@@ -244,7 +245,7 @@ export const sendMessage = action({
     })
 
     // Convert to AI SDK format
-    const chatMessages: CoreMessage[] = messages
+    const chatMessages: ModelMessage[] = messages
       .filter((msg: any) => msg.isComplete !== false)
       .map((msg: any) => ({
         role: msg.role as 'user' | 'assistant',
@@ -319,7 +320,7 @@ export const generateTitle = action({
   handler: async (ctx, { chatId, messageContent, modelId }) => {
     const google = createGoogleGenerativeAI({ apiKey: process.env.GEMINI_API_KEY })
 
-    const aiModel = google('gemini-2.0-flash-lite')
+    const aiModel = google(TITLE_MODEL_ID)
 
     let titlePrompt = `Based on the following user message, generate a short, concise title for the chat (4-5 words max) No Markdown Allowed:\n\nUser: "${messageContent}"\n\nTitle:`
 

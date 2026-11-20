@@ -29,7 +29,7 @@ import {
 } from 'lucide-react'
 import Link from 'next/link'
 import { AnimatePresence, motion } from 'framer-motion'
-import { getProviderColor, getVendorColor, ModelInfo, models } from '@/lib/models'
+import { getProviderColor, getProviderDisplayName, getVendorColor, ModelInfo, models } from '@/lib/models'
 import { useQuery } from 'convex/react'
 import { api } from '../../../convex/_generated/api'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
@@ -103,10 +103,8 @@ export default function AIInput({
   const apiKeys = useQuery(api.api_keys.getApiKeys) || []
   const disabledModels = useQuery(api.api_keys.getDisabledModels) || []
 
-  // Check if user has API keys for each provider
-  const hasGeminiKey = useQuery(api.api_keys.hasApiKeyForProvider, { provider: 'gemini' }) ?? false
-  const hasGroqKey = useQuery(api.api_keys.hasApiKeyForProvider, { provider: 'groq' }) ?? false
-  const hasOpenRouterKey = useQuery(api.api_keys.hasApiKeyForProvider, { provider: 'openrouter' }) ?? false
+  // Providers the user has added their own API key for
+  const hasKeyForProvider = (provider: ModelInfo['provider']) => apiKeys.some((key) => key.service === provider)
 
   // Speech Recognition setup
   useEffect(() => {
@@ -178,16 +176,7 @@ export default function AIInput({
 
     // If model requires API key and user doesn't have one for that provider, disable it
     if (model.isApiKeyOnly) {
-      switch (model.provider) {
-        case 'gemini':
-          return hasGeminiKey
-        case 'groq':
-          return hasGroqKey
-        case 'openrouter':
-          return hasOpenRouterKey
-        default:
-          return false
-      }
+      return hasKeyForProvider(model.provider)
     }
 
     return true
@@ -628,7 +617,7 @@ export default function AIInput({
                                 )}
                               ></div>
                               <span className="text-xs font-medium text-rose-500/70 dark:text-rose-300/70 capitalize">
-                                {groupKey === 'openrouter' ? 'OpenRouter' : groupKey}
+                                {groupBy === 'provider' ? getProviderDisplayName(groupKey) : groupKey}
                               </span>
                               <span className="text-xs text-rose-400/60 dark:text-rose-400/60">
                                 ({groupModels.length})
@@ -658,7 +647,7 @@ export default function AIInput({
                                     title={
                                       !isModelAvailable(model)
                                         ? model.isApiKeyOnly
-                                          ? `Requires ${model.provider} API key`
+                                          ? `Requires ${getProviderDisplayName(model.provider)} API key`
                                           : !isSignedIn && !model.isFree
                                             ? 'Sign in required'
                                             : 'Not available'

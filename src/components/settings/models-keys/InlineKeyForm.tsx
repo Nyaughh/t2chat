@@ -3,7 +3,14 @@ import { motion } from 'framer-motion'
 import { Button } from '@/components/ui/button'
 import { InlineKeyFormProps } from './types'
 
-export const InlineKeyForm = ({ editingKey, onValueChange, onSave, onCancel }: InlineKeyFormProps) => (
+export const InlineKeyForm = ({
+  editingKey,
+  keyPlaceholder,
+  isSaving,
+  onValueChange,
+  onSave,
+  onCancel,
+}: InlineKeyFormProps) => (
   <motion.div
     initial={{ opacity: 0, y: -10 }}
     animate={{ opacity: 1, y: 0 }}
@@ -14,20 +21,33 @@ export const InlineKeyForm = ({ editingKey, onValueChange, onSave, onCancel }: I
     <input
       type="text"
       placeholder="Key Name (e.g., Personal Key)"
-      value={editingKey.name || ''}
+      value={editingKey.name}
       onChange={(e) => onValueChange({ ...editingKey, name: e.target.value })}
       className="w-full bg-muted/30 border border-border rounded-md px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500/50 outline-none"
     />
     <input
       type="password"
-      placeholder="API Key"
-      value={editingKey.key || ''}
+      autoComplete="off"
+      spellCheck={false}
+      placeholder={editingKey._id ? 'New API key (leave blank to keep the current key)' : keyPlaceholder || 'API Key'}
+      value={editingKey.key}
       onChange={(e) => onValueChange({ ...editingKey, key: e.target.value })}
       className="w-full bg-muted/30 border border-border rounded-md px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500/50 outline-none"
     />
+    <p className="text-xs text-muted-foreground">
+      Your key is encrypted before it is stored and is only used to run your own chats. You can remove it at any time.
+    </p>
     <div className="flex justify-end gap-2">
-      <Button variant="ghost" size="sm" onClick={onCancel}>Cancel</Button>
-      <Button size="sm" onClick={onSave}>Save Key</Button>
+      <Button variant="ghost" size="sm" onClick={onCancel} disabled={isSaving}>
+        Cancel
+      </Button>
+      <Button
+        size="sm"
+        onClick={onSave}
+        disabled={isSaving || !editingKey.name.trim() || (!editingKey._id && !editingKey.key.trim())}
+      >
+        {isSaving ? 'Saving…' : 'Save Key'}
+      </Button>
     </div>
   </motion.div>
-) 
+)

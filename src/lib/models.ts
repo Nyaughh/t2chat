@@ -1,15 +1,43 @@
-import { tree } from 'next/dist/build/templates/app-page'
 import { cn } from './utils'
+
+export type ModelProvider = 'gemini' | 'openrouter' | 'groq' | 'anthropic' | 'openai'
+
+/** Providers whose models only run on the user's own API key (there is no server key for them). */
+export const USER_KEY_ONLY_PROVIDERS: readonly ModelProvider[] = ['anthropic', 'openai']
+
+/** Providers whose models are only offered to users who added their own key for that provider. */
+const KEY_GATED_PROVIDERS: readonly ModelProvider[] = ['openrouter', ...USER_KEY_ONLY_PROVIDERS]
+
+/** Free model every visitor (signed in or not) can use. It can't be disabled. */
+export const DEFAULT_MODEL_ID = 'gemini-3.5-flash-lite'
+
+/** Server-side model used for chat title generation. */
+export const TITLE_MODEL_ID = 'gemini-3.5-flash-lite'
+
+/** Gemini model used by the image generation tool. */
+export const IMAGE_GENERATION_MODEL_ID = 'gemini-3.1-flash-image'
+
+export const PROVIDER_DISPLAY_NAMES: Record<ModelProvider, string> = {
+  gemini: 'Gemini',
+  groq: 'Groq',
+  openrouter: 'OpenRouter',
+  anthropic: 'Anthropic',
+  openai: 'OpenAI',
+}
+
+export const getProviderDisplayName = (provider: string): string =>
+  PROVIDER_DISPLAY_NAMES[provider as ModelProvider] ?? provider
 
 export interface ModelInfo {
   id: string
   name: string
   description: string
-  provider: 'gemini' | 'openrouter' | 'groq'
-  vendor: 'google' | 'anthropic' | 'openai' | 'deepseek' | 'meta' | 'sarvam' | 'qwen'
+  provider: ModelProvider
+  vendor: 'google' | 'anthropic' | 'openai' | 'deepseek' | 'meta' | 'sarvam' | 'qwen' | 'moonshot' | 'xai'
   features: ('vision' | 'web' | 'code' | 'imagegen')[]
   isPro?: boolean
   isNew?: boolean
+  /** The model streams visible reasoning ("thinking") that the UI shows separately. */
   supportsThinking?: boolean
   unauthenticated?: boolean
   attachmentsSuppport: {
@@ -21,273 +49,293 @@ export interface ModelInfo {
   isFree?: boolean
 }
 
-export const models: ModelInfo[] = [
+const allAttachments = { pdf: true, image: true }
+const imageOnly = { pdf: false, image: true }
+const noAttachments = { pdf: false, image: false }
+
+const modelList: ModelInfo[] = [
+  // Gemini: server key, or the user's own Gemini key when they add one
   {
-    id: 'gemini-2.0-flash-lite',
-    name: 'Gemini 2.0 Flash Lite',
-    description: 'Lightweight version for quick tasks',
+    id: 'gemini-3.5-flash-lite',
+    name: 'Gemini 3.5 Flash Lite',
+    description: 'Fast, lightweight model for everyday tasks',
     provider: 'gemini',
     vendor: 'google',
-    features: [],
-    isPro: false,
-    isNew: true,
+    features: ['vision', 'web', 'code'],
     supportsThinking: false,
     unauthenticated: true,
-    attachmentsSuppport: {
-      pdf: false,
-      image: false,
-    },
+    attachmentsSuppport: allAttachments,
+    toolCalls: true,
     isFree: true,
   },
   {
-    id: 'gemini-2.0-flash',
-    name: 'Gemini 2.0 Flash',
-    description: 'Latest and fastest model',
+    id: 'gemini-3.8-flash',
+    name: 'Gemini 3.8 Flash',
+    description: 'Fast multimodal model with tools',
     provider: 'gemini',
     vendor: 'google',
     features: ['vision', 'web', 'code', 'imagegen'],
-    isPro: false,
+    isNew: true,
     supportsThinking: false,
-    unauthenticated: false,
     isApiKeyOnly: true,
-    attachmentsSuppport: {
-      pdf: false,
-      image: true,
-    },
+    attachmentsSuppport: allAttachments,
     toolCalls: true,
   },
   {
-    id: 'gemini-2.0-flash-thinking-exp-01-21',
-    name: 'Gemini 2.0 Flash Thinking',
-    description: 'Thinking capabilities',
-    provider: 'gemini',
-    vendor: 'google',
-    features: ['vision', 'code', 'imagegen'],
-    isPro: false,
-    supportsThinking: true,
-    unauthenticated: false,
-    isApiKeyOnly: true,
-    attachmentsSuppport: {
-      pdf: false,
-      image: false,
-    },
-  },
-  {
-    id: 'gemini-2.5-flash-preview-04-17',
-    name: 'Gemini 2.5 Flash',
-    description: 'Advanced reasoning capabilities',
-    provider: 'gemini',
-    vendor: 'google',
-    features: ['vision', 'web', 'code', 'imagegen'],
-    isPro: false,
-    supportsThinking: false,
-    unauthenticated: false,
-    isApiKeyOnly: true,
-    isFree: true,
-    attachmentsSuppport: {
-      pdf: false,
-      image: true,
-    },
-  },
-  {
-    id: 'gemini-2.5-pro-preview-05-06',
-    name: 'Gemini 2.5 Pro',
-    description: 'Most capable model for complex tasks',
+    id: 'gemini-4-argon',
+    name: 'Gemini 4 Argon',
+    description: 'Most capable Gemini model for complex tasks',
     provider: 'gemini',
     vendor: 'google',
     features: ['vision', 'web', 'code', 'imagegen'],
     isPro: true,
-    supportsThinking: false,
-    unauthenticated: false,
+    isNew: true,
+    supportsThinking: true,
     isApiKeyOnly: true,
-    isFree: false,
-    attachmentsSuppport: {
-      pdf: true,
-      image: true,
-    },
+    attachmentsSuppport: allAttachments,
     toolCalls: true,
   },
   {
-    id: 'google/gemini-flash-1.5',
-    name: 'Gemini Flash 1.5',
-    description: 'Via OpenRouter',
-    provider: 'openrouter',
+    id: 'gemini-4-hydrogen',
+    name: 'Gemini 4 Hydrogen',
+    description: 'Gemini 4 model for deep reasoning',
+    provider: 'gemini',
     vendor: 'google',
     features: ['vision', 'web', 'code', 'imagegen'],
-    isPro: false,
-    supportsThinking: false,
-    unauthenticated: true,
-    attachmentsSuppport: {
-      pdf: true,
-      image: true,
-    },
+    isPro: true,
+    isNew: true,
+    supportsThinking: true,
+    isApiKeyOnly: true,
+    attachmentsSuppport: allAttachments,
+    toolCalls: true,
+  },
+
+  // Groq: server key, or the user's own Groq key when they add one
+  {
+    id: 'openai/gpt-oss-120b',
+    name: 'GPT-OSS 120B',
+    description: 'Open-weight reasoning model via Groq',
+    provider: 'groq',
+    vendor: 'openai',
+    features: ['web', 'code'],
+    supportsThinking: true,
+    attachmentsSuppport: noAttachments,
+    toolCalls: true,
     isFree: true,
   },
   {
-    id: 'anthropic/claude-3.5-sonnet',
-    name: 'Claude 3.5 Sonnet',
+    id: 'openai/gpt-oss-20b',
+    name: 'GPT-OSS 20B',
+    description: 'Fast open-weight model via Groq',
+    provider: 'groq',
+    vendor: 'openai',
+    features: ['web', 'code'],
+    supportsThinking: false,
+    attachmentsSuppport: noAttachments,
+    toolCalls: true,
+    isFree: true,
+  },
+  {
+    id: 'qwen/qwen3.8-27b',
+    name: 'Qwen 3.8 27B',
+    description: 'Open-weight reasoning model via Groq',
+    provider: 'groq',
+    vendor: 'qwen',
+    features: ['web', 'code'],
+    supportsThinking: true,
+    attachmentsSuppport: noAttachments,
+    toolCalls: true,
+    isFree: true,
+  },
+
+  // Anthropic: the user's own Anthropic API key
+  {
+    id: 'claude-opus-5-5',
+    name: 'Claude Opus 5.5',
+    description: 'Uses your Anthropic key. Most capable Opus model',
+    provider: 'anthropic',
+    vendor: 'anthropic',
+    features: ['vision', 'web', 'code', 'imagegen'],
+    isPro: true,
+    isNew: true,
+    supportsThinking: true,
+    attachmentsSuppport: allAttachments,
+    toolCalls: true,
+  },
+  {
+    id: 'claude-sonnet-5-5',
+    name: 'Claude Sonnet 5.5',
+    description: 'Uses your Anthropic key. Fast and capable',
+    provider: 'anthropic',
+    vendor: 'anthropic',
+    features: ['vision', 'web', 'code', 'imagegen'],
+    isNew: true,
+    supportsThinking: true,
+    attachmentsSuppport: allAttachments,
+    toolCalls: true,
+  },
+  {
+    id: 'claude-haiku-5-5',
+    name: 'Claude Haiku 5.5',
+    description: 'Uses your Anthropic key. Fastest Claude model',
+    provider: 'anthropic',
+    vendor: 'anthropic',
+    features: ['vision', 'web', 'code', 'imagegen'],
+    isNew: true,
+    supportsThinking: false,
+    attachmentsSuppport: allAttachments,
+    toolCalls: true,
+  },
+  {
+    id: 'claude-fable-5-2',
+    name: 'Claude Fable 5.2',
+    description: "Uses your Anthropic key. Anthropic's most capable model",
+    provider: 'anthropic',
+    vendor: 'anthropic',
+    features: ['vision', 'web', 'code', 'imagegen'],
+    isPro: true,
+    isNew: true,
+    supportsThinking: true,
+    attachmentsSuppport: allAttachments,
+    toolCalls: true,
+  },
+
+  // OpenAI: the user's own OpenAI API key
+  {
+    id: 'gpt-6.2-astra',
+    name: 'GPT-6.2 Astra',
+    description: 'Uses your OpenAI key. Most capable GPT model',
+    provider: 'openai',
+    vendor: 'openai',
+    features: ['vision', 'web', 'code', 'imagegen'],
+    isPro: true,
+    isNew: true,
+    supportsThinking: true,
+    attachmentsSuppport: allAttachments,
+    toolCalls: true,
+  },
+  {
+    id: 'gpt-6.2-sol',
+    name: 'GPT-6.2 Sol',
+    description: 'Uses your OpenAI key. Balanced speed and capability',
+    provider: 'openai',
+    vendor: 'openai',
+    features: ['vision', 'web', 'code', 'imagegen'],
+    isNew: true,
+    supportsThinking: true,
+    attachmentsSuppport: allAttachments,
+    toolCalls: true,
+  },
+  {
+    id: 'gpt-6.1-terra',
+    name: 'GPT-6.1 Terra',
+    description: 'Uses your OpenAI key. Fast and affordable',
+    provider: 'openai',
+    vendor: 'openai',
+    features: ['vision', 'web', 'code', 'imagegen'],
+    supportsThinking: false,
+    attachmentsSuppport: allAttachments,
+    toolCalls: true,
+  },
+  {
+    id: 'gpt-6-luna',
+    name: 'GPT-6 Luna',
+    description: 'Uses your OpenAI key. Fastest GPT model',
+    provider: 'openai',
+    vendor: 'openai',
+    features: ['vision', 'web', 'code'],
+    supportsThinking: false,
+    attachmentsSuppport: allAttachments,
+    toolCalls: true,
+  },
+
+  // OpenRouter: offered to users with their own OpenRouter key (server key is the fallback)
+  {
+    id: 'anthropic/claude-sonnet-5.5',
+    name: 'Claude Sonnet 5.5',
     description: 'Via OpenRouter',
     provider: 'openrouter',
     vendor: 'anthropic',
-    features: ['vision', 'code'],
-    isPro: false,
-    supportsThinking: false,
-    unauthenticated: false,
-    attachmentsSuppport: {
-      pdf: true,
-      image: true,
-    },
+    features: ['vision', 'web', 'code', 'imagegen'],
+    supportsThinking: true,
+    attachmentsSuppport: allAttachments,
+    toolCalls: true,
   },
   {
-    id: 'openai/gpt-4o',
-    name: 'GPT-4o',
+    id: 'openai/gpt-6.2-sol',
+    name: 'GPT-6.2 Sol',
     description: 'Via OpenRouter',
     provider: 'openrouter',
     vendor: 'openai',
-    features: ['vision', 'code'],
-    isPro: false,
-    supportsThinking: false,
-    unauthenticated: false,
-    attachmentsSuppport: {
-      pdf: true,
-      image: true,
-    },
-  },
-  {
-    id: 'deepseek/deepseek-chat-v3-0324:free',
-    name: 'DeepSeek Chat V3',
-    description: 'Via OpenRouter',
-    provider: 'openrouter',
-    vendor: 'deepseek',
-    features: ['imagegen'],
-    isPro: false,
+    features: ['vision', 'web', 'code', 'imagegen'],
     supportsThinking: true,
-    unauthenticated: false,
-    attachmentsSuppport: {
-      pdf: false,
-      image: false,
-    },
-  },
-  {
-    id: 'meta-llama/llama-4-maverick:free',
-    name: 'Llama 4 Maverick',
-    description: 'Via OpenRouter',
-    provider: 'openrouter',
-    vendor: 'meta',
-    features: ['code'],
-    isPro: false,
-    supportsThinking: false,
-    unauthenticated: false,
-    attachmentsSuppport: {
-      pdf: false,
-      image: false,
-    },
-  },
-  {
-    id: 'sarvamai/sarvam-m:free',
-    name: 'Sarvam M',
-    description: 'Via OpenRouter',
-    provider: 'openrouter',
-    vendor: 'sarvam',
-    features: ['vision', 'web', 'code'],
-    isPro: false,
-    supportsThinking: false,
-    unauthenticated: true,
-    attachmentsSuppport: {
-      pdf: false,
-      image: false,
-    },
-    isFree: true,
-  },
-  {
-    id: 'llama-3.3-70b-versatile',
-    name: 'Llama 3.3 70B Versatile',
-    description: 'Via Groq',
-    provider: 'groq',
-    vendor: 'meta',
-    features: ['code'],
-    isPro: false,
-    supportsThinking: false,
-    unauthenticated: false,
-    attachmentsSuppport: {
-      pdf: false,
-      image: false,
-    },
-  },
-  {
-    id: 'deepseek-r1-distill-llama-70b',
-    name: 'DeepSeek R1 Distill Llama 70B',
-    description: 'Via Groq',
-    provider: 'groq',
-    vendor: 'deepseek',
-    features: ['code', 'imagegen'],
-    isPro: false,
-    isFree: true,
-    supportsThinking: true,
-    unauthenticated: false,
-    attachmentsSuppport: {
-      pdf: false,
-      image: false,
-    },
-  },
-  {
-    id: 'deepseek/deepseek-r1-0528-qwen3-8b:free',
-    name: 'DeepSeek R1 Qwen3 8B',
-    description: 'Via OpenRouter',
-    provider: 'openrouter',
-    vendor: 'deepseek',
-    features: [],
-    isPro: false,
-    isFree: true,
-    supportsThinking: true,
-    unauthenticated: false,
-    attachmentsSuppport: {
-      pdf: false,
-      image: false,
-    },
-    toolCalls: false,
-  },
-  {
-    id: 'anthropic/claude-4-sonnet-20250522',
-    name: 'Claude 4 Sonnet',
-    description: 'Via OpenRouter',
-    provider: 'openrouter',
-    vendor: 'anthropic',
-    features: ['vision', 'code', 'imagegen', 'web'],
-    isPro: true,
-    isFree: false,
-    supportsThinking: true,
-    unauthenticated: false,
-    attachmentsSuppport: {
-      pdf: true,
-      image: true,
-    },
+    attachmentsSuppport: allAttachments,
     toolCalls: true,
   },
   {
-    id: 'qwen/qwen3-32b',
-    name: 'Qwen 3.2B',
-    description: 'Via Groq',
-    provider: 'groq',
-    vendor: 'qwen',
-    features: ['code', 'imagegen'],
-    isPro: false,
-    isFree: true,
+    id: 'deepseek/deepseek-v4-pro',
+    name: 'DeepSeek V4 Pro',
+    description: 'Via OpenRouter',
+    provider: 'openrouter',
+    vendor: 'deepseek',
+    features: ['web', 'code'],
     supportsThinking: true,
-    unauthenticated: false,
-    attachmentsSuppport: {
-      pdf: false,
-      image: false,
-    },
-    toolCalls: false,
+    attachmentsSuppport: noAttachments,
+    toolCalls: true,
   },
-].map((model) => {
+  {
+    id: 'deepseek/deepseek-v4.1-flash',
+    name: 'DeepSeek V4.1 Flash',
+    description: 'Via OpenRouter',
+    provider: 'openrouter',
+    vendor: 'deepseek',
+    features: ['vision', 'web', 'code'],
+    supportsThinking: false,
+    attachmentsSuppport: imageOnly,
+    toolCalls: true,
+  },
+  {
+    id: 'moonshotai/kimi-k3.1-pro',
+    name: 'Kimi K3.1 Pro',
+    description: 'Via OpenRouter',
+    provider: 'openrouter',
+    vendor: 'moonshot',
+    features: ['vision', 'web', 'code'],
+    supportsThinking: true,
+    attachmentsSuppport: imageOnly,
+    toolCalls: true,
+  },
+  {
+    id: 'qwen/qwen4-max',
+    name: 'Qwen4 Max',
+    description: 'Via OpenRouter',
+    provider: 'openrouter',
+    vendor: 'qwen',
+    features: ['vision', 'web', 'code'],
+    supportsThinking: true,
+    attachmentsSuppport: imageOnly,
+    toolCalls: true,
+  },
+  {
+    id: 'x-ai/grok-4.7',
+    name: 'Grok 4.7',
+    description: 'Via OpenRouter',
+    provider: 'openrouter',
+    vendor: 'xai',
+    features: ['vision', 'web', 'code'],
+    supportsThinking: true,
+    attachmentsSuppport: imageOnly,
+    toolCalls: true,
+  },
+]
+
+export const models: ModelInfo[] = modelList.map((model) => {
+  const keyGated = KEY_GATED_PROVIDERS.includes(model.provider)
   return {
     ...model,
-    features: model.features.filter((feature) => !(feature === 'imagegen' && model.supportsThinking)),
-    isApiKeyOnly: model.isApiKeyOnly || model.provider === 'openrouter' || model.isApiKeyOnly,
-    isFree: model.provider === 'openrouter' ? false : model.isFree,
-  } as ModelInfo
+    isApiKeyOnly: model.isApiKeyOnly || keyGated,
+    isFree: keyGated ? false : model.isFree,
+  }
 })
 
 export const getVendorColor = (vendor: string): string => {
@@ -317,6 +365,12 @@ export const getVendorColor = (vendor: string): string => {
       return getFullBgColor('from-orange-500 to-red-500')
     case 'sarvam':
       return getFullBgColor('from-yellow-500 to-orange-500')
+    case 'qwen':
+      return getFullBgColor('from-violet-500 to-indigo-500')
+    case 'moonshot':
+      return getFullBgColor('from-slate-500 to-zinc-600')
+    case 'xai':
+      return getFullBgColor('from-zinc-600 to-neutral-800')
     case 'openrouter':
       return getFullBgColor('from-blue-500 to-green-500')
     default:
@@ -338,6 +392,10 @@ export const getProviderColor = (modelId?: string) => {
       return 'bg-blue-500'
     case 'groq':
       return 'bg-yellow-500'
+    case 'anthropic':
+      return 'bg-orange-500'
+    case 'openai':
+      return 'bg-emerald-500'
     default:
       return 'bg-gray-500'
   }

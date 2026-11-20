@@ -1,23 +1,26 @@
-import { streamText, wrapLanguageModel, extractReasoningMiddleware, createDataStreamResponse } from 'ai'
+import { streamText, type LanguageModel, type ModelMessage } from 'ai'
 import { createGoogleGenerativeAI } from '@ai-sdk/google'
-import { createOpenRouter } from '@openrouter/ai-sdk-provider'
 import { createGroq } from '@ai-sdk/groq'
+import { createOpenRouter } from '@openrouter/ai-sdk-provider'
 
-import { models } from '@/lib/models'
+import { models, DEFAULT_MODEL_ID, getProviderDisplayName, type ModelInfo } from '@/lib/models'
 import { basePersonality } from '../../../../prompts/base'
 
 export const maxDuration = 30
 
+// This route has no access to a user's own keys, so it only serves models that
+// run on the server's Gemini, Groq and OpenRouter keys. Anthropic and OpenAI
+// models go through the signed-in Convex chat flow instead.
 const google = createGoogleGenerativeAI({
   apiKey: process.env.GEMINI_API_KEY,
 })
 
-const openrouter = createOpenRouter({
-  apiKey: process.env.OPENROUTER_API_KEY,
-})
-
 const groq = createGroq({
   apiKey: process.env.GROQ_API_KEY,
+})
+
+const openrouter = createOpenRouter({
+  apiKey: process.env.OPENROUTER_API_KEY,
 })
 
 interface UserSettings {
@@ -48,148 +51,115 @@ const buildPersonalizedSystemPrompt = (userSettings?: UserSettings): string => {
   }
 }
 
-const mapModel = (modelId: string) => {
-  const model = models.find((m) => m.id === modelId)
+const defaultModel = models.find((m) => m.id === DEFAULT_MODEL_ID)!
 
-  if (!model) {
-    return {
-      model: google('gemini-2.0-flash'),
-      thinking: false,
-    }
-  }
+const mapModel = (
+  modelId: string,
+): { info: ModelInfo; model: LanguageModel; thinking: boolean } | { error: string } => {
+  const info = models.find((m) => m.id === modelId) ?? defaultModel
 
-  if (model.provider === 'gemini') {
-    return {
-      model: google(modelId),
-      thinking: model.supportsThinking,
-    }
+  switch (info.provider) {
+    case 'gemini':
+      return { info, model: google(info.id), thinking: !!info.supportsThinking }
+    case 'groq':
+      return { info, model: groq(info.id), thinking: !!info.supportsThinking }
+    case 'openrouter':
+      return { info, model: openrouter(info.id), thinking: false }
+    default:
+      return {
+        error: `${info.name} needs your own ${getProviderDisplayName(info.provider)} API key and isn't available here. Choose a Gemini, Groq or OpenRouter model instead.`,
+      }
   }
+}
 
-  if (model.provider === 'openrouter') {
-    return {
-      model: openrouter(modelId),
-      thinking: false,
-    }
-  }
+// Same line format as the AI SDK v4 data stream ("2:" data parts), which
+// src/lib/stream-parser.ts reads on the client.
+const encoder = new TextEncoder()
+const dataLine = (type: 'text' | 'reasoning' | 'finish' | 'error', value: unknown) =>
+  encoder.encode(`2:${JSON.stringify([{ type, value }])}\n`)
 
-  if (model.provider === 'groq') {
-    return {
-      model: groq(modelId),
-      thinking: model.supportsThinking,
-    }
-  }
-
-  return {
-    model: google('gemini-2.0-flash'),
-    thinking: false,
-  }
+const streamHeaders = {
+  'Content-Type': 'text/plain; charset=utf-8',
+  'Cache-Control': 'no-cache',
 }
 
 export async function POST(req: Request) {
   try {
-    const { messages, data } = await req.json()
+    const { messages, data } = (await req.json()) as {
+      messages: ModelMessage[]
+      data: { modelId: string; userSettings?: UserSettings }
+    }
     const { modelId, userSettings } = data
 
-    const { model, thinking } = mapModel(modelId)
-    const systemPrompt = buildPersonalizedSystemPrompt(userSettings)
+    const mapped = mapModel(modelId)
+    if ('error' in mapped) {
+      return new Response(dataLine('error', mapped.error), { status: 200, headers: streamHeaders })
+    }
+    const { info, model, thinking } = mapped
 
-    const { fullStream } = streamText({
-      system: systemPrompt,
-      model: thinking
-        ? wrapLanguageModel({
-            model,
-            middleware: extractReasoningMiddleware({ tagName: 'think', startWithReasoning: true }),
-          })
-        : model,
+    const { stream } = streamText({
+      instructions: buildPersonalizedSystemPrompt(userSettings),
+      model,
       messages,
-      providerOptions: {
-        google: {
-          thinkingConfig: thinking
-            ? {
-                thinkingBudget: 2048,
-              }
-            : {},
-        },
-        openrouter: {},
-      },
-      experimental_transform: [],
+      providerOptions:
+        thinking && info.provider === 'gemini'
+          ? { google: { thinkingConfig: { includeThoughts: true } } }
+          : thinking && info.provider === 'groq' && !info.id.startsWith('openai/gpt-oss')
+            ? { groq: { reasoningFormat: 'parsed' } }
+            : undefined,
+      abortSignal: req.signal,
+      // Errors are forwarded to the client in the stream loop below
+      onError: () => {},
     })
 
-    console.log('MODEL', model.provider)
-
-    return createDataStreamResponse({
-      status: 200,
-      statusText: 'OK',
-      headers: {
-        'Custom-Header': 'value',
-      },
-      execute: async (dataStream) => {
+    const body = new ReadableStream<Uint8Array>({
+      async start(controller) {
         let thinkingStartTime: number | null = null
         let thinkingEndTime: number | null = null
 
-        for await (const chunk of fullStream) {
-          if (chunk.type === 'text-delta') {
-            dataStream.writeData({
-              type: 'text',
-              value: chunk.textDelta,
-            })
-          } else if (chunk.type === 'reasoning') {
-            // Track thinking timing
-            if (!thinkingStartTime) {
-              thinkingStartTime = Date.now()
+        try {
+          for await (const chunk of stream) {
+            if (chunk.type === 'text-delta') {
+              if (thinkingStartTime && !thinkingEndTime) thinkingEndTime = Date.now()
+              controller.enqueue(dataLine('text', chunk.text))
+            } else if (chunk.type === 'reasoning-delta') {
+              if (!chunk.text) continue
+              if (!thinkingStartTime) thinkingStartTime = Date.now()
+              controller.enqueue(dataLine('reasoning', chunk.text))
+            } else if (chunk.type === 'finish') {
+              if (thinkingStartTime && !thinkingEndTime) thinkingEndTime = Date.now()
+
+              const thinkingDuration =
+                thinkingStartTime && thinkingEndTime
+                  ? Math.round((thinkingEndTime - thinkingStartTime) / 1000)
+                  : undefined
+
+              controller.enqueue(
+                dataLine('finish', {
+                  finishReason: chunk.finishReason || 'unknown',
+                  usage: chunk.totalUsage || {},
+                  ...(thinkingDuration && { thinkingDuration }),
+                }),
+              )
+            } else if (chunk.type === 'error') {
+              controller.enqueue(
+                dataLine('error', (chunk.error as { message?: string } | undefined)?.message || 'Unknown error'),
+              )
             }
-
-            if (model.provider === 'google.generative-ai') {
-              console.log('GOOGLE REASONING', chunk.textDelta)
-              if (typeof chunk.textDelta === 'string' && chunk.textDelta.startsWith('**')) {
-                dataStream.writeData({
-                  type: 'reasoning',
-                  value: chunk.textDelta,
-                })
-                continue
-              } else {
-                dataStream.writeData({
-                  type: 'text',
-                  value: chunk.textDelta,
-                })
-              }
-              continue
-            }
-
-            dataStream.writeData({
-              type: 'reasoning',
-              value: chunk.textDelta,
-            })
-          } else if (chunk.type === 'finish') {
-            // Calculate thinking duration
-            if (thinkingStartTime && !thinkingEndTime) {
-              thinkingEndTime = Date.now()
-            }
-
-            const thinkingDuration =
-              thinkingStartTime && thinkingEndTime
-                ? Math.round((thinkingEndTime - thinkingStartTime) / 1000)
-                : undefined
-
-            dataStream.writeData({
-              type: 'finish',
-              value: {
-                finishReason: chunk.finishReason || 'unknown',
-                usage: chunk.usage || {},
-                ...(thinkingDuration && { thinkingDuration }),
-              },
-            })
-          } else if (chunk.type === 'error') {
-            dataStream.writeData({
-              type: 'error',
-              value: (chunk.error as { message: string })?.message || 'Unknown error',
-            })
           }
+        } catch (error) {
+          if (!req.signal.aborted) {
+            controller.enqueue(dataLine('error', error instanceof Error ? error.message : 'Unknown error'))
+          }
+        } finally {
+          controller.close()
         }
       },
     })
+
+    return new Response(body, { status: 200, headers: streamHeaders })
   } catch (error) {
-    console.error('Error in chat API:', error)
+    console.error('Error in chat API:', error instanceof Error ? error.message : error)
     if (error instanceof Error) {
       return new Response(JSON.stringify({ error: error.message }), { status: 500 })
     }

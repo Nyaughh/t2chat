@@ -1,14 +1,18 @@
 import { api } from '../_generated/api'
 import { Id } from '../_generated/dataModel'
-import { models } from '../../src/lib/models'
-import { streamText, wrapLanguageModel, extractReasoningMiddleware, tool, CoreMessage, smoothStream } from 'ai'
-import { createGoogleGenerativeAI } from '@ai-sdk/google'
+import { ConvexError } from 'convex/values'
+import { models, ModelInfo, IMAGE_GENERATION_MODEL_ID, getProviderDisplayName } from '../../src/lib/models'
+import { streamText, tool, ModelMessage, smoothStream, isStepCount, type LanguageModel, type ToolSet } from 'ai'
+import { createGoogleGenerativeAI, type GoogleLanguageModelOptions } from '@ai-sdk/google'
+import { createAnthropic, type AnthropicLanguageModelOptions } from '@ai-sdk/anthropic'
+import { createOpenAI } from '@ai-sdk/openai'
 import { createOpenRouter } from '@openrouter/ai-sdk-provider'
 import { createGroq } from '@ai-sdk/groq'
 import { z } from 'zod'
 import { Modality } from '@google/genai'
 import { basePersonality } from '../../prompts/base'
 import { Buffer } from 'buffer'
+import { getUserApiKey } from '../api_keys'
 
 export const mapModel = (modelId: string) => {
   const model = models.find((m) => m.id === modelId)
@@ -28,10 +32,75 @@ export const mapModel = (modelId: string) => {
   }
 }
 
+/**
+ * Creates the language model for a catalog entry. Gemini, Groq and OpenRouter
+ * fall back to the server keys; Anthropic and OpenAI need the user's own key.
+ */
+const createLanguageModel = async (ctx: any, model: ModelInfo): Promise<LanguageModel> => {
+  const requireUserKey = (key: string | null) => {
+    if (!key) {
+      throw new ConvexError(
+        `${model.name} needs your own ${getProviderDisplayName(model.provider)} API key. Add one in Settings → Models & Keys.`,
+      )
+    }
+    return key
+  }
+
+  switch (model.provider) {
+    case 'gemini': {
+      const apiKey = (await getUserApiKey(ctx, 'gemini')) ?? process.env.GEMINI_API_KEY
+      return createGoogleGenerativeAI({ apiKey })(model.id)
+    }
+    case 'groq': {
+      const apiKey = (await getUserApiKey(ctx, 'groq')) ?? process.env.GROQ_API_KEY
+      return createGroq({ apiKey })(model.id)
+    }
+    case 'openrouter': {
+      const apiKey = (await getUserApiKey(ctx, 'openrouter')) ?? process.env.OPENROUTER_API_KEY
+      return createOpenRouter({ apiKey })(model.id, { extraBody: { transforms: ['middle-out'] } })
+    }
+    case 'anthropic': {
+      const apiKey = requireUserKey(await getUserApiKey(ctx, 'anthropic'))
+      return createAnthropic({ apiKey })(model.id)
+    }
+    case 'openai': {
+      const apiKey = requireUserKey(await getUserApiKey(ctx, 'openai'))
+      return createOpenAI({ apiKey })(model.id)
+    }
+  }
+}
+
+/** Provider options that make reasoning visible for "thinking" models. */
+type ProviderOptions = Parameters<typeof streamText>[0]['providerOptions']
+
+const reasoningProviderOptions = (model: ModelInfo, thinking: boolean): ProviderOptions => {
+  switch (model.provider) {
+    case 'gemini':
+      return thinking
+        ? { google: { thinkingConfig: { includeThoughts: true } } satisfies GoogleLanguageModelOptions }
+        : undefined
+    case 'anthropic':
+      return thinking
+        ? {
+            anthropic: {
+              thinking: { type: 'adaptive', display: 'summarized' },
+            } satisfies AnthropicLanguageModelOptions,
+          }
+        : undefined
+    case 'openai':
+      return thinking ? { openai: { reasoningSummary: 'auto' } } : undefined
+    case 'groq':
+      // gpt-oss returns reasoning separately by default; other Groq reasoning models need "parsed"
+      return thinking && !model.id.startsWith('openai/gpt-oss') ? { groq: { reasoningFormat: 'parsed' } } : undefined
+    case 'openrouter':
+      return thinking ? { openrouter: { reasoning: { effort: 'medium' } } } : undefined
+  }
+}
+
 // Helper function to generate AI response
 export const generateAIResponse = async (
   ctx: any,
-  chatMessages: CoreMessage[],
+  chatMessages: ModelMessage[],
   modelId: string,
   assistantMessageId: Id<'messages'>,
   webSearch?: boolean,
@@ -43,32 +112,18 @@ export const generateAIResponse = async (
     throw new Error('Invalid model selected')
   }
 
-  // Get user's API keys for different providers
-  const userGeminiKey = await ctx.runQuery(api.api_keys.getUserDefaultApiKey, { service: 'gemini' })
-  const userGroqKey = await ctx.runQuery(api.api_keys.getUserDefaultApiKey, { service: 'groq' })
-  const userOpenRouterKey = await ctx.runQuery(api.api_keys.getUserDefaultApiKey, { service: 'openrouter' })
-
-  const google = createGoogleGenerativeAI({
-    apiKey: userGeminiKey || process.env.GEMINI_API_KEY,
-  })
-
-  const openrouter = createOpenRouter({
-    apiKey: userOpenRouterKey || process.env.OPENROUTER_API_KEY,
-  })
-
-  const groq = createGroq({
-    apiKey: userGroqKey || process.env.GROQ_API_KEY,
-  })
-
-  let aiModel
-  if (provider === 'gemini') {
-    aiModel = google(model.id)
-  } else if (provider === 'openrouter') {
-    aiModel = openrouter(model.id)
-  } else if (provider === 'groq') {
-    aiModel = groq(model.id)
-  } else {
-    aiModel = google('gemini-2.0-flash')
+  let aiModel: LanguageModel
+  try {
+    aiModel = await createLanguageModel(ctx, model)
+  } catch (error) {
+    if (!(error instanceof ConvexError)) throw error
+    // Missing or unreadable user key: explain it in the chat instead of failing silently
+    await ctx.runMutation(api.chat.mutations.updateMessage, {
+      messageId: assistantMessageId,
+      content: `*${error.data}*`,
+      isComplete: true,
+    })
+    return
   }
 
   // Fetch user settings
@@ -93,17 +148,14 @@ export const generateAIResponse = async (
     }
   }
 
-  // Determine which key to use for image generation
-  const shouldUseUserGeminiKey = !!userGeminiKey
-
   // Prepare tools
-  const tools: any = {}
+  const tools: ToolSet = {}
 
   if (webSearch) {
     tools.search = tool({
       description:
         "Search the web for current information. Use this when you need up-to-date information that might not be in your training data. IMPORTANT: Always explain what you're searching for and why before calling this tool.",
-      parameters: z.object({
+      inputSchema: z.object({
         query: z.string().describe('The search query to find relevant information'),
       }),
       execute: async ({ query }) => {
@@ -154,35 +206,39 @@ export const generateAIResponse = async (
     tools.generateImage = tool({
       description:
         "Generate an image based on a text description. Use this when the user asks you to create, generate, or make an image. IMPORTANT: Always explain what you're going to generate and why before calling this tool.",
-      parameters: z.object({
+      inputSchema: z.object({
         prompt: z.string().describe('The detailed description of the image to generate'),
       }),
       execute: async ({ prompt }) => {
         try {
-          // Use user's key if available, otherwise use system key
-          const apiKey = shouldUseUserGeminiKey ? userGeminiKey : process.env.GEMINI_API_KEY
+          // Use the user's Gemini key if they added one, otherwise the system key
+          const userGeminiKey = await getUserApiKey(ctx, 'gemini')
+          const apiKey = userGeminiKey ?? process.env.GEMINI_API_KEY
 
           // Use Google Gen AI SDK for image generation
           const { GoogleGenAI } = await import('@google/genai')
           const genAI = new GoogleGenAI({ apiKey })
 
           const result = await genAI.models.generateContent({
-            model: 'gemini-2.0-flash-preview-image-generation',
+            model: IMAGE_GENERATION_MODEL_ID,
             contents: prompt,
             config: {
-              responseModalities: [Modality.IMAGE, Modality.TEXT], // Fixed: IMAGE first, then TEXT
+              responseModalities: [Modality.IMAGE, Modality.TEXT],
             },
           })
 
           const parts = result.candidates?.[0]?.content?.parts || []
-          let imageData = null
+          let imageData: string | null = null
+          let imageMimeType = 'image/png'
           let description = ''
 
           for (const part of parts) {
+            if (part.thought) continue
             if (part.text) {
               description += part.text
-            } else if (part.inlineData) {
+            } else if (part.inlineData?.data) {
               imageData = part.inlineData.data
+              imageMimeType = part.inlineData.mimeType || imageMimeType
             }
           }
 
@@ -191,7 +247,7 @@ export const generateAIResponse = async (
             const imageBuffer = Buffer.from(imageData, 'base64')
 
             // Store the image in Convex file storage
-            const storageId = await ctx.storage.store(new Blob([imageBuffer], { type: 'image/png' }))
+            const storageId = await ctx.storage.store(new Blob([imageBuffer], { type: imageMimeType }))
 
             // Get the public URL for the stored image
             const imageUrl = await ctx.storage.getUrl(storageId)
@@ -203,7 +259,7 @@ export const generateAIResponse = async (
               imageUrl: imageUrl,
               storageId: storageId,
               timestamp: new Date().toISOString(),
-              usedUserKey: shouldUseUserGeminiKey,
+              usedUserKey: !!userGeminiKey,
             }
           } else {
             return {
@@ -214,7 +270,7 @@ export const generateAIResponse = async (
             }
           }
         } catch (error: any) {
-          console.error('Image generation error:', error)
+          console.error('Image generation error:', error?.message || error)
           return {
             success: false,
             error: `Failed to generate image: ${error?.message || error}`,
@@ -225,48 +281,30 @@ export const generateAIResponse = async (
       },
     })
   }
+
+  const hasTools = Object.keys(tools).length > 0
+  // Newer Anthropic and OpenAI reasoning models reject custom sampling settings
+  const supportsTemperature = provider !== 'anthropic' && provider !== 'openai'
+
   // Stream the response
-  const { fullStream } = streamText({
-    system: personalizedSystemPrompt,
-    model: thinking
-      ? wrapLanguageModel({
-          model: aiModel,
-          middleware: extractReasoningMiddleware({
-            tagName: 'think',
-            startWithReasoning: true,
-          }),
-        })
-      : aiModel,
+  const { stream } = streamText({
+    instructions: personalizedSystemPrompt,
+    model: aiModel,
     messages: chatMessages,
-    maxSteps: 20,
-    tools: Object.keys(tools).length > 0 ? tools : undefined,
-    // Add explicit instruction to generate explanatory text before tool calls
-    toolChoice: Object.keys(tools).length > 0 ? 'auto' : undefined,
-    // Add temperature to encourage more varied responses
-    temperature: 0.7,
-    // Encourage more text generation
-    maxTokens: provider === 'openrouter' ? 4000 : undefined,
-    providerOptions: {
-      google: {
-        thinkingConfig: thinking
-          ? {
-              thinkingBudget: 2048,
-            }
-          : {},
-        // Add Google-specific options to encourage text generation
-        candidateCount: 1,
-        safetySettings: [],
-      },
-      openrouter: {
-        // Add OpenRouter specific options
-        transforms: ['middle-out'],
-      },
-    },
+    stopWhen: isStepCount(20),
+    tools: hasTools ? tools : undefined,
+    toolChoice: hasTools ? 'auto' : undefined,
+    temperature: supportsTemperature ? 0.7 : undefined,
+    maxOutputTokens: provider === 'openrouter' ? 4000 : undefined,
+    providerOptions: reasoningProviderOptions(model, thinking),
     experimental_transform: smoothStream({
       chunking: isNode ? 'line' : 'word',
     }),
+    // Errors are handled (and logged without request details) in the stream loop below
+    onError: () => {},
   })
 
+  let isFinalized = false
   let accumulatedContent = ''
   let accumulatedThinking = ''
   let thinkingStartTime: number | null = null
@@ -310,8 +348,21 @@ export const generateAIResponse = async (
     }
   }
 
-  for await (const chunk of fullStream) {
+  for await (const chunk of stream) {
     try {
+      // Only content-bearing parts need a cancellation check
+      if (
+        chunk.type !== 'text-delta' &&
+        chunk.type !== 'reasoning-delta' &&
+        chunk.type !== 'tool-call' &&
+        chunk.type !== 'tool-result' &&
+        chunk.type !== 'tool-error' &&
+        chunk.type !== 'finish' &&
+        chunk.type !== 'error'
+      ) {
+        continue
+      }
+
       // Check if the message has been cancelled
       const message = await ctx.runQuery(api.chat.queries.getMessage, { messageId: assistantMessageId })
       if (message?.isCancelled) {
@@ -319,43 +370,29 @@ export const generateAIResponse = async (
       }
 
       if (chunk.type === 'text-delta') {
-        accumulatedContent += chunk.textDelta
+        // Reasoning ends when the first answer text arrives
+        if (thinkingStartTime && !thinkingEndTime) {
+          thinkingEndTime = Date.now()
+        }
+        accumulatedContent += chunk.text
         hasGeneratedTextBeforeTools = true
         pendingContentUpdate = true
 
         // Schedule batched update
         await scheduleUpdate()
-      } else if (chunk.type === 'reasoning') {
+      } else if (chunk.type === 'reasoning-delta') {
+        if (!chunk.text) continue
+
         // Track thinking start time
         if (!thinkingStartTime) {
           thinkingStartTime = Date.now()
         }
 
-        if (provider === 'gemini') {
-          // Handle Google's reasoning differently
-          if (typeof chunk.textDelta === 'string' && chunk.textDelta.startsWith('**')) {
-            // This is reasoning content - accumulate it
-            accumulatedThinking += chunk.textDelta
-            pendingThinkingUpdate = true
+        accumulatedThinking += chunk.text
+        pendingThinkingUpdate = true
 
-            // Schedule batched update for thinking
-            await scheduleUpdate()
-          } else {
-            // This is regular content mixed with reasoning
-            accumulatedContent += chunk.textDelta
-            pendingContentUpdate = true
-
-            // Schedule batched update
-            await scheduleUpdate()
-          }
-        } else {
-          // For other providers, reasoning is separate
-          accumulatedThinking += chunk.textDelta
-          pendingThinkingUpdate = true
-
-          // Schedule batched update for thinking
-          await scheduleUpdate()
-        }
+        // Schedule batched update for thinking
+        await scheduleUpdate()
       } else if (chunk.type === 'tool-call') {
         // If no text was generated before this tool call, add some explanatory text
         if (!hasGeneratedTextBeforeTools && accumulatedContent.trim() === '') {
@@ -375,17 +412,20 @@ export const generateAIResponse = async (
         accumulatedToolCalls.push({
           toolCallId: chunk.toolCallId,
           toolName: chunk.toolName,
-          args: chunk.args,
+          args: chunk.input,
         })
         await ctx.runMutation(api.chat.mutations.updateMessage, {
           messageId: assistantMessageId,
           content: accumulatedContent,
           toolCalls: accumulatedToolCalls,
         })
-      } else if (chunk.type === 'tool-result') {
+      } else if (chunk.type === 'tool-result' || chunk.type === 'tool-error') {
         const toolCall = accumulatedToolCalls.find((tc) => tc.toolCallId === chunk.toolCallId)
         if (toolCall) {
-          toolCall.result = chunk.result
+          toolCall.result =
+            chunk.type === 'tool-result'
+              ? chunk.output
+              : { success: false, error: 'The tool failed to run', results: [] }
         }
         await ctx.runMutation(api.chat.mutations.updateMessage, {
           messageId: assistantMessageId,
@@ -413,22 +453,24 @@ export const generateAIResponse = async (
           isComplete: true,
           toolCalls: accumulatedToolCalls,
         })
+        isFinalized = true
         break
       } else if (chunk.type === 'error') {
+        console.error(`Model stream error (${provider}/${model.id}):`, describeStreamError(chunk.error))
+
         // Force final update before handling error
         await scheduleUpdate(true)
 
         // Handle error
         await ctx.runMutation(api.chat.mutations.updateMessage, {
           messageId: assistantMessageId,
-          content: accumulatedContent + '\n\n*Error occurred while generating response.*',
+          content: `${accumulatedContent ? `${accumulatedContent}\n\n` : ''}*${userFacingStreamError(chunk.error, model)}*`,
           thinking: accumulatedThinking || undefined,
           isComplete: true,
+          toolCalls: accumulatedToolCalls,
         })
+        isFinalized = true
         break
-      } else {
-        // Log any unknown chunk types for debugging
-        console.log('Unknown chunk type received:', chunk.type)
       }
     } catch (updateError) {
       // If we can't update the message (e.g., due to conflicts), continue streaming
@@ -437,7 +479,8 @@ export const generateAIResponse = async (
     }
   }
 
-  // Ensure the message is marked as complete even if the loop exits unexpectedly
+  // Ensure the message is marked as complete if the loop exits without finishing (e.g. cancelled)
+  if (isFinalized) return
   try {
     // Force final update to ensure all content is saved
     await scheduleUpdate(true)
@@ -452,4 +495,31 @@ export const generateAIResponse = async (
   } catch (finalUpdateError) {
     console.warn('Failed to mark message as complete:', finalUpdateError)
   }
+}
+
+/** HTTP status of a provider error, looking through the SDK's retry wrapper. */
+const statusCodeOf = (error: unknown): number | undefined => {
+  const err = error as { statusCode?: number; lastError?: { statusCode?: number } } | undefined
+  return err?.statusCode ?? err?.lastError?.statusCode
+}
+
+/** Status code and a short message only: never log request details. */
+const describeStreamError = (error: unknown) => ({
+  statusCode: statusCodeOf(error),
+  message: (error as { message?: string } | undefined)?.message?.slice(0, 300),
+})
+
+const userFacingStreamError = (error: unknown, model: ModelInfo) => {
+  const statusCode = statusCodeOf(error)
+  const provider = getProviderDisplayName(model.provider)
+  if (statusCode === 401 || statusCode === 403) {
+    return `${provider} rejected the API key. Check your key in Settings → Models & Keys.`
+  }
+  if (statusCode === 429) {
+    return `${provider} rate limit or quota reached. Please try again later.`
+  }
+  if (statusCode === 500 || statusCode === 503 || statusCode === 529) {
+    return `${model.name} is temporarily overloaded. Please try again in a moment or pick another model.`
+  }
+  return 'Error occurred while generating response.'
 }

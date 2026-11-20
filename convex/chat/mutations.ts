@@ -1,9 +1,9 @@
 import { action, mutation, query } from '../_generated/server'
 import { api } from '../_generated/api'
 import { betterAuthComponent } from '../auth'
-import { v } from 'convex/values'
+import { ConvexError, v } from 'convex/values'
 import { Id } from '../_generated/dataModel'
-import { models } from '../../src/lib/models'
+import { models, DEFAULT_MODEL_ID, getProviderDisplayName } from '../../src/lib/models'
 // MUTATIONS - for database modifications
 
 export const createChat = mutation({
@@ -72,8 +72,8 @@ export const addMessage = mutation({
           .first() // Use first() instead of collect() for better performance
 
         if (!userKeys) {
-          throw new Error(
-            `Using ${modelInfo.name} requires you to add a valid ${modelInfo.provider} API key in settings.`,
+          throw new ConvexError(
+            `Using ${modelInfo.name} requires you to add a valid ${getProviderDisplayName(modelInfo.provider)} API key in settings.`,
           )
         }
       }
@@ -112,7 +112,7 @@ export const addMessage = mutation({
         await ctx.scheduler.runAfter(0, api.chat.actions.generateTitle, {
           chatId,
           messageContent: content,
-          modelId: modelId || 'gemini-2.0-flash-lite', // Fallback to a default model
+          modelId: modelId || DEFAULT_MODEL_ID, // Fallback to a default model
         })
       }
     }

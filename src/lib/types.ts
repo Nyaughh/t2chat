@@ -1,4 +1,3 @@
-import type { CoreMessage } from 'ai'
 import type { Id } from '../../convex/_generated/dataModel'
 
 export interface UserMetadata {

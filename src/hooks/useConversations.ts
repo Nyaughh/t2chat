@@ -11,7 +11,7 @@ import { models, type ModelInfo } from '@/lib/models'
 import type { ClientMessage, Attachment, ConvexChat, ConvexMessage } from '@/lib/types'
 import type { Id } from '../../convex/_generated/dataModel'
 import { parseDataStream } from '@/lib/stream-parser'
-import { CoreMessage } from 'ai'
+import { ModelMessage } from 'ai'
 import { useQuery } from 'convex/react'
 import { api } from '../../convex/_generated/api'
 
@@ -376,7 +376,7 @@ export const useConversations = (
         await db.messages.add(userMessage)
 
         const history = [...liveLocalMessages, userMessage]
-        const coreHistory: CoreMessage[] = history.map((m) => ({
+        const coreHistory: ModelMessage[] = history.map((m) => ({
           role: m.role as 'user' | 'assistant',
           content: m.content,
         }))
@@ -496,7 +496,7 @@ export const useConversations = (
 
           // Get conversation history up to the retry point (excluding the deleted messages)
           const historyMessages = activeMessages.slice(0, messageIndex)
-          const coreHistory: CoreMessage[] = historyMessages.map((m) => ({
+          const coreHistory: ModelMessage[] = historyMessages.map((m) => ({
             role: m.role as 'user' | 'assistant',
             content: typeof m.content === 'string' ? m.content : '',
           }))
@@ -629,7 +629,7 @@ export const useConversations = (
 
               // Regenerate response by sending the conversation history
               const historyMessages = allMessages.slice(0, nextAssistantMessageIndex)
-              const coreHistory: CoreMessage[] = historyMessages.map((m) => ({
+              const coreHistory: ModelMessage[] = historyMessages.map((m) => ({
                 role: m.role as 'user' | 'assistant',
                 content: typeof m.content === 'string' ? m.content : '',
               }))

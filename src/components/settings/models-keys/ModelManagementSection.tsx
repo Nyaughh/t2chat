@@ -2,7 +2,7 @@ import React, { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
 import { cn } from '@/lib/utils'
-import { getVendorColor, models, type ModelInfo } from '@/lib/models'
+import { getVendorColor, getProviderDisplayName, models, DEFAULT_MODEL_ID, type ModelInfo } from '@/lib/models'
 import { SectionWrapper } from './SectionWrapper'
 import { ModelManagementSectionProps } from './types'
 
@@ -91,7 +91,7 @@ export const ModelManagementSection = ({ disabledModels, onToggleModel }: ModelM
                   )}
                 />
                 <h4 className="font-medium text-sm text-foreground capitalize">
-                  {groupKey === 'openrouter' ? 'OpenRouter' : groupKey} ({groupModels.length})
+                  {groupBy === 'provider' ? getProviderDisplayName(groupKey) : groupKey} ({groupModels.length})
                 </h4>
               </div>
               <div className="grid gap-2">
@@ -141,7 +141,7 @@ export const ModelManagementSection = ({ disabledModels, onToggleModel }: ModelM
                         <Switch
                           checked={isEnabled}
                           onCheckedChange={(checked) => onToggleModel(model.id, checked)}
-                          disabled={model.id === 'gemini-2.0-flash-lite'}
+                          disabled={model.id === DEFAULT_MODEL_ID}
                         />
                       </div>
                     </div>

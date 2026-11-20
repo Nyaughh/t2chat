@@ -1,11 +1,16 @@
 import React, { useState, useCallback } from 'react'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
-import { useMutation, useQuery } from 'convex/react'
+import { useAction, useMutation, useQuery } from 'convex/react'
+import { ConvexError } from 'convex/values'
+import { toast } from 'sonner'
 import { api } from '../../../../convex/_generated/api'
 import { debounce } from 'lodash'
 import { ModelManagementSection } from './ModelManagementSection'
 import { LLMProviderKeysSection } from './LLMProviderKeysSection'
-import { ModelsKeysSettingsProps, UserSettings, ApiKey, ModelSettingsState } from './types'
+import { ModelsKeysSettingsProps, UserSettings, ApiKey, ApiKeyDraft, ModelSettingsState } from './types'
+
+const errorMessage = (error: unknown, fallback: string) =>
+  error instanceof ConvexError && typeof error.data === 'string' ? error.data : fallback
 
 export function ModelsKeysSettings({ apiKeys, userSettings }: ModelsKeysSettingsProps) {
   const [localSettings, setLocalSettings] = useState<Partial<UserSettings>>({})
@@ -13,7 +18,7 @@ export function ModelsKeysSettings({ apiKeys, userSettings }: ModelsKeysSettings
   const [optimisticDisabledModels, setOptimisticDisabledModels] = useState<string[]>([])
 
   const updateSettings = useMutation(api.users.updateUserSettings)
-  const saveApiKey = useMutation(api.api_keys.saveApiKey)
+  const saveApiKey = useAction(api.api_keys.saveApiKey)
   const deleteApiKey = useMutation(api.api_keys.deleteApiKey)
   const setDefaultApiKey = useMutation(api.api_keys.setDefaultApiKey)
   const updateDisabledModels = useMutation(api.api_keys.updateDisabledModels)
@@ -40,14 +45,33 @@ export function ModelsKeysSettings({ apiKeys, userSettings }: ModelsKeysSettings
     debouncedUpdateSettings(settings)
   }
 
-  const handleSaveApiKey = async (keyData: Partial<ApiKey>) => {
-    const { _id, name, service, key } = keyData
-    if (name && service && key) await saveApiKey({ _id, name, service, key })
+  const handleSaveApiKey = async ({ _id, name, service, key }: ApiKeyDraft) => {
+    try {
+      await saveApiKey({ _id, name, service, key: key.trim() || undefined })
+      toast.success(_id ? 'API key updated.' : 'API key saved.')
+      return true
+    } catch (error) {
+      toast.error(errorMessage(error, 'Could not save the API key. Please try again.'))
+      return false
+    }
   }
 
-  const handleDeleteApiKey = async (id: string) => await deleteApiKey({ _id: id as any })
+  const handleDeleteApiKey = async (id: ApiKey['_id']) => {
+    try {
+      await deleteApiKey({ _id: id })
+      toast.success('API key removed.')
+    } catch (error) {
+      toast.error(errorMessage(error, 'Could not remove the API key. Please try again.'))
+    }
+  }
 
-  const handleSetDefault = async (id: string) => await setDefaultApiKey({ _id: id as any })
+  const handleSetDefault = async (id: ApiKey['_id']) => {
+    try {
+      await setDefaultApiKey({ _id: id })
+    } catch (error) {
+      toast.error(errorMessage(error, 'Could not update the default key. Please try again.'))
+    }
+  }
 
   const handleModelEnabledChange = (modelId: string, enabled: boolean) => {
     setModelSettings((prev) => ({ ...prev, [modelId]: { enabled } }))
@@ -85,12 +109,33 @@ export function ModelsKeysSettings({ apiKeys, userSettings }: ModelsKeysSettings
           <div>
             <h3 className="text-lg font-semibold text-foreground mb-4">API Keys</h3>
             <p className="text-sm text-muted-foreground mb-4">
-              Add your own API keys to access premium models. When available, your keys will be used automatically instead of our system keys.
+              Add your own API keys to use Claude and GPT models and to unlock premium models. Your keys are encrypted at rest and only used for your own chats. When you have a key for a provider, it is used instead of our system keys.
             </p>
           </div>
           <div className="space-y-4 p-3 rounded-lg bg-muted/20 border border-border/50">
             <LLMProviderKeysSection
+              title="Anthropic Keys"
+              description="Use Claude models with your own Anthropic API key."
+              provider="anthropic"
+              keyPlaceholder="sk-ant-..."
+              keys={apiKeys}
+              onSave={handleSaveApiKey}
+              onDelete={handleDeleteApiKey}
+              onSetDefault={handleSetDefault}
+            />
+            <LLMProviderKeysSection
+              title="OpenAI Keys"
+              description="Use GPT models with your own OpenAI API key."
+              provider="openai"
+              keyPlaceholder="sk-..."
+              keys={apiKeys}
+              onSave={handleSaveApiKey}
+              onDelete={handleDeleteApiKey}
+              onSetDefault={handleSetDefault}
+            />
+            <LLMProviderKeysSection
               title="Gemini Keys"
+              description="Manage your API keys for Gemini"
               provider="gemini"
               keys={apiKeys}
               onSave={handleSaveApiKey}
@@ -99,6 +144,7 @@ export function ModelsKeysSettings({ apiKeys, userSettings }: ModelsKeysSettings
             />
             <LLMProviderKeysSection
               title="Groq Keys"
+              description="Manage your API keys for Groq"
               provider="groq"
               keys={apiKeys}
               onSave={handleSaveApiKey}
@@ -107,6 +153,7 @@ export function ModelsKeysSettings({ apiKeys, userSettings }: ModelsKeysSettings
             />
             <LLMProviderKeysSection
               title="OpenRouter Keys"
+              description="Manage your API keys for OpenRouter"
               provider="openrouter"
               keys={apiKeys}
               onSave={handleSaveApiKey}

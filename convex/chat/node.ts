@@ -4,7 +4,7 @@ import { v } from 'convex/values'
 import { action } from '../_generated/server'
 import { Id } from '../_generated/dataModel'
 import { generateAIResponse } from './shared'
-import { CoreMessage } from 'ai'
+import { ModelMessage } from 'ai'
 
 export const sendMessage = action({
   args: {
@@ -32,15 +32,6 @@ export const sendMessage = action({
     userMessageId: Id<'messages'>
     assistantMessageId: Id<'messages'>
   }> => {
-    console.log('attachments', attachments)
-
-    const getFileType = (file: { type: string }) => {
-      if (file.type.startsWith('image')) {
-        return 'image'
-      }
-      return 'file'
-    }
-
     chatMessages.push({
       role: 'user' as const,
       content: [
@@ -49,13 +40,15 @@ export const sendMessage = action({
           text: message,
         },
         ...attachments.map((file) => ({
-          type: getFileType(file),
-          [getFileType(file)]: new URL(file.url.replace('blob:', '')),
+          type: 'file' as const,
+          data: new URL(file.url.replace('blob:', '')),
+          mediaType: file.type,
+          filename: file.name,
         })),
       ],
     })
 
-    await generateAIResponse(ctx, chatMessages as CoreMessage[], modelId, assistantMessageId, webSearch, true)
+    await generateAIResponse(ctx, chatMessages as ModelMessage[], modelId, assistantMessageId, webSearch, true)
 
     return {
       success: true,

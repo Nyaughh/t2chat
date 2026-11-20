@@ -1,6 +1,16 @@
 import { Doc } from '../../../../convex/_generated/dataModel'
+import type { PublicApiKey, ApiKeyService } from '../../../../convex/api_keys'
 
-export type ApiKey = Doc<'apiKeys'>
+/** A saved key as the client sees it: metadata plus the last 4 characters, never the key itself. */
+export type ApiKey = PublicApiKey
+
+/** Form state while adding a key or renaming/replacing one. An empty `key` keeps the stored key. */
+export type ApiKeyDraft = {
+  _id?: ApiKey['_id']
+  service: ApiKeyService
+  name: string
+  key: string
+}
 export type UserSettings = Doc<'userSettings'>
 
 export type ModelSettingsState = {
@@ -19,16 +29,20 @@ export interface ModelManagementSectionProps {
 
 export interface LLMProviderKeysSectionProps {
   title: string
-  provider: 'gemini' | 'groq' | 'openrouter'
+  description: string
+  provider: 'gemini' | 'groq' | 'openrouter' | 'anthropic' | 'openai'
+  keyPlaceholder?: string
   keys: ApiKey[]
-  onSave: (keyData: Partial<ApiKey>) => void
-  onDelete: (id: string) => void
-  onSetDefault: (id: string) => void
+  onSave: (keyData: ApiKeyDraft) => Promise<boolean>
+  onDelete: (id: ApiKey['_id']) => void
+  onSetDefault: (id: ApiKey['_id']) => void
 }
 
 export interface InlineKeyFormProps {
-  editingKey: Partial<ApiKey>
-  onValueChange: (data: Partial<ApiKey>) => void
+  editingKey: ApiKeyDraft
+  keyPlaceholder?: string
+  isSaving?: boolean
+  onValueChange: (data: ApiKeyDraft) => void
   onSave: () => void
   onCancel: () => void
 }

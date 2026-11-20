@@ -1,7 +1,126 @@
-import { query, mutation } from './_generated/server'
-import { v } from 'convex/values'
-import { Id } from './_generated/dataModel'
+import { query, mutation, action, internalMutation, internalQuery, type ActionCtx } from './_generated/server'
+import { internal } from './_generated/api'
+import { ConvexError, v, type Infer } from 'convex/values'
+import { Doc, Id } from './_generated/dataModel'
 import { betterAuthComponent } from './auth'
+import { DEFAULT_MODEL_ID } from '../src/lib/models'
+
+export const apiKeyServiceValidator = v.union(
+  v.literal('gemini'),
+  v.literal('groq'),
+  v.literal('openrouter'),
+  v.literal('anthropic'),
+  v.literal('openai'),
+  v.literal('deepgram'),
+)
+
+export type ApiKeyService = Infer<typeof apiKeyServiceValidator>
+
+// ---------------------------------------------------------------------------
+// Encryption at rest
+//
+// Keys are encrypted with AES-256-GCM using a key derived from the
+// API_KEY_ENCRYPTION_SECRET deployment env var. The ciphertext is bound to the
+// owning user and service (AES-GCM additional data), so a stored value can't be
+// decrypted for another user or provider. Rows saved before encryption existed
+// are plain text (no prefix) and are still read as-is.
+// ---------------------------------------------------------------------------
+
+const ENCRYPTED_PREFIX = 'enc:v1:'
+
+const toBase64 = (bytes: Uint8Array) => {
+  let binary = ''
+  for (const byte of bytes) binary += String.fromCharCode(byte)
+  return btoa(binary)
+}
+
+const fromBase64 = (value: string) => Uint8Array.from(atob(value), (c) => c.charCodeAt(0))
+
+const getEncryptionKey = async () => {
+  const secret = process.env.API_KEY_ENCRYPTION_SECRET
+  if (!secret || secret.length < 32) {
+    throw new ConvexError('API key storage is not configured on the server. Please contact the site administrator.')
+  }
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(secret))
+  return crypto.subtle.importKey('raw', digest, { name: 'AES-GCM' }, false, ['encrypt', 'decrypt'])
+}
+
+const additionalData = (userId: string, service: ApiKeyService) => new TextEncoder().encode(`${userId}:${service}`)
+
+/** Encrypts an API key for storage. Only call from actions. */
+export const encryptApiKey = async (plainKey: string, userId: string, service: ApiKeyService) => {
+  const key = await getEncryptionKey()
+  const iv = crypto.getRandomValues(new Uint8Array(12))
+  const ciphertext = await crypto.subtle.encrypt(
+    { name: 'AES-GCM', iv, additionalData: additionalData(userId, service) },
+    key,
+    new TextEncoder().encode(plainKey),
+  )
+  return `${ENCRYPTED_PREFIX}${toBase64(iv)}:${toBase64(new Uint8Array(ciphertext))}`
+}
+
+/** Decrypts a stored API key. Only call from actions; never return the result to a client. */
+export const decryptApiKey = async (storedKey: string, userId: string, service: ApiKeyService) => {
+  if (!storedKey.startsWith(ENCRYPTED_PREFIX)) return storedKey // legacy plain-text row
+  const [ivPart, dataPart] = storedKey.slice(ENCRYPTED_PREFIX.length).split(':')
+  try {
+    const key = await getEncryptionKey()
+    const plaintext = await crypto.subtle.decrypt(
+      { name: 'AES-GCM', iv: fromBase64(ivPart), additionalData: additionalData(userId, service) },
+      key,
+      fromBase64(dataPart),
+    )
+    return new TextDecoder().decode(plaintext)
+  } catch (error) {
+    if (error instanceof ConvexError) throw error
+    throw new ConvexError(`Your saved ${service} API key could not be read. Please remove it and add it again.`)
+  }
+}
+
+const keyHintFor = (plainKey: string) => plainKey.slice(-4)
+
+/** What clients may see about a stored key: never the key itself. */
+const toPublicApiKey = (doc: Doc<'apiKeys'>) => ({
+  _id: doc._id,
+  _creationTime: doc._creationTime,
+  service: doc.service,
+  name: doc.name,
+  is_default: doc.is_default,
+  keyHint: doc.keyHint ?? (doc.key.startsWith(ENCRYPTED_PREFIX) ? '' : keyHintFor(doc.key)),
+})
+
+export type PublicApiKey = ReturnType<typeof toPublicApiKey>
+
+// ---------------------------------------------------------------------------
+// Key validation against the provider (only for providers with a free,
+// side-effect-free endpoint). A network problem doesn't block saving.
+// ---------------------------------------------------------------------------
+
+const verifyProviderKey = async (service: ApiKeyService, key: string) => {
+  let response: Response
+  try {
+    if (service === 'anthropic') {
+      response = await fetch('https://api.anthropic.com/v1/models?limit=1', {
+        headers: { 'x-api-key': key, 'anthropic-version': '2023-06-01' },
+      })
+    } else if (service === 'openai') {
+      response = await fetch('https://api.openai.com/v1/models', {
+        headers: { Authorization: `Bearer ${key}` },
+      })
+    } else {
+      return
+    }
+  } catch {
+    return
+  }
+  if (response.status === 401 || response.status === 403) {
+    throw new ConvexError(`That ${service === 'openai' ? 'OpenAI' : 'Anthropic'} API key was rejected. Check it and try again.`)
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Public functions
+// ---------------------------------------------------------------------------
 
 export const getApiKeys = query({
   args: {},
@@ -11,16 +130,18 @@ export const getApiKeys = query({
       return []
     }
 
-    return await ctx.db
+    const keys = await ctx.db
       .query('apiKeys')
       .withIndex('by_user_and_service', (q) => q.eq('userId', userId as Id<'users'>))
       .collect()
+
+    return keys.map(toPublicApiKey)
   },
 })
 
 export const hasApiKeyForProvider = query({
   args: {
-    provider: v.union(v.literal('gemini'), v.literal('groq'), v.literal('openrouter'), v.literal('deepgram')),
+    provider: apiKeyServiceValidator,
   },
   handler: async (ctx, { provider }) => {
     const userId = await betterAuthComponent.getAuthUserId(ctx)
@@ -37,40 +158,44 @@ export const hasApiKeyForProvider = query({
   },
 })
 
-export const saveApiKey = mutation({
+/**
+ * Adds a key, or renames / replaces an existing one. The key is validated
+ * (where possible) and encrypted here, then stored by an internal mutation.
+ * When editing, an empty `key` keeps the stored key and only renames it.
+ */
+export const saveApiKey = action({
   args: {
     _id: v.optional(v.id('apiKeys')),
     name: v.string(),
-    service: v.union(v.literal('gemini'), v.literal('groq'), v.literal('openrouter'), v.literal('deepgram')),
-    key: v.string(),
+    service: apiKeyServiceValidator,
+    key: v.optional(v.string()),
   },
-  handler: async (ctx, { _id, name, service, key }) => {
+  handler: async (ctx, { _id, name, service, key }): Promise<null> => {
     const userId = await betterAuthComponent.getAuthUserId(ctx)
-    if (!userId) throw new Error('Not authenticated')
+    if (!userId) throw new ConvexError('Not authenticated')
 
-    if (_id) {
-      // It's an update
-      const existingKey = await ctx.db.get(_id)
-      if (existingKey?.userId !== userId) throw new Error('Not authorized to edit this key')
-      await ctx.db.patch(_id, { name, key })
-    } else {
-      // It's a new key - check if this is the first key for this service
-      const existingKeys = await ctx.db
-        .query('apiKeys')
-        .withIndex('by_user_and_service', (q) => q.eq('userId', userId as Id<'users'>).eq('service', service))
-        .collect()
+    const trimmedName = name.trim().slice(0, 100)
+    if (!trimmedName) throw new ConvexError('Please give the key a name.')
 
-      // If this is the first key for this service, make it default
-      const isFirstKey = existingKeys.length === 0
+    const trimmedKey = key?.trim() ?? ''
+    if (!_id && !trimmedKey) throw new ConvexError('Please enter an API key.')
 
-      await ctx.db.insert('apiKeys', {
-        userId: userId as Id<'users'>,
-        name,
-        service,
-        key,
-        is_default: isFirstKey,
-      })
+    let encrypted: { key: string; keyHint: string } | undefined
+    if (trimmedKey) {
+      if (trimmedKey.length < 8 || trimmedKey.length > 512 || /\s/.test(trimmedKey)) {
+        throw new ConvexError("That doesn't look like a valid API key.")
+      }
+      await verifyProviderKey(service, trimmedKey)
+      encrypted = { key: await encryptApiKey(trimmedKey, userId, service), keyHint: keyHintFor(trimmedKey) }
     }
+
+    await ctx.runMutation(internal.api_keys.storeApiKey, {
+      _id,
+      name: trimmedName,
+      service,
+      ...encrypted,
+    })
+    return null
   },
 })
 
@@ -128,9 +253,56 @@ export const setDefaultApiKey = mutation({
   },
 })
 
-export const getUserDefaultApiKey = query({
+// ---------------------------------------------------------------------------
+// Internal functions (not callable from clients)
+// ---------------------------------------------------------------------------
+
+export const storeApiKey = internalMutation({
   args: {
-    service: v.union(v.literal('gemini'), v.literal('groq'), v.literal('openrouter'), v.literal('deepgram')),
+    _id: v.optional(v.id('apiKeys')),
+    name: v.string(),
+    service: apiKeyServiceValidator,
+    key: v.optional(v.string()),
+    keyHint: v.optional(v.string()),
+  },
+  handler: async (ctx, { _id, name, service, key, keyHint }) => {
+    const userId = await betterAuthComponent.getAuthUserId(ctx)
+    if (!userId) throw new ConvexError('Not authenticated')
+
+    if (_id) {
+      const existingKey = await ctx.db.get(_id)
+      if (!existingKey || existingKey.userId !== userId) throw new ConvexError('Not authorized to edit this key')
+      if (existingKey.service !== service) throw new ConvexError('A key cannot be moved to a different provider')
+      await ctx.db.patch(_id, key ? { name, key, keyHint } : { name })
+      return
+    }
+
+    if (!key) throw new ConvexError('Please enter an API key.')
+
+    // The first key for a service becomes the default
+    const existingKey = await ctx.db
+      .query('apiKeys')
+      .withIndex('by_user_and_service', (q) => q.eq('userId', userId as Id<'users'>).eq('service', service))
+      .first()
+
+    await ctx.db.insert('apiKeys', {
+      userId: userId as Id<'users'>,
+      name,
+      service,
+      key,
+      keyHint,
+      is_default: !existingKey,
+    })
+  },
+})
+
+/**
+ * Returns the signed-in user's default key for a service, still encrypted, with
+ * the owner id needed to decrypt it. Use `getUserApiKey` in actions instead.
+ */
+export const getStoredDefaultApiKey = internalQuery({
+  args: {
+    service: apiKeyServiceValidator,
   },
   handler: async (ctx, { service }) => {
     const userId = await betterAuthComponent.getAuthUserId(ctx)
@@ -138,26 +310,25 @@ export const getUserDefaultApiKey = query({
       return null
     }
 
-    // First try to get the default key
-    const defaultKey = await ctx.db
+    const keys = await ctx.db
       .query('apiKeys')
       .withIndex('by_user_and_service', (q) => q.eq('userId', userId as Id<'users'>).eq('service', service))
-      .filter((q) => q.eq(q.field('is_default'), true))
-      .first()
+      .collect()
 
-    if (defaultKey) {
-      return defaultKey.key
-    }
-
-    // If no default key, get any key for the service
-    const anyKey = await ctx.db
-      .query('apiKeys')
-      .withIndex('by_user_and_service', (q) => q.eq('userId', userId as Id<'users'>).eq('service', service))
-      .first()
-
-    return anyKey?.key || null
+    const chosen = keys.find((k) => k.is_default) ?? keys[0]
+    return chosen ? { userId: chosen.userId as string, storedKey: chosen.key } : null
   },
 })
+
+/** Loads and decrypts the signed-in user's default key for a service (actions only). */
+export const getUserApiKey = async (
+  ctx: Pick<ActionCtx, 'runQuery'>,
+  service: ApiKeyService,
+): Promise<string | null> => {
+  const stored = await ctx.runQuery(internal.api_keys.getStoredDefaultApiKey, { service })
+  if (!stored) return null
+  return decryptApiKey(stored.storedKey, stored.userId, service)
+}
 
 export const getDisabledModels = query({
   args: {},
@@ -190,7 +361,7 @@ export const updateDisabledModels = mutation({
       .withIndex('by_user', (q) => q.eq('userId', userId as Id<'users'>))
       .first()
 
-    disabledModels = disabledModels.filter((model) => model !== 'gemini-2.0-flash-lite')
+    disabledModels = disabledModels.filter((model) => model !== DEFAULT_MODEL_ID)
 
     if (existingSettings) {
       await ctx.db.patch(existingSettings._id, { disabledModels })
