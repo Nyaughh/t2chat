@@ -1,55 +1,30 @@
 // QUERIES - for real-time subscriptions
-import { action, mutation, query } from '../_generated/server'
-import { api } from '../_generated/api'
-import { betterAuthComponent } from '../auth'
+import { query } from '../_generated/server'
 import { v } from 'convex/values'
-import { Id } from '../_generated/dataModel'
+import { requireOwnedChat, requireOwnedMessage, requireUserId } from './access'
 
 export const getChatMessages = query({
   args: { chatId: v.id('chats') },
   handler: async (ctx, { chatId }) => {
-    // Check authentication
-    const userId = await betterAuthComponent.getAuthUserId(ctx)
-    if (!userId) {
-      throw new Error('Authentication required')
-    }
+    await requireOwnedChat(ctx, chatId)
 
-    // Verify chat ownership
-    const chat = await ctx.db.get(chatId)
-    if (!chat || chat.userId !== userId) {
-      throw new Error('Chat not found or access denied')
-    }
-
-    // Get messages ordered by creation time
-    const messages = await ctx.db
+    return await ctx.db
       .query('messages')
       .withIndex('by_chat_created', (q) => q.eq('chatId', chatId))
       .order('asc')
       .collect()
-
-    return messages
   },
 })
 
 export const getMessage = query({
   args: { messageId: v.id('messages') },
   handler: async (ctx, { messageId }) => {
-    const userId = await betterAuthComponent.getAuthUserId(ctx)
-    if (!userId) {
-      throw new Error('Authentication required')
-    }
-
-    const message = await ctx.db.get(messageId)
-    if (!message) {
+    await requireUserId(ctx)
+    // A deleted message reads as null (the streaming loop polls this while a chat may be deleted)
+    if (!(await ctx.db.get(messageId))) {
       return null
     }
-
-    // Verify chat ownership
-    const chat = await ctx.db.get(message.chatId)
-    if (!chat || chat.userId !== userId) {
-      throw new Error('Access denied')
-    }
-
+    const { message } = await requireOwnedMessage(ctx, messageId)
     return message
   },
 })
@@ -57,78 +32,41 @@ export const getMessage = query({
 export const getUserChats = query({
   args: {},
   handler: async (ctx) => {
-    const userId = await betterAuthComponent.getAuthUserId(ctx)
-    if (!userId) {
-      throw new Error('Authentication required')
-    }
+    const userId = await requireUserId(ctx)
 
-    const chats = await ctx.db
+    return await ctx.db
       .query('chats')
-      .withIndex('by_user', (q) => q.eq('userId', userId as Id<'users'>))
+      .withIndex('by_user', (q) => q.eq('userId', userId))
       .order('desc')
       .collect()
-
-    return chats
   },
 })
 
 export const getChat = query({
   args: { chatId: v.id('chats') },
   handler: async (ctx, { chatId }) => {
-    const userId = await betterAuthComponent.getAuthUserId(ctx)
-    if (!userId) {
-      throw new Error('Authentication required')
-    }
-
-    const chat = await ctx.db.get(chatId)
-    if (!chat || chat.userId !== userId) {
-      throw new Error('Chat not found or access denied')
-    }
-
+    const { chat } = await requireOwnedChat(ctx, chatId)
     return chat
   },
 })
 
-export const getUserAttachments = query({
-  args: {},
-  handler: async (ctx) => {
-    const userId = await betterAuthComponent.getAuthUserId(ctx)
-    if (!userId) {
-      return []
-    }
-
-    const chats = await ctx.db
-      .query('chats')
-      .withIndex('by_user', (q) => q.eq('userId', userId as Id<'users'>))
-      .collect()
-
-    const chatIds = chats.map((c) => c._id)
-    const allAttachments: any[] = []
-
-    for (const chatId of chatIds) {
-      const messages = await ctx.db
-        .query('messages')
-        .withIndex('by_chat', (q) => q.eq('chatId', chatId))
-        .collect()
-
-      messages.forEach((msg) => {
-        if (msg.attachments && msg.attachments.length > 0) {
-          allAttachments.push(...msg.attachments)
-        }
-      })
-    }
-
-    return allAttachments
-  },
-})
-
+/**
+ * Public read of a shared chat. Returns only what the shared page shows: no
+ * owner id and no tool-call payloads. The chat id is kept because the page's
+ * message type requires it; every function that takes a chat id checks
+ * ownership, so it grants nothing to a viewer.
+ */
 export const getSharedChat = query({
   args: { shareId: v.string() },
   handler: async (ctx, { shareId }) => {
+    if (!shareId || shareId.length > 64) {
+      return null
+    }
+
     const chat = await ctx.db
       .query('chats')
       .withIndex('by_share_id', (q) => q.eq('shareId', shareId))
-      .unique()
+      .first()
 
     if (!chat || !chat.isShared) {
       return null
@@ -140,54 +78,33 @@ export const getSharedChat = query({
       .order('asc')
       .collect()
 
-    return { chat, messages }
-  },
-})
-
-export const listChats = query({
-  args: {
-    isBranch: v.optional(v.boolean()),
-  },
-  handler: async (ctx, { isBranch }) => {
-    const userId = await betterAuthComponent.getAuthUserId(ctx)
-    if (!userId) {
-      return []
+    return {
+      chat: { title: chat.title, createdAt: chat.createdAt },
+      messages: messages.map((m) => ({
+        _id: m._id,
+        _creationTime: m._creationTime,
+        chatId: m.chatId,
+        role: m.role,
+        content: m.content,
+        modelId: m.modelId,
+        thinking: m.thinking,
+        thinkingDuration: m.thinkingDuration,
+        attachments: m.attachments,
+        isComplete: m.isComplete,
+        createdAt: m.createdAt,
+      })),
     }
-    const chats = await ctx.db
-      .query('chats')
-      .withIndex('by_user', (q) => q.eq('userId', userId as Id<'users'>))
-      .filter((q) => q.eq(q.field('isBranch'), isBranch))
-      .order('desc')
-      .collect()
-
-    return Promise.all(
-      chats.map(async (chat) => {
-        const lastMessage = await ctx.db
-          .query('messages')
-          .withIndex('by_chat', (q) => q.eq('chatId', chat._id))
-          .order('desc')
-          .first()
-        return {
-          ...chat,
-          lastMessageContent: lastMessage?.content,
-          lastMessageTimestamp: lastMessage?._creationTime,
-        }
-      }),
-    )
   },
 })
 
 export const exportAllConversations = query({
   args: {},
   handler: async (ctx) => {
-    const userId = await betterAuthComponent.getAuthUserId(ctx)
-    if (!userId) {
-      throw new Error('Authentication required')
-    }
+    const userId = await requireUserId(ctx)
 
     const chats = await ctx.db
       .query('chats')
-      .withIndex('by_user', (q) => q.eq('userId', userId as Id<'users'>))
+      .withIndex('by_user', (q) => q.eq('userId', userId))
       .collect()
 
     const allMessages = await Promise.all(

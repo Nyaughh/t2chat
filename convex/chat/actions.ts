@@ -1,13 +1,55 @@
 import { v } from 'convex/values'
-import { action, mutation, query } from '../_generated/server'
-import { api } from '../_generated/api'
-import { Id } from '../_generated/dataModel'
-import { betterAuthComponent } from '../auth'
+import { action, internalAction, type ActionCtx } from '../_generated/server'
+import { api, internal } from '../_generated/api'
+import { Doc, Id } from '../_generated/dataModel'
 import { generateText, ModelMessage } from 'ai'
 import { createGoogleGenerativeAI } from '@ai-sdk/google'
 import { generateAIResponse } from './shared'
 import { TITLE_MODEL_ID } from '../../src/lib/models'
 import { describeProviderError } from '../../src/lib/provider-errors'
+import { MAX_MESSAGE_CHARS, assertMaxLength, assertValidAttachments, attachmentValidator, requireUserId } from './access'
+
+// Every public action checks the session first and then reads the chat through
+// the owner-checked queries (the session is propagated to runQuery/runMutation).
+
+const toModelMessages = (messages: Doc<'messages'>[]): ModelMessage[] =>
+  messages
+    .filter((msg) => msg.isComplete !== false)
+    .map((msg) => ({
+      role: msg.role,
+      content: msg.content,
+    }))
+
+/**
+ * Records a failure on the assistant placeholder instead of adding a second
+ * assistant message. Without a placeholder it falls back to a new message.
+ */
+const recordFailure = async (
+  ctx: ActionCtx,
+  chatId: Id<'chats'>,
+  assistantMessageId: Id<'messages'> | undefined,
+  note: string,
+  modelId: string,
+) => {
+  try {
+    if (assistantMessageId) {
+      await ctx.runMutation(internal.chat.mutations.updateMessage, {
+        messageId: assistantMessageId,
+        content: note,
+        isComplete: true,
+      })
+    } else {
+      await ctx.runMutation(internal.chat.mutations.insertMessage, {
+        chatId,
+        role: 'assistant',
+        content: note,
+        modelId,
+      })
+    }
+  } catch (error) {
+    console.warn('Failed to record the error on the chat:', error)
+  }
+}
 
 export const retryMessage = action({
   args: {
@@ -23,36 +65,21 @@ export const retryMessage = action({
     success: boolean
     assistantMessageId: Id<'messages'>
   }> => {
-    // Verify authentication and chat ownership first
-    const userId = await betterAuthComponent.getAuthUserId(ctx)
-    if (!userId) {
-      throw new Error('Authentication required')
-    }
-    const chat = await ctx.runQuery(api.chat.queries.getChat, { chatId })
-    if (!chat) {
-      throw new Error('Chat not found or access denied')
-    }
+    await requireUserId(ctx)
+    // Throws unless the caller owns the chat
+    await ctx.runQuery(api.chat.queries.getChat, { chatId })
 
+    let assistantMessageId: Id<'messages'> | undefined
     try {
-      // Delete messages from the retry point onwards
       await ctx.runMutation(api.chat.mutations.deleteMessagesFromIndex, {
         chatId,
         fromMessageId,
       })
 
-      // Get remaining chat history for context
       const messages = await ctx.runQuery(api.chat.queries.getChatMessages, { chatId })
+      const chatMessages = toModelMessages(messages)
 
-      // Convert to AI SDK format
-      const chatMessages: ModelMessage[] = messages
-        .filter((msg: any) => msg.isComplete !== false)
-        .map((msg: any) => ({
-          role: msg.role as 'user' | 'assistant',
-          content: msg.content,
-        }))
-
-      // Create new assistant message placeholder
-      const assistantMessageId: Id<'messages'> = await ctx.runMutation(api.chat.mutations.addMessage, {
+      assistantMessageId = await ctx.runMutation(internal.chat.mutations.insertMessage, {
         chatId,
         role: 'assistant',
         content: '',
@@ -60,7 +87,6 @@ export const retryMessage = action({
         isComplete: false,
       })
 
-      // Generate the AI response
       await generateAIResponse(ctx, chatMessages, modelId, assistantMessageId, webSearch)
 
       return {
@@ -69,15 +95,13 @@ export const retryMessage = action({
       }
     } catch (error) {
       console.error('Error in retryMessage action:', error)
-
-      // Add error message to chat
-      await ctx.runMutation(api.chat.mutations.addMessage, {
+      await recordFailure(
+        ctx,
         chatId,
-        role: 'assistant',
-        content: 'I apologize, but I encountered an error while retrying the message. Please try again.',
+        assistantMessageId,
+        'I apologize, but I encountered an error while retrying the message. Please try again.',
         modelId,
-      })
-
+      )
       throw error
     }
   },
@@ -97,75 +121,47 @@ export const editMessageAndRegenerate = action({
     success: boolean
     assistantMessageId: Id<'messages'>
   }> => {
-    // Verify authentication and chat ownership first
-    const userId = await betterAuthComponent.getAuthUserId(ctx)
-    if (!userId) {
-      throw new Error('Authentication required')
-    }
+    await requireUserId(ctx)
+    assertMaxLength(content, MAX_MESSAGE_CHARS, 'Message')
 
-    // Get the message to validate and get chat info
+    // Both throw unless the caller owns the message's chat
     const message = await ctx.runQuery(api.chat.queries.getMessage, { messageId })
     if (!message) {
       throw new Error('Message not found')
     }
+    await ctx.runQuery(api.chat.queries.getChat, { chatId: message.chatId })
 
-    const chat = await ctx.runQuery(api.chat.queries.getChat, { chatId: message.chatId })
-    if (!chat) {
-      throw new Error('Chat not found or access denied')
-    }
-
-    // Only allow editing user messages
     if (message.role !== 'user') {
       throw new Error('Only user messages can be edited')
     }
 
+    let assistantMessageId: Id<'messages'> | undefined
     try {
-      // First, update the user message content
-      await ctx.runMutation(api.chat.mutations.updateMessage, {
+      await ctx.runMutation(internal.chat.mutations.setUserMessageContent, {
         messageId,
         content,
       })
 
-      // Get all messages in the chat to find what comes after the edited message
       const allMessages = await ctx.runQuery(api.chat.queries.getChatMessages, { chatId: message.chatId })
 
-      // Find the index of the edited message
-      const editedMessageIndex = allMessages.findIndex((msg: any) => msg._id === messageId)
+      const editedMessageIndex = allMessages.findIndex((msg) => msg._id === messageId)
       if (editedMessageIndex === -1) {
         throw new Error('Message not found in chat')
       }
 
-      // Find the next assistant message after the edited user message
-      let nextAssistantMessageIndex = -1
-      for (let i = editedMessageIndex + 1; i < allMessages.length; i++) {
-        if (allMessages[i].role === 'assistant') {
-          nextAssistantMessageIndex = i
-          break
-        }
-      }
-
-      // If there's an assistant message after the edited user message, delete it and all subsequent messages
-      if (nextAssistantMessageIndex !== -1) {
-        const fromMessageId = allMessages[nextAssistantMessageIndex]._id
+      // Delete the reply to the edited message and everything after it
+      const nextAssistantMessage = allMessages.slice(editedMessageIndex + 1).find((msg) => msg.role === 'assistant')
+      if (nextAssistantMessage) {
         await ctx.runMutation(api.chat.mutations.deleteMessagesFromIndex, {
           chatId: message.chatId,
-          fromMessageId,
+          fromMessageId: nextAssistantMessage._id,
         })
       }
 
-      // Get remaining chat history for context (including the updated user message)
       const messages = await ctx.runQuery(api.chat.queries.getChatMessages, { chatId: message.chatId })
+      const chatMessages = toModelMessages(messages)
 
-      // Convert to AI SDK format
-      const chatMessages: ModelMessage[] = messages
-        .filter((msg: any) => msg.isComplete !== false)
-        .map((msg: any) => ({
-          role: msg.role as 'user' | 'assistant',
-          content: msg.content,
-        }))
-
-      // Create new assistant message placeholder
-      const assistantMessageId: Id<'messages'> = await ctx.runMutation(api.chat.mutations.addMessage, {
+      assistantMessageId = await ctx.runMutation(internal.chat.mutations.insertMessage, {
         chatId: message.chatId,
         role: 'assistant',
         content: '',
@@ -173,7 +169,6 @@ export const editMessageAndRegenerate = action({
         isComplete: false,
       })
 
-      // Generate the AI response
       await generateAIResponse(ctx, chatMessages, modelId, assistantMessageId, webSearch)
 
       return {
@@ -182,15 +177,13 @@ export const editMessageAndRegenerate = action({
       }
     } catch (error) {
       console.error('Error in editMessageAndRegenerate action:', error)
-
-      // Add error message to chat
-      await ctx.runMutation(api.chat.mutations.addMessage, {
-        chatId: message.chatId,
-        role: 'assistant',
-        content: 'I apologize, but I encountered an error while processing your edited message. Please try again.',
+      await recordFailure(
+        ctx,
+        message.chatId,
+        assistantMessageId,
+        'I apologize, but I encountered an error while processing your edited message. Please try again.',
         modelId,
-      })
-
+      )
       throw error
     }
   },
@@ -202,16 +195,7 @@ export const sendMessage = action({
     chatId: v.id('chats'),
     message: v.string(),
     modelId: v.string(),
-    attachments: v.optional(
-      v.array(
-        v.object({
-          name: v.string(),
-          type: v.string(),
-          size: v.number(),
-          url: v.string(),
-        }),
-      ),
-    ),
+    attachments: v.optional(v.array(attachmentValidator)),
     webSearch: v.optional(v.boolean()),
     imageGen: v.optional(v.boolean()),
   },
@@ -223,40 +207,29 @@ export const sendMessage = action({
     userMessageId: Id<'messages'>
     assistantMessageId: Id<'messages'>
   }> => {
-    // Verify authentication and chat ownership first
-    const userId = await betterAuthComponent.getAuthUserId(ctx)
-    if (!userId) {
-      throw new Error('Authentication required')
-    }
+    await requireUserId(ctx)
+    assertMaxLength(message, MAX_MESSAGE_CHARS, 'Message')
+    // Only files uploaded through this app; the server downloads these URLs
+    assertValidAttachments(attachments)
 
-    const chat = await ctx.runQuery(api.chat.queries.getChat, { chatId })
-    if (!chat) {
-      throw new Error('Chat not found or access denied')
-    }
+    // Throws unless the caller owns the chat
+    await ctx.runQuery(api.chat.queries.getChat, { chatId })
 
-    // Get chat history for context
+    // History before the new message
     const messages = await ctx.runQuery(api.chat.queries.getChatMessages, { chatId })
 
-    // Add user message to the database
-    const userMessageId: Id<'messages'> = await ctx.runMutation(api.chat.mutations.addMessage, {
+    const userMessageId: Id<'messages'> = await ctx.runMutation(internal.chat.mutations.insertMessage, {
       chatId,
       role: 'user',
       content: message,
       attachments,
     })
 
-    // Convert to AI SDK format
-    const chatMessages: ModelMessage[] = messages
-      .filter((msg: any) => msg.isComplete !== false)
-      .map((msg: any) => ({
-        role: msg.role as 'user' | 'assistant',
-        content: msg.content,
-      }))
+    const chatMessages = toModelMessages(messages)
 
-    // Add the new user message
+    let assistantMessageId: Id<'messages'> | undefined
     try {
-      // Create assistant message placeholder
-      const assistantMessageId: Id<'messages'> = await ctx.runMutation(api.chat.mutations.addMessage, {
+      assistantMessageId = await ctx.runMutation(internal.chat.mutations.insertMessage, {
         chatId,
         role: 'assistant',
         content: '',
@@ -265,8 +238,7 @@ export const sendMessage = action({
       })
 
       if ((attachments && attachments.length > 0) || imageGen) {
-        console.log('Attachments or Image Gen Found: Using Node Action')
-        return await ctx.runAction(api.chat.node.sendMessage, {
+        return await ctx.runAction(internal.chat.node.sendMessage, {
           chatMessages,
           modelId,
           attachments: attachments ?? [],
@@ -288,7 +260,6 @@ export const sendMessage = action({
         ],
       })
 
-      // Generate the AI response using shared function
       await generateAIResponse(ctx, chatMessages, modelId, assistantMessageId, webSearch)
 
       return {
@@ -297,33 +268,36 @@ export const sendMessage = action({
         assistantMessageId,
       }
     } catch (error) {
-      //console.error('Error in sendMessage action:', error)
-
-      // Add error message to chat
-      await ctx.runMutation(api.chat.mutations.addMessage, {
+      await recordFailure(
+        ctx,
         chatId,
-        role: 'assistant',
-        content: 'I apologize, but I encountered an error while processing your message. Please try again.',
+        assistantMessageId,
+        'I apologize, but I encountered an error while processing your message. Please try again.',
         modelId,
-      })
-
+      )
       throw error
     }
   },
 })
 
-export const generateTitle = action({
+const MAX_TITLE_PROMPT_CHARS = 2_000
+
+/**
+ * Generates a chat title from the first user message. Internal: scheduled by
+ * the message insert, which has already checked ownership. Scheduled functions
+ * run without a session, so the title is stored through an internal mutation.
+ */
+export const generateTitle = internalAction({
   args: {
     chatId: v.id('chats'),
     messageContent: v.string(),
     modelId: v.string(),
   },
-  handler: async (ctx, { chatId, messageContent, modelId }) => {
+  handler: async (ctx, { chatId, messageContent }) => {
     const google = createGoogleGenerativeAI({ apiKey: process.env.GEMINI_API_KEY })
-
     const aiModel = google(TITLE_MODEL_ID)
 
-    let titlePrompt = `Based on the following user message, generate a short, concise title for the chat (4-5 words max) No Markdown Allowed:\n\nUser: "${messageContent}"\n\nTitle:`
+    const titlePrompt = `Based on the following user message, generate a short, concise title for the chat (4-5 words max) No Markdown Allowed:\n\nUser: "${messageContent.slice(0, MAX_TITLE_PROMPT_CHARS)}"\n\nTitle:`
 
     let text: string
     try {
@@ -337,15 +311,16 @@ export const generateTitle = action({
         'Title generation error:',
         describeProviderError({ provider: 'gemini', model: TITLE_MODEL_ID }, error),
       )
+      // Don't leave the chat marked as generating a title
+      await ctx.runMutation(internal.chat.mutations.setGeneratedTitle, { chatId })
       return
     }
 
-    let finalTitle = ''
-    finalTitle = text
+    const title = text.replace(/["\r\n]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 80)
 
-    await ctx.runMutation(api.chat.mutations.updateChatTitle, {
+    await ctx.runMutation(internal.chat.mutations.setGeneratedTitle, {
       chatId,
-      title: finalTitle.replace(/"/g, ''),
+      title: title || undefined,
     })
   },
 })

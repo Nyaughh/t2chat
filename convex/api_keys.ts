@@ -224,10 +224,10 @@ export const deleteApiKey = mutation({
   args: { _id: v.id('apiKeys') },
   handler: async (ctx, { _id }) => {
     const userId = await betterAuthComponent.getAuthUserId(ctx)
-    if (!userId) throw new Error('Not authenticated')
+    if (!userId) throw new ConvexError('Not authenticated')
 
     const existingKey = await ctx.db.get(_id)
-    if (existingKey?.userId !== userId) throw new Error('Not authorized to delete this key')
+    if (!existingKey || existingKey.userId !== userId) throw new ConvexError('Key not found or not authorized')
 
     const wasDefault = existingKey.is_default
     await ctx.db.delete(_id)
@@ -253,10 +253,10 @@ export const setDefaultApiKey = mutation({
   args: { _id: v.id('apiKeys') },
   handler: async (ctx, { _id }) => {
     const userId = await betterAuthComponent.getAuthUserId(ctx)
-    if (!userId) throw new Error('Not authenticated')
+    if (!userId) throw new ConvexError('Not authenticated')
 
     const targetKey = await ctx.db.get(_id)
-    if (!targetKey || targetKey.userId !== userId) throw new Error('Key not found or not authorized')
+    if (!targetKey || targetKey.userId !== userId) throw new ConvexError('Key not found or not authorized')
 
     // Unset any other default key for the same service
     const otherDefaults = await ctx.db
@@ -351,6 +351,8 @@ export const getUserApiKey = async (
   return decryptApiKey(stored.storedKey, stored.userId, service)
 }
 
+const MAX_DISABLED_MODELS = 500
+
 export const getDisabledModels = query({
   args: {},
   handler: async (ctx) => {
@@ -374,7 +376,11 @@ export const updateDisabledModels = mutation({
   },
   handler: async (ctx, { disabledModels }) => {
     const userId = await betterAuthComponent.getAuthUserId(ctx)
-    if (!userId) throw new Error('Not authenticated')
+    if (!userId) throw new ConvexError('Not authenticated')
+
+    if (disabledModels.length > MAX_DISABLED_MODELS || disabledModels.some((id) => id.length > 200)) {
+      throw new ConvexError('Too many disabled models.')
+    }
 
     // Get or create user settings
     const existingSettings = await ctx.db

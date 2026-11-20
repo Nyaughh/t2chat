@@ -1,4 +1,4 @@
-import { api } from '../_generated/api'
+import { api, internal } from '../_generated/api'
 import { Id } from '../_generated/dataModel'
 import { ConvexError } from 'convex/values'
 import {
@@ -126,7 +126,7 @@ export const generateAIResponse = async (
   } catch (error) {
     if (!(error instanceof ConvexError)) throw error
     // Missing or unreadable user key: explain it in the chat instead of failing silently
-    await ctx.runMutation(api.chat.mutations.updateMessage, {
+    await ctx.runMutation(internal.chat.mutations.updateMessage, {
       messageId: assistantMessageId,
       content: `*${error.data}*`,
       isComplete: true,
@@ -347,7 +347,7 @@ export const generateAIResponse = async (
 
     try {
       if (pendingContentUpdate || pendingThinkingUpdate) {
-        await ctx.runMutation(api.chat.mutations.updateMessage, {
+        await ctx.runMutation(internal.chat.mutations.updateMessage, {
           messageId: assistantMessageId,
           content: accumulatedContent,
           thinking: accumulatedThinking || undefined,
@@ -435,7 +435,7 @@ export const generateAIResponse = async (
             toolName: chunk.toolName,
             args: chunk.input,
           })
-          await ctx.runMutation(api.chat.mutations.updateMessage, {
+          await ctx.runMutation(internal.chat.mutations.updateMessage, {
             messageId: assistantMessageId,
             content: accumulatedContent,
             toolCalls: accumulatedToolCalls,
@@ -448,7 +448,7 @@ export const generateAIResponse = async (
                 ? chunk.output
                 : { success: false, error: 'The tool failed to run', results: [] }
           }
-          await ctx.runMutation(api.chat.mutations.updateMessage, {
+          await ctx.runMutation(internal.chat.mutations.updateMessage, {
             messageId: assistantMessageId,
             toolCalls: accumulatedToolCalls,
           })
@@ -466,7 +466,7 @@ export const generateAIResponse = async (
           await scheduleUpdate(true)
 
           // Mark the message as complete with final thinking data
-          await ctx.runMutation(api.chat.mutations.updateMessage, {
+          await ctx.runMutation(internal.chat.mutations.updateMessage, {
             messageId: assistantMessageId,
             content: accumulatedContent,
             thinking: accumulatedThinking || undefined,
@@ -484,7 +484,7 @@ export const generateAIResponse = async (
           await scheduleUpdate(true)
 
           // Handle error
-          await ctx.runMutation(api.chat.mutations.updateMessage, {
+          await ctx.runMutation(internal.chat.mutations.updateMessage, {
             messageId: assistantMessageId,
             content: withErrorNote(chunk.error),
             thinking: accumulatedThinking || undefined,
@@ -504,7 +504,7 @@ export const generateAIResponse = async (
     // Errors thrown by the stream itself (rather than sent as error parts)
     console.error('Model stream error:', describeProviderError({ provider, model: model.id }, streamError))
     try {
-      await ctx.runMutation(api.chat.mutations.updateMessage, {
+      await ctx.runMutation(internal.chat.mutations.updateMessage, {
         messageId: assistantMessageId,
         content: withErrorNote(streamError),
         thinking: accumulatedThinking || undefined,
@@ -523,7 +523,7 @@ export const generateAIResponse = async (
     // Force final update to ensure all content is saved
     await scheduleUpdate(true)
 
-    await ctx.runMutation(api.chat.mutations.updateMessage, {
+    await ctx.runMutation(internal.chat.mutations.updateMessage, {
       messageId: assistantMessageId,
       content: accumulatedContent || 'Generation was interrupted.',
       thinking: accumulatedThinking || undefined,

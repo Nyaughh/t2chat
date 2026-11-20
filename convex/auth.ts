@@ -2,9 +2,8 @@ import { BetterAuth, convexAdapter, type AuthFunctions, type PublicAuthFunctions
 import { convex } from '@convex-dev/better-auth/plugins'
 import { betterAuth } from 'better-auth'
 import { api, components, internal } from './_generated/api'
-import { internalMutation, query, type GenericCtx } from './_generated/server'
+import { query, type GenericCtx } from './_generated/server'
 import type { Id, DataModel } from './_generated/dataModel'
-import { v } from 'convex/values'
 
 // Typesafe way to pass Convex functions defined in this file
 const authFunctions: AuthFunctions = internal.auth
@@ -46,15 +45,12 @@ export const { createUser, updateUser, deleteUser, createSession, isAuthenticate
   betterAuthComponent.createAuthFunctions<DataModel>({
     // Must create a user and return the user id
     onCreateUser: async (ctx, user) => {
-      const userId = await ctx.db.insert('users', {
+      // Better Auth stores the returned id on its user as `userId`, which
+      // becomes the session subject (see getAuthUserId).
+      return await ctx.db.insert('users', {
         name: user.name,
         email: user.email,
       })
-      await ctx.scheduler.runAfter(0, internal.auth.storeUser, {
-        betterAuthId: user.email,
-        userId: userId,
-      })
-      return userId
     },
 
     // Delete the user when they are deleted from Better Auth
@@ -62,13 +58,6 @@ export const { createUser, updateUser, deleteUser, createSession, isAuthenticate
       await ctx.db.delete(userId as Id<'users'>)
     },
   })
-
-export const storeUser = internalMutation({
-  args: { betterAuthId: v.string(), userId: v.id('users') },
-  handler: async (ctx, { betterAuthId, userId }) => {
-    await (betterAuthComponent as any).storeUser(ctx, betterAuthId, userId)
-  },
-})
 
 // Example function for getting the current user
 // Feel free to edit, omit, etc.
@@ -87,30 +76,5 @@ export const getCurrentUser = query({
       ...user,
       ...userMetadata,
     }
-  },
-})
-
-export const getOrCreateUser = internalMutation({
-  handler: async (ctx) => {
-    const identity = await ctx.auth.getUserIdentity()
-    if (!identity) {
-      throw new Error('Not authenticated')
-    }
-
-    const user = await ctx.db
-      .query('users')
-      .unique()
-
-    if (user) {
-      return user._id
-    }
-
-    const userId = await ctx.db.insert('users', {
-      name: identity.name!,
-      email: identity.email!,
-      image: identity.pictureUrl!,
-    })
-
-    return userId
   },
 })
