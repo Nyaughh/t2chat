@@ -15,7 +15,10 @@ import {
 import type { DBMessage } from '../src/lib/dexie'
 import {
   REPLY_LEASE_MS,
+  REPLY_LEASE_RENEW_MS,
+  boundPlan,
   importableLocalChats,
+  runOwnershipSync,
   isGuestWritable,
   isLocalRowVisible,
   planOwnershipSync,
@@ -63,7 +66,6 @@ function memoryStore() {
       counts.delete++
       rows.delete(id)
     },
-    async renewLease() {},
     async releaseLease() {},
   }
   return {
@@ -597,9 +599,6 @@ function sharedDb(clock: () => number) {
     async delete(id) {
       msgs.delete(id)
     },
-    async renewLease(conversationId, messageId) {
-      if (convs.get(conversationId)?.inFlight?.[messageId] !== undefined) lease(conversationId, messageId)
-    },
     async releaseLease(conversationId, messageId) {
       const c = convs.get(conversationId)
       if (c) c.inFlight = withoutLease(c.inFlight, messageId, clock())
@@ -711,4 +710,99 @@ test('the lease heartbeat keeps a stalled reply leased, and stops when the reply
   await done
   assert.equal(db.convs.get('C')!.inFlight, undefined)
   assert.equal(timers.size, 0, 'heartbeat stopped')
+})
+
+// --- Round 5: the lease is an import barrier only; heartbeats checkpoint ----
+
+/** The real ownership sync over the shared DB (compare-and-set, no lease deferral), like local-data.ts. */
+function ownershipOver(db: ReturnType<typeof sharedDb>) {
+  return {
+    readRows: async () => [...db.convs.values()].map((c) => ({ ...c })),
+    apply: async (session: LocalSessionState, plan: ReturnType<typeof planOwnershipSync>) => {
+      const bound = boundPlan(plan, [...db.convs.values()])
+      for (const row of bound.deletions) {
+        db.convs.delete(row.id)
+        for (const m of [...db.msgs.values()]) if (m.conversationId === row.id) db.msgs.delete(m.id)
+      }
+      if (session.status === 'signed-in') for (const row of bound.claims) db.convs.get(row.id)!.userId = session.userId
+    },
+  }
+}
+
+test('stalled stream + heartbeats + sign-out wipe: the rows are gone immediately and nothing comes back', async () => {
+  let t = 0
+  const db = sharedDb(() => t)
+  const A: LocalSessionState = { status: 'signed-in', userId: 'userA' }
+  const OUT: LocalSessionState = { status: 'signed-out' }
+  db.convs.set('C', { id: 'C' })
+  const net = controllableFetch()
+  const timers = manualTimers()
+  const done = streamGuestReply({
+    ...base,
+    conversationId: 'C',
+    signal: new AbortController().signal,
+    store: db.store,
+    fetchImpl: net.fetchImpl,
+    now: () => t,
+    createId: () => 'reply',
+    ...timers,
+  })
+  net.respond()
+  await tick()
+  net.push(line('text', 'partial'))
+  await tick()
+  // The stream stalls; heartbeats keep checkpointing and renewing the lease.
+  for (let i = 0; i < 3; i++) {
+    t += REPLY_LEASE_RENEW_MS
+    timers.fireAll()
+    await tick()
+  }
+  assert.ok((db.convs.get('C')!.inFlight?.reply ?? 0) > t, 'leased during the stall')
+
+  // A signs in (claims) in another tab, then signs out: the wipe runs while the
+  // lease is still active and deletes the rows at once.
+  const sync = ownershipOver(db)
+  assert.equal(await runOwnershipSync(A, { ...sync, confirm: async () => A }), 'applied')
+  assert.equal(await runOwnershipSync(OUT, { ...sync, confirm: async () => OUT }), 'applied')
+  assert.equal(db.convs.size, 0, 'conversation gone immediately')
+  assert.equal(db.msgs.size, 0, 'messages gone immediately')
+
+  // The next heartbeat finds the chat gone and settles the reply without a new chunk.
+  t += REPLY_LEASE_RENEW_MS
+  timers.fireAll()
+  const result = await done
+  assert.equal(result.status, 'rejected')
+  assert.equal(db.convs.size + db.msgs.size, 0, 'nothing recreated')
+  assert.equal(timers.size, 0)
+})
+
+test('a heartbeat that finds its chat claimed settles the reply with the shown text, without new chunks', async () => {
+  let t = 0
+  const db = sharedDb(() => t)
+  db.convs.set('C', { id: 'C' })
+  const net = controllableFetch()
+  const timers = manualTimers()
+  const done = streamGuestReply({
+    ...base,
+    conversationId: 'C',
+    signal: new AbortController().signal,
+    store: db.store,
+    fetchImpl: net.fetchImpl,
+    now: () => t,
+    createId: () => 'reply',
+    ...timers,
+  })
+  net.respond()
+  await tick()
+  net.push(line('text', 'shown'))
+  await tick()
+  db.convs.get('C')!.userId = 'userA' // claimed by a sign-in in another tab
+  // The stream stalls: no more chunks. The heartbeat checkpoint settles it.
+  t += REPLY_LEASE_RENEW_MS
+  timers.fireAll()
+  const result = await done
+  assert.equal(result.status, 'claimed')
+  assert.equal(db.msgs.get('reply')?.content, `shown${CLAIMED_NOTE}`)
+  assert.equal(db.convs.get('C')!.inFlight, undefined, 'lease released, so it can be imported')
+  assert.equal(timers.size, 0)
 })

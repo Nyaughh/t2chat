@@ -39,12 +39,10 @@ export interface GuestMessageStore {
   saveClaimed(id: string, changes: GuestMessageChanges): Promise<boolean>
   delete(id: string): Promise<unknown>
   /**
-   * `add` also takes a reply lease on the chat (see local-data-policy.ts), so
-   * the chat isn't imported or wiped while this reply's text is only in memory.
-   * `update` renews it; these keep it alive during a stall and release it
-   * after the last write.
+   * `add` also takes a reply lease on the chat and every `ok` update renews
+   * it (see local-data-policy.ts), so the chat isn't imported while this
+   * reply's text is only in memory. Released after the reply's last write.
    */
-  renewLease(conversationId: string, messageId: string): Promise<unknown>
   releaseLease(conversationId: string, messageId: string): Promise<unknown>
 }
 
@@ -157,15 +155,7 @@ export async function streamGuestReply(options: StreamGuestReplyOptions): Promis
     let writes: Promise<unknown> = Promise.resolve()
     const writesSettled = () => writes.catch(() => undefined)
 
-    // Keep the reply lease alive while the reply runs (also during stalls).
     let leaseTimer: unknown = null
-    const heartbeat = () => {
-      leaseTimer = setTimer(() => {
-        void store.renewLease(conversationId, id).catch(() => undefined)
-        heartbeat()
-      }, REPLY_LEASE_RENEW_MS)
-    }
-    heartbeat()
     try {
 
       let content = ''
@@ -215,6 +205,19 @@ export async function streamGuestReply(options: StreamGuestReplyOptions): Promis
 
       const flush = () => (dirty ? persist() : writes.then(() => undefined))
       onFlushReady?.(flush)
+
+      // Heartbeat: a regular checkpoint while the reply runs, also during
+      // stalls. It renews the lease, and if the chat was claimed or wiped it
+      // settles the reply through the same path as any other refused write,
+      // without waiting for another chunk.
+      const heartbeat = () => {
+        leaseTimer = setTimer(() => {
+          leaseTimer = null
+          void persist().catch(() => undefined)
+          if (!refused) heartbeat()
+        }, REPLY_LEASE_RENEW_MS)
+      }
+      heartbeat()
 
       const schedule = () => {
         if (timer !== null || !dirty) return

@@ -2,7 +2,6 @@ import { db, type Conversation, type DBMessage } from './dexie'
 import {
   REPLY_LEASE_MS,
   boundPlan,
-  hasActiveReply,
   isGuestWritable,
   localSessionKey,
   planOwnershipSync,
@@ -124,11 +123,6 @@ export const guardedGuestMessageStore: GuestMessageStore = {
       await renewLeaseIn(msg.conversationId, id)
       return 'ok'
     }),
-  renewLease: (conversationId, messageId) =>
-    rw(async () => {
-      const conv = await db.conversations.get(conversationId)
-      if (conv?.inFlight?.[messageId] !== undefined) await renewLeaseIn(conversationId, messageId)
-    }),
   releaseLease: (conversationId, messageId) =>
     rw(async () => {
       const now = Date.now()
@@ -160,17 +154,13 @@ export const guestReplies = createGuestReplyRegistry({ store: guardedGuestMessag
  * made for an older session therefore can't undo a newer transition (another
  * tab signing in, deleting the old owner's rows and claiming the rest).
  */
-async function applyPlan(session: LocalSessionState, plan: OwnershipPlan): Promise<number> {
-  return rw(async () => {
+async function applyPlan(session: LocalSessionState, plan: OwnershipPlan) {
+  await rw(async () => {
     const ids = [...plan.deletions, ...plan.claims].map((row) => row.id)
-    const current = await db.conversations.bulkGet(ids)
-    const bound = boundPlan(plan, current)
-    // A chat whose guest reply is still being written (in any tab) is deleted
-    // only after that reply's final text is stored; the caller retries.
-    const now = Date.now()
-    const leased = new Set(current.filter((c) => c && hasActiveReply(c, now)).map((c) => c!.id))
-    const deleteIds = bound.deletions.map((row) => row.id).filter((id) => !leased.has(id))
-    const deferred = bound.deletions.length - deleteIds.length
+    const bound = boundPlan(plan, await db.conversations.bulkGet(ids))
+    // Reply leases don't delay this: a running reply finds its chat gone at
+    // its next checkpoint and stops without recreating anything.
+    const deleteIds = bound.deletions.map((row) => row.id)
     if (deleteIds.length > 0) {
       await db.messages.where('conversationId').anyOf(deleteIds).delete()
       await db.conversations.bulkDelete(deleteIds)
@@ -184,7 +174,6 @@ async function applyPlan(session: LocalSessionState, plan: OwnershipPlan): Promi
           delete conv.legacyOwner
         })
     }
-    return deferred
   })
 }
 
@@ -232,9 +221,7 @@ export async function snapshotClaimedLocalData(): Promise<OwnershipPlan> {
  * that state. Rows claimed or changed after the snapshot are left alone.
  */
 export function wipeClaimedLocalData(snapshot: OwnershipPlan): Promise<void> {
-  // Rows deferred here (a reply still being written) are wiped by the session
-  // guard once their lease ends.
-  const run = () => applyPlan({ status: 'signed-out' }, snapshot).then(() => undefined)
+  const run = () => applyPlan({ status: 'signed-out' }, snapshot)
   const result = queue.then(run, run)
   queue = result.catch(() => undefined)
   return result

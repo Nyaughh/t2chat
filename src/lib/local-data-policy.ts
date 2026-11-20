@@ -70,10 +70,11 @@ export interface OwnedRow {
 // here" marker on the conversation row. A streaming reply buffers up to
 // GUEST_PERSIST_INTERVAL_MS of text in memory, so until its final write lands
 // the stored message can be behind what was shown. While a lease is active the
-// chat is not offered for import and not deleted by an ownership wipe. A lease
-// is set with the reply's placeholder, renewed on every write and by a
-// heartbeat, released after the reply's last write, and expires on its own if
-// the tab that holds it dies.
+// chat is not offered for import (it is an import barrier only: ownership
+// wipes on sign-out, expiry or account switch never wait for it). A lease is
+// set with the reply's placeholder, renewed on every write (including the
+// heartbeat checkpoint), released after the reply's last write, and expires on
+// its own if the tab that holds it dies.
 
 /** messageId -> lease expiry (epoch ms). */
 export type ReplyLeases = Record<string, number>
@@ -285,8 +286,7 @@ export function planLegacyCleanup(
 // ---------------------------------------------------------------------------
 // Ownership sync sequence (the storage side is injected; see local-data.ts).
 
-/** `deferred`: applied, but some deletions wait for a reply lease to end; retry later. */
-export type OwnershipSyncOutcome = 'skipped' | 'unconfirmed' | 'applied' | 'deferred'
+export type OwnershipSyncOutcome = 'skipped' | 'unconfirmed' | 'applied'
 
 /**
  * Changes ownership only for a definite session (signed in or signed out), only
@@ -299,20 +299,16 @@ export async function runOwnershipSync(
   deps: {
     readRows: () => Promise<ReadonlyArray<OwnedRow>>
     confirm: () => Promise<LocalSessionState>
-    /**
-     * Must apply the plan with compare-and-set semantics (see boundPlan) and
-     * skip deleting rows with an active reply lease. Resolves to how many
-     * deletions were deferred that way.
-     */
-    apply: (session: LocalSessionState, plan: OwnershipPlan) => Promise<number>
+    /** Must apply the plan with compare-and-set semantics (see boundPlan). */
+    apply: (session: LocalSessionState, plan: OwnershipPlan) => Promise<void>
   },
 ): Promise<OwnershipSyncOutcome> {
   if (session.status !== 'signed-in' && session.status !== 'signed-out') return 'skipped'
   const plan = planOwnershipSync(await deps.readRows(), session)
   if (isEmptyPlan(plan)) return 'skipped'
   if (!sameSession(await deps.confirm(), session)) return 'unconfirmed'
-  const deferred = await deps.apply(session, plan)
-  return deferred > 0 ? 'deferred' : 'applied'
+  await deps.apply(session, plan)
+  return 'applied'
 }
 
 /** Delay before retrying an unconfirmed or failed ownership sync (attempt starts at 0). */
