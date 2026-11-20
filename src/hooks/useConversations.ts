@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useEffect, useCallback, useRef } from 'react'
+import { useState, useMemo, useEffect, useCallback, useRef, useSyncExternalStore } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { v4 as uuidv4 } from 'uuid'
 import { db, type Conversation as DBConversation, type DBMessage } from '../lib/dexie'
@@ -11,9 +11,19 @@ import { models, type ModelInfo } from '@/lib/models'
 import type { ClientMessage, Attachment, ConvexChat, ConvexMessage } from '@/lib/types'
 import type { Id } from '../../convex/_generated/dataModel'
 import type { ModelMessage } from 'ai'
-import { streamGuestReply, toModelHistory, type GuestStreamSnapshot } from '@/lib/guest-stream'
-import { dexieGuestMessageStore } from '@/lib/local-data'
-import { useLocalDataVisible } from './useLocalDataGuard'
+import { toModelHistory, type GuestReplyResult } from '@/lib/guest-stream'
+import {
+  GuestChatUnavailableError,
+  addGuestMessage,
+  createGuestConversation,
+  deleteGuestConversation,
+  deleteGuestMessages,
+  guestReplies,
+  readGuestHistory,
+  updateGuestMessageContent,
+} from '@/lib/local-data'
+import { chatsBelongTo, createModeGate, isGuestLocalId, isLocalRowVisible } from '@/lib/local-data-policy'
+import { useLocalOwnership } from './useLocalOwnership'
 import { useQuery } from 'convex/react'
 import { api } from '../../convex/_generated/api'
 
@@ -55,6 +65,23 @@ const toChatList = (chats: ConvexChat[]) =>
     }))
     .sort((a, b) => b.lastMessageAt.getTime() - a.lastMessageAt.getTime())
 
+/** Where a send goes: Convex (signed in), local IndexedDB (confirmed signed out), or not decided yet. */
+type SendMode = 'convex' | 'guest' | null
+
+const reportGuestError = (error: unknown, fallback: string) => {
+  if (error instanceof GuestChatUnavailableError) {
+    toast.error(error.message)
+  } else {
+    console.error(fallback, error)
+    toast.error(fallback)
+  }
+}
+
+const reportGuestResult = (result: GuestReplyResult) => {
+  if (result.error) toast.error(result.error)
+  else if (result.status === 'rejected') toast.error('This chat is no longer available.')
+}
+
 export const useConversations = (
   chatId?: string,
   initialMessages?: ConvexMessage[] | null,
@@ -70,8 +97,6 @@ export const useConversations = (
   const {
     isAuthenticated,
     isLoading: isAuthLoading,
-    isStreaming: isConvexStreaming,
-    chatExists: convexChatExists,
     messages: convexMessages,
     chats: convexChats,
     createChat,
@@ -79,54 +104,129 @@ export const useConversations = (
     retryMessage,
     editMessageAndRegenerate,
     deleteChat: deleteConvexChat,
-    deleteMessagesFromIndex,
     cancelMessage,
-    editMessage,
   } = useConvexChat(currentChatId ? (currentChatId as Id<'chats'>) : undefined)
 
   const userSettings = useQuery(api.users.getMySettings, isAuthenticated ? {} : 'skip')
   const disabledModels = useQuery(api.api_keys.getDisabledModels, isAuthenticated ? {} : 'skip') || []
 
-  const [cachedConvexChats, setCachedConvexChats] = useState(convexChats)
+  // The Better Auth session is the verified identity. Its user id is the app
+  // `users` id, the same id the server stores in `chats.userId`.
+  const { session, signingOut } = useLocalOwnership()
+  const verifiedUserId = session.status === 'signed-in' ? session.userId : null
 
-  // IndexedDB only holds guest chats. Signed-in chats come from Convex and are
-  // never copied here (audit P2/S7). `localDataVisible` stays false until the
-  // previous session's local chats have been wiped, if they need to be.
-  const { visible: localDataVisible, signedIn: sessionSignedIn } = useLocalDataVisible()
-  const liveDexieConversations = useLiveQuery(
-    () => db.conversations.orderBy('lastMessageAt').reverse().toArray(),
-    [],
+  // --- Signed-in data: only results that belong to the verified identity ----
+
+  const verifiedConvexChats = useMemo(
+    () => (convexChats && verifiedUserId && chatsBelongTo(convexChats, verifiedUserId) ? convexChats : undefined),
+    [convexChats, verifiedUserId],
   )
-  const dexieConversations = localDataVisible ? liveDexieConversations : undefined
-  const liveDexieMessages = useLiveQuery(
-    () => {
-      if (!currentChatId || isAuthenticated) return []
-      return db.messages.where('conversationId').equals(currentChatId).sortBy('createdAt')
+  const verifiedChatExists = useMemo(
+    () => !!currentChatId && !!verifiedConvexChats?.some((chat) => chat._id === currentChatId),
+    [currentChatId, verifiedConvexChats],
+  )
+  const verifiedConvexMessages = useMemo(
+    () =>
+      verifiedChatExists && convexMessages && convexMessages.every((m) => m.chatId === currentChatId)
+        ? convexMessages
+        : undefined,
+    [verifiedChatExists, convexMessages, currentChatId],
+  )
+  const isConvexStreaming = useMemo(() => {
+    const last = verifiedConvexMessages?.[verifiedConvexMessages.length - 1]
+    return !!last && last.role === 'assistant' && !last.isComplete
+  }, [verifiedConvexMessages])
+
+  // Chat list frozen while a reply streams (avoids title flicker), per user.
+  const [cachedChats, setCachedChats] = useState<{ userId: string; chats: ConvexChat[] } | null>(null)
+  useEffect(() => {
+    if (!isConvexStreaming && verifiedConvexChats && verifiedUserId) {
+      setCachedChats({ userId: verifiedUserId, chats: verifiedConvexChats })
+    }
+  }, [verifiedConvexChats, isConvexStreaming, verifiedUserId])
+  const cachedChatsForUser = cachedChats && cachedChats.userId === verifiedUserId ? cachedChats.chats : undefined
+
+  // Server-rendered chat list. Usable only for the account it was rendered for:
+  // while the first session check is pending, or once the session confirms the
+  // same user. Discarded for good once a different or no account is seen.
+  const initialOwner = initialChats && initialChats.length > 0 ? initialChats[0].userId : null
+  const initialMismatch =
+    initialOwner !== null &&
+    (session.status === 'signed-out' ||
+      session.status === 'unknown' ||
+      (session.status === 'signed-in' && session.userId !== initialOwner))
+  const [revokedInitialChats, setRevokedInitialChats] = useState<ConvexChat[] | null>(null)
+  useEffect(() => {
+    if (initialMismatch && initialChats) setRevokedInitialChats(initialChats)
+  }, [initialMismatch, initialChats])
+  const usableInitialChats = useMemo((): ConvexChat[] | null => {
+    if (!initialChats || initialOwner === null) return null
+    if (initialMismatch || revokedInitialChats === initialChats) return null
+    if (!chatsBelongTo(initialChats, initialOwner)) return null
+    return initialChats
+  }, [initialChats, initialOwner, initialMismatch, revokedInitialChats])
+
+  // --- Local (guest) data: only rows the current viewer may see --------------
+
+  // The guest view is used only when no one is signed in according to both
+  // Convex and the auth session.
+  const isGuestView = !isAuthenticated && !verifiedUserId
+  const liveLocalConversations = useLiveQuery(() => db.conversations.orderBy('lastMessageAt').reverse().toArray(), [])
+  const guestConversations = useMemo(
+    () =>
+      isGuestView && liveLocalConversations
+        ? liveLocalConversations.filter((conv) => isLocalRowVisible(conv, session))
+        : undefined,
+    [isGuestView, liveLocalConversations, session],
+  )
+  // The conversation row is read with its messages, so ownership is checked on
+  // the same snapshot the messages come from.
+  const liveGuestThread = useLiveQuery(
+    async () => {
+      if (!currentChatId || isAuthenticated) return null
+      const conv = await db.conversations.get(currentChatId)
+      if (!conv) return { conv: null, messages: [] as DBMessage[] }
+      const messages = await db.messages.where('conversationId').equals(currentChatId).sortBy('createdAt')
+      return { conv, messages }
     },
     [currentChatId, isAuthenticated],
-    [],
+    null,
   )
-  const liveLocalMessages = useMemo(
-    // Guest messages are never shown while the auth session still says someone
-    // is signed in, even if Convex already treats the user as signed out.
-    () => (localDataVisible && !isAuthenticated && !sessionSignedIn ? liveDexieMessages || [] : []),
-    [localDataVisible, isAuthenticated, sessionSignedIn, liveDexieMessages],
-  )
-  const [isLocalStreaming, setIsLocalStreaming] = useState(false)
-  // Latest text of the guest reply being streamed. IndexedDB is only written
-  // every few hundred ms, so the UI reads the live text from here.
-  const [localStream, setLocalStream] = useState<GuestStreamSnapshot | null>(null)
+  const liveLocalMessages = useMemo(() => {
+    const conv = liveGuestThread?.conv
+    if (!isGuestView || !conv || conv.id !== currentChatId || !isLocalRowVisible(conv, session)) return []
+    return liveGuestThread.messages
+  }, [isGuestView, liveGuestThread, currentChatId, session])
 
+  const guestReply = useSyncExternalStore(guestReplies.subscribe, guestReplies.getSnapshot, () => null)
+  const isLocalStreaming = !!guestReply?.streaming
+
+  // Save buffered guest reply text when this view goes away or the page is hidden.
+  // The reply itself keeps running, so the first guest send survives the
+  // navigation from the home page to the new chat.
   useEffect(() => {
-    if (!isConvexStreaming) {
-      setCachedConvexChats(convexChats)
+    const flush = () => void guestReplies.flush()
+    const onVisibility = () => {
+      if (document.visibilityState === 'hidden') flush()
     }
-  }, [convexChats, isConvexStreaming])
+    window.addEventListener('pagehide', flush)
+    document.addEventListener('visibilitychange', onVisibility)
+    return () => {
+      window.removeEventListener('pagehide', flush)
+      document.removeEventListener('visibilitychange', onVisibility)
+      flush()
+    }
+  }, [])
+
+  // --- What the UI shows -----------------------------------------------------
 
   const activeMessages = useMemo((): ActiveMessage[] => {
-    // Server-provided messages, only if they belong to the open chat.
+    // Server-provided messages, only for the open chat and a matching identity.
     const initialForCurrentChat = () =>
-      initialMessages && currentChatId && initialMessages.every((m) => m.chatId === currentChatId)
+      initialMessages &&
+      currentChatId &&
+      (session.status === 'pending' || verifiedChatExists) &&
+      initialMessages.every((m) => m.chatId === currentChatId)
         ? initialMessages.map(convexToClientMessage)
         : []
 
@@ -134,39 +234,42 @@ export const useConversations = (
 
     if (isAuthenticated) {
       // Convex is the source of truth for signed-in users.
-      return convexMessages ? convexMessages.map(convexToClientMessage) : initialForCurrentChat()
+      return verifiedConvexMessages ? verifiedConvexMessages.map(convexToClientMessage) : initialForCurrentChat()
     }
 
     // Guests: IndexedDB, with the live text of a streaming reply on top.
+    const live = guestReply?.snapshot
     return liveLocalMessages.map((msg) => {
       const client = localToClientMessage(msg)
-      if (localStream && localStream.id === msg.id) {
-        client.content = localStream.content
-        client.thinking = localStream.thinking
-        client.thinkingDuration = localStream.thinkingDuration
+      if (live && live.id === msg.id) {
+        client.content = live.content
+        client.thinking = live.thinking
+        client.thinkingDuration = live.thinkingDuration
       }
       return client
     })
-  }, [isAuthLoading, isAuthenticated, convexMessages, liveLocalMessages, localStream, initialMessages, currentChatId])
+  }, [
+    isAuthLoading,
+    isAuthenticated,
+    verifiedConvexMessages,
+    verifiedChatExists,
+    liveLocalMessages,
+    guestReply,
+    initialMessages,
+    currentChatId,
+    session,
+  ])
 
   const activeChats = useMemo(() => {
-    // If authenticated, ONLY show chats from Convex.
     if (isAuthenticated) {
-      const sourceChats = isConvexStreaming ? cachedConvexChats : convexChats
-      // Use initialChats as fallback if convex chats haven't loaded yet
-      const chatsToUse = sourceChats || initialChats || []
-      return toChatList(chatsToUse)
+      const sourceChats = isConvexStreaming ? (cachedChatsForUser ?? verifiedConvexChats) : verifiedConvexChats
+      // Fall back to the server-rendered list while Convex loads, if it is this user's.
+      return toChatList(sourceChats || usableInitialChats || [])
     }
-    // While auth is loading, show the server-rendered list. Once we know the
-    // user is signed out, never show it: it can still hold the previous user's
-    // chats until the page refreshes after sign-out.
-    if (isAuthLoading) {
-      return toChatList(initialChats || [])
-    }
-    // Signed out: guest chats from IndexedDB only.
-    if (sessionSignedIn) return []
+    if (isAuthLoading) return toChatList(usableInitialChats || [])
+    // Signed out: unowned guest chats from IndexedDB only.
     return (
-      dexieConversations?.map((chat) => ({
+      guestConversations?.map((chat) => ({
         id: chat.id as Id<'chats'>,
         title: chat.title || 'New Chat',
         createdAt: new Date(chat.createdAt),
@@ -178,22 +281,25 @@ export const useConversations = (
   }, [
     isAuthenticated,
     isAuthLoading,
-    sessionSignedIn,
     isConvexStreaming,
-    cachedConvexChats,
-    convexChats,
-    dexieConversations,
-    initialChats,
+    cachedChatsForUser,
+    verifiedConvexChats,
+    usableInitialChats,
+    guestConversations,
   ])
 
+  // Local chats the signed-in user can import: their own and still-unclaimed
+  // guest chats. Hidden while a sign-out request is in flight.
   const unmigratedLocalChatsRef = useRef<DBConversation[]>([])
   const unmigratedLocalChats = useMemo(() => {
-    if (!isAuthenticated || !dexieConversations || !convexChats) {
+    if (!isAuthenticated || !verifiedUserId || signingOut || !liveLocalConversations || !verifiedConvexChats) {
       return []
     }
 
-    const convexChatIds = new Set(convexChats.map((c) => c._id))
-    const newUnmigrated = dexieConversations.filter((c) => !convexChatIds.has(c.id as Id<'chats'>))
+    const convexChatIds = new Set<string>(verifiedConvexChats.map((c) => c._id))
+    const newUnmigrated = liveLocalConversations.filter(
+      (c) => isLocalRowVisible(c, session) && !convexChatIds.has(c.id),
+    )
 
     const oldUnmigrated = unmigratedLocalChatsRef.current
 
@@ -206,41 +312,44 @@ export const useConversations = (
 
     unmigratedLocalChatsRef.current = newUnmigrated
     return newUnmigrated
-  }, [isAuthenticated, dexieConversations, convexChats])
+  }, [isAuthenticated, verifiedUserId, signingOut, liveLocalConversations, verifiedConvexChats, session])
 
   // This effect will redirect the user if the chat is not found
   useEffect(() => {
     if (!isAuthLoading && currentChatId) {
       if (isAuthenticated) {
-        // For authenticated users, check using the chatExists flag from useConvexChat
-        // This prevents the Convex query error by checking chat existence first
-        if (convexChats && !convexChatExists) {
+        if (verifiedConvexChats && !verifiedChatExists) {
           router.push('/')
           toast.error('Chat not found.')
         }
-      } else {
-        // For unauthenticated users, check against local Dexie conversations
-        if (dexieConversations && !sessionSignedIn) {
-          const conversationExists = dexieConversations.some((conv) => conv.id === currentChatId)
-          if (!conversationExists) {
-            router.push('/')
-            toast.error('Chat not found.')
-          }
+      } else if (guestConversations) {
+        if (!guestConversations.some((conv) => conv.id === currentChatId)) {
+          router.push('/')
+          toast.error('Chat not found.')
         }
       }
     }
-  }, [
-    isAuthLoading,
-    isAuthenticated,
-    sessionSignedIn,
-    currentChatId,
-    convexChats,
-    convexChatExists,
-    dexieConversations,
-    router,
-  ])
+  }, [isAuthLoading, isAuthenticated, currentChatId, verifiedConvexChats, verifiedChatExists, guestConversations, router])
 
-  const abortControllerRef = useRef<AbortController | null>(null)
+  // --- Where writes go -------------------------------------------------------
+
+  // Guest writes need a confirmed signed-out session. A pending session, a
+  // signed-in user still waiting for a Convex token, or an unknown session
+  // while this browser holds a signed-in user's chats, waits. (An unknown
+  // session with only unowned guest chats may write: nothing of another user
+  // is at stake, and a guest isn't locked out when the auth check is down.)
+  const hasOwnedLocalChats = !!liveLocalConversations?.some((conv) => conv.userId)
+  const guestAllowed =
+    session.status === 'signed-out' ||
+    (session.status === 'unknown' && liveLocalConversations !== undefined && !hasOwnedLocalChats)
+  const sendMode: SendMode = isAuthenticated ? 'convex' : !isAuthLoading && guestAllowed ? 'guest' : null
+  const [sendGate] = useState(() => createModeGate<'convex' | 'guest'>())
+  useEffect(() => {
+    sendGate.set(sendMode)
+  }, [sendGate, sendMode])
+
+  /** Resolves once it is known where a write must go. Never drops the request. */
+  const waitForSendMode = useCallback(() => sendGate.wait(), [sendGate])
 
   // This effect correctly sets the displayed model on mount and on auth change
   // without incorrectly writing to localStorage.
@@ -279,29 +388,8 @@ export const useConversations = (
     setSelectedModel(model)
   }
 
-  // Streams one guest reply into `conversationId`. A stop is not an error: the
-  // helper saves the partial reply with the "stopped" note. Other errors are
-  // thrown to the caller, which reports them.
   const runGuestReply = useCallback(async (conversationId: string, history: ModelMessage[], modelId: string) => {
-    const controller = new AbortController()
-    abortControllerRef.current = controller
-    setLocalStream(null)
-    setIsLocalStreaming(true)
-    try {
-      const result = await streamGuestReply({
-        conversationId,
-        history,
-        modelId,
-        signal: controller.signal,
-        store: dexieGuestMessageStore,
-        onUpdate: setLocalStream,
-      })
-      if (result.error) toast.error(result.error)
-      return result
-    } finally {
-      if (abortControllerRef.current === controller) abortControllerRef.current = null
-      if (abortControllerRef.current === null) setIsLocalStreaming(false)
-    }
+    reportGuestResult(await guestReplies.run({ conversationId, history, modelId }))
   }, [])
 
   const handleNewMessage = useCallback(
@@ -313,8 +401,13 @@ export const useConversations = (
         webSearch?: boolean
       },
     ) => {
-      if (isAuthenticated) {
-        let chatId = currentChatId as Id<'chats'>
+      // The chat the user typed into, captured before waiting.
+      const targetChatId = currentChatId
+      const mode = await waitForSendMode()
+
+      if (mode === 'convex') {
+        // A local chat id can't be sent to Convex: start a new server chat.
+        let chatId = targetChatId && !isGuestLocalId(targetChatId) ? (targetChatId as Id<'chats'>) : null
         if (!chatId) {
           const newChatId = await createChat({ title: input.substring(0, 50) })
           chatId = newChatId
@@ -330,51 +423,53 @@ export const useConversations = (
           attachments: options?.attachments,
           webSearch: options?.webSearch,
         })
-      } else {
-        try {
-          const now = new Date()
-          let conversationId = currentChatId
-          if (!conversationId) {
-            const newConversationId = uuidv4()
-            conversationId = newConversationId
-            await db.conversations.add({
-              id: newConversationId,
-              title: input.split(' ').slice(0, 4).join(' '),
-              createdAt: now,
-              updatedAt: now,
-              lastMessageAt: now,
-            })
-            setTimeout(() => {
-              router.push(`/chat/${newConversationId}`)
-            }, 0)
-          } else {
-            await db.conversations.update(conversationId, { updatedAt: now, lastMessageAt: now })
-          }
+        return
+      }
 
-          const userMessage: DBMessage = {
-            id: uuidv4(),
-            conversationId,
-            content: input,
-            role: 'user',
+      try {
+        const now = new Date()
+        let conversationId = targetChatId
+        // Null when the chat doesn't exist or isn't an unowned guest chat.
+        let history = conversationId ? await readGuestHistory(conversationId) : null
+        if (!conversationId || history === null) {
+          // New chat, or the old one is gone: keep the message in a new guest chat.
+          const newConversationId = uuidv4()
+          conversationId = newConversationId
+          history = []
+          await createGuestConversation({
+            id: newConversationId,
+            title: input.split(' ').slice(0, 4).join(' '),
             createdAt: now,
-            model: selectedModel.id,
-            parts: [],
-          }
-          await db.messages.add(userMessage)
-
-          await runGuestReply(conversationId, toModelHistory([...liveLocalMessages, userMessage]), selectedModel.id)
-        } catch (error) {
-          console.error('Error in local stream:', error)
-          toast.error('An error occurred while getting the response.')
+            updatedAt: now,
+            lastMessageAt: now,
+          })
+          setTimeout(() => {
+            router.push(`/chat/${newConversationId}`)
+          }, 0)
         }
+
+        const userMessage: DBMessage = {
+          id: uuidv4(),
+          conversationId,
+          content: input,
+          role: 'user',
+          createdAt: now,
+          model: selectedModel.id,
+          parts: [],
+        }
+        await addGuestMessage(userMessage)
+        await runGuestReply(conversationId, toModelHistory([...history, userMessage]), selectedModel.id)
+      } catch (error) {
+        reportGuestError(error, 'An error occurred while getting the response.')
       }
     },
-    [isAuthenticated, currentChatId, selectedModel, createChat, sendMessage, router, liveLocalMessages, runGuestReply],
+    [currentChatId, selectedModel, createChat, sendMessage, router, waitForSendMode, runGuestReply],
   )
 
   const handleRetryMessage = useCallback(
     async (messageId: string, modelId?: string) => {
       if (!currentChatId) return
+      const chatId = currentChatId
 
       try {
         const messageIndex = activeMessages.findIndex((msg) => msg.id === messageId)
@@ -383,43 +478,50 @@ export const useConversations = (
         const messageToRetry = activeMessages[messageIndex]
         if (messageToRetry.role !== 'assistant') return
 
-        if (isAuthenticated) {
+        const mode = await waitForSendMode()
+        if (mode === 'convex') {
+          if (isGuestLocalId(chatId)) throw new GuestChatUnavailableError()
           await retryMessage({
-            chatId: currentChatId as Id<'chats'>,
+            chatId: chatId as Id<'chats'>,
             fromMessageId: messageToRetry.id as Id<'messages'>,
             modelId: modelId || selectedModel.id,
           })
         } else {
           // Remove the assistant message and everything after it, then regenerate
           // from the history before it.
-          await db.messages.bulkDelete(activeMessages.slice(messageIndex).map((msg) => msg.id))
+          await deleteGuestMessages(
+            chatId,
+            activeMessages.slice(messageIndex).map((msg) => msg.id),
+          )
           const modelToUse = modelId ? models.find((m) => m.id === modelId) || selectedModel : selectedModel
-          await runGuestReply(currentChatId, toModelHistory(activeMessages.slice(0, messageIndex)), modelToUse.id)
+          await runGuestReply(chatId, toModelHistory(activeMessages.slice(0, messageIndex)), modelToUse.id)
         }
       } catch (error) {
-        console.error('Error in retry:', error)
-        toast.error('Failed to retry message.')
+        reportGuestError(error, 'Failed to retry message.')
       }
     },
-    [isAuthenticated, currentChatId, activeMessages, selectedModel, retryMessage, runGuestReply],
+    [currentChatId, activeMessages, selectedModel, retryMessage, waitForSendMode, runGuestReply],
   )
 
   const handleEditMessage = useCallback(
     async (messageId: string, content: string) => {
       if (!currentChatId) return
+      const chatId = currentChatId
 
       try {
-        if (isAuthenticated) {
-          // For Convex: Use the editMessageAndRegenerate action to edit and regenerate response
+        const mode = await waitForSendMode()
+        if (mode === 'convex') {
+          if (isGuestLocalId(chatId)) throw new GuestChatUnavailableError()
           await editMessageAndRegenerate({
             messageId: messageId as Id<'messages'>,
             content: content.trim(),
             modelId: selectedModel.id,
           })
         } else {
-          await db.messages.update(messageId, { content: content.trim() })
+          await updateGuestMessageContent(chatId, messageId, content.trim())
 
-          const allMessages = await db.messages.where('conversationId').equals(currentChatId).sortBy('createdAt')
+          const allMessages = await readGuestHistory(chatId)
+          if (!allMessages) throw new GuestChatUnavailableError()
           const editedMessageIndex = allMessages.findIndex((msg) => msg.id === messageId)
           if (editedMessageIndex !== -1) {
             // Find the next assistant message after the edited user message
@@ -433,9 +535,12 @@ export const useConversations = (
 
             // Delete that reply and everything after it, then regenerate.
             if (nextAssistantMessageIndex !== -1) {
-              await db.messages.bulkDelete(allMessages.slice(nextAssistantMessageIndex).map((msg) => msg.id))
+              await deleteGuestMessages(
+                chatId,
+                allMessages.slice(nextAssistantMessageIndex).map((msg) => msg.id),
+              )
               await runGuestReply(
-                currentChatId,
+                chatId,
                 toModelHistory(allMessages.slice(0, nextAssistantMessageIndex)),
                 selectedModel.id,
               )
@@ -444,17 +549,16 @@ export const useConversations = (
         }
         toast.success('Message edited and response regenerated.')
       } catch (error) {
-        console.error('Error editing message:', error)
-        toast.error('Failed to edit message.')
+        reportGuestError(error, 'Failed to edit message.')
       }
     },
-    [isAuthenticated, editMessageAndRegenerate, selectedModel, currentChatId, runGuestReply],
+    [editMessageAndRegenerate, selectedModel, currentChatId, waitForSendMode, runGuestReply],
   )
 
   const handleStopGeneration = useCallback(async () => {
     if (isAuthenticated && isConvexStreaming) {
       // For Convex, immediately show stopped in UI, then cancel on server
-      const lastMessage = convexMessages?.[convexMessages.length - 1]
+      const lastMessage = verifiedConvexMessages?.[verifiedConvexMessages.length - 1]
       if (lastMessage && lastMessage.role === 'assistant' && !lastMessage.isComplete) {
         // Immediately show the stop message in UI
         toast.success('Generation stopped.')
@@ -469,16 +573,14 @@ export const useConversations = (
       } else {
         toast.info('No active generation to stop.')
       }
-    } else if (isLocalStreaming && abortControllerRef.current) {
+    } else if (isLocalStreaming && guestReplies.stop()) {
       // The guest stream loop appends the "stopped" note and saves the partial
       // reply as soon as the request is aborted.
-      abortControllerRef.current.abort()
-      setIsLocalStreaming(false)
       toast.success('Generation stopped.')
     } else {
       toast.info('No active generation to stop.')
     }
-  }, [isAuthenticated, isConvexStreaming, isLocalStreaming, convexMessages, cancelMessage])
+  }, [isAuthenticated, isConvexStreaming, isLocalStreaming, verifiedConvexMessages, cancelMessage])
 
   const deleteConversation = useCallback(
     async (id: string) => {
@@ -487,8 +589,7 @@ export const useConversations = (
           await deleteConvexChat({ chatId: id as Id<'chats'> })
           toast.success('Chat deleted.')
         } else {
-          await db.conversations.delete(id)
-          await db.messages.where('conversationId').equals(id).delete()
+          await deleteGuestConversation(id)
           toast.success('Conversation deleted.')
         }
 

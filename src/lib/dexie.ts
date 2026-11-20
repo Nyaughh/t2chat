@@ -1,10 +1,14 @@
 import { UIMessage } from 'ai'
 import Dexie, { type EntityTable } from 'dexie'
-import { isGuestLocalId } from './local-data-policy'
+import { v4 as uuidv4 } from 'uuid'
+import { planLegacyCleanup } from './local-data-policy'
 
 interface Conversation {
   id: string
+  /** Owner of this local chat. Unset for unowned guest chats (see local-data-policy.ts). */
   userId?: string
+  /** Owner was written by an older client; hidden until that user signs in again. */
+  legacyOwner?: boolean
   title: string
   createdAt: Date
   updatedAt: Date
@@ -52,24 +56,27 @@ db.version(3).stores({
   messages: 'id, conversationId, createdAt, [conversationId+createdAt]',
 })
 
-// Version 4: IndexedDB now holds guest chats only. Older builds copied every
-// signed-in user's Convex chats and messages in here, and those copies stayed
-// after sign-out (audit S7). Drop them: their ids are Convex ids, not UUIDs.
-// Convex still has the data, so signed-in users lose nothing.
+// Version 4: IndexedDB now holds local (guest) chats only, each with its owner
+// in `userId` (audit S7). Older builds copied every signed-in user's Convex
+// chats and messages in here, and those copies stayed after sign-out. This
+// upgrade drops the copies (Convex still has them), moves local messages that
+// were sent into a copied chat to a fresh "Recovered chat", and normalizes the
+// owner field older clients wrote. See planLegacyCleanup for the rules.
 db.version(4)
   .stores({
     conversations: 'id, userId, title, updatedAt, lastMessageAt',
     messages: 'id, conversationId, createdAt, [conversationId+createdAt]',
   })
   .upgrade(async (tx) => {
-    await tx
-      .table('conversations')
-      .filter((c: Conversation) => !isGuestLocalId(c.id))
-      .delete()
-    await tx
-      .table('messages')
-      .filter((m: DBMessage) => !isGuestLocalId(m.conversationId))
-      .delete()
+    const conversations = tx.table('conversations')
+    const messages = tx.table('messages')
+    const plan = planLegacyCleanup(await conversations.toArray(), await messages.toArray(), uuidv4)
+    await messages.bulkDelete(plan.deleteMessageIds)
+    await conversations.bulkDelete(plan.deleteConversationIds)
+    await conversations.bulkPut(plan.putConversations)
+    for (const move of plan.moveMessages) {
+      await messages.update(move.id, { conversationId: move.conversationId })
+    }
   })
 
 export type { Conversation, DBMessage }
