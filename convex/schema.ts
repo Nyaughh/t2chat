@@ -1,5 +1,6 @@
 import { defineSchema, defineTable } from 'convex/server'
 import { v } from 'convex/values'
+import { appearanceValidator } from './appearanceValidator'
 
 export default defineSchema({
   users: defineTable({
@@ -33,6 +34,7 @@ export default defineSchema({
     autoSave: v.optional(v.boolean()),
     showTimestamps: v.optional(v.boolean()),
     disabledModels: v.optional(v.array(v.string())), // Array of disabled model IDs
+    appearance: v.optional(appearanceValidator), // Theme, fonts, sizes (convex/appearance.ts)
   }).index('by_user', ['userId']),
 
   apiKeys: defineTable({

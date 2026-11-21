@@ -274,8 +274,10 @@ Configure AI providers in Settings → API Keys (open Settings from the gear ico
 
 T2Chat supports extensive customization:
 
-- **Themes**: Light/dark mode with custom color schemes
-- **Fonts**: Choose from multiple font options for main text and code
+- **Themes**: Light/dark/system mode, built-in themes (T2Chat, Feather, Claude, Midnight, Catppuccin, Gruvbox, Nord, Solarized, Tokyo Night), and importing any [tweakcn](https://tweakcn.com) / shadcn/ui theme (paste its CSS or load a `.css`/`.json` file). Imported themes are validated and sanitized: only known color tokens and the radius are read, and text contrast is kept readable
+- **Accent, radius and density**: Accent color for highlights, corner radius, and compact/default/comfortable spacing
+- **Fonts and sizes**: Interface and code fonts, interface size (87.5–125%) and code size, applied live
+- Appearance settings apply instantly, are stored on the device (no flash of the wrong theme on load) and sync to your account when signed in. The engine lives in `src/lib/theme/`
 - **User Profile**: Set your name, role, and personality traits
 - **Behavior**: Configure send behavior (Enter vs Ctrl+Enter) and auto-save
 - **Speech**: Text-to-speech settings and voice selection

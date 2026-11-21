@@ -1,35 +1,56 @@
 import type { Metadata } from 'next'
-import { Inter, Inter_Tight, Fira_Code, Roboto_Slab, Source_Code_Pro } from 'next/font/google'
+import {
+  Atkinson_Hyperlegible,
+  Fira_Code,
+  Geist,
+  Geist_Mono,
+  IBM_Plex_Mono,
+  IBM_Plex_Sans,
+  Inter,
+  JetBrains_Mono,
+  Lora,
+  Roboto_Slab,
+  Source_Code_Pro,
+} from 'next/font/google'
 import './globals.css'
 import { ThemeProvider } from 'next-themes'
 import { ConvexClientProvider } from './_providers/ConvexProvider'
-import { cookies } from 'next/headers'
+import { AppearanceProvider } from '@/components/theme/AppearanceProvider'
+import { APPEARANCE_BOOT_SCRIPT } from '@/lib/theme/appearance'
 import { cn } from '@/lib/utils'
 
-const inter = Inter({
-  variable: '--font-inter',
-  subsets: ['latin'],
-})
+/*
+ * Every selectable font is declared here so its CSS variable always exists,
+ * but only the defaults (Inter, Fira Code) are preloaded. The others are
+ * fetched by the browser only once a user actually selects them.
+ */
+const inter = Inter({ variable: '--font-inter', subsets: ['latin'], display: 'swap' })
+const firaCode = Fira_Code({ variable: '--font-fira-code', subsets: ['latin'], display: 'swap' })
 
-const interTight = Inter_Tight({
-  variable: '--font-inter-tight',
-  subsets: ['latin'],
-})
+// next/font needs literal options, so `preload: false` is spelled out on each.
+const geist = Geist({ variable: '--font-geist', subsets: ['latin'], display: 'swap', preload: false })
+const ibmPlexSans = IBM_Plex_Sans({ variable: '--font-ibm-plex-sans', subsets: ['latin'], display: 'swap', preload: false })
+const atkinson = Atkinson_Hyperlegible({ variable: '--font-atkinson', weight: ['400', '700'], subsets: ['latin'], display: 'swap', preload: false })
+const lora = Lora({ variable: '--font-lora', subsets: ['latin'], display: 'swap', preload: false })
+const robotoSlab = Roboto_Slab({ variable: '--font-roboto-slab', subsets: ['latin'], display: 'swap', preload: false })
+const jetbrainsMono = JetBrains_Mono({ variable: '--font-jetbrains-mono', subsets: ['latin'], display: 'swap', preload: false })
+const sourceCodePro = Source_Code_Pro({ variable: '--font-source-code-pro', subsets: ['latin'], display: 'swap', preload: false })
+const ibmPlexMono = IBM_Plex_Mono({ variable: '--font-ibm-plex-mono', weight: ['400', '500', '600'], subsets: ['latin'], display: 'swap', preload: false })
+const geistMono = Geist_Mono({ variable: '--font-geist-mono', subsets: ['latin'], display: 'swap', preload: false })
 
-const firaCode = Fira_Code({
-  variable: '--font-fira-code',
-  subsets: ['latin'],
-})
-
-const robotoSlab = Roboto_Slab({
-  variable: '--font-roboto-slab',
-  subsets: ['latin'],
-})
-
-const sourceCodePro = Source_Code_Pro({
-  variable: '--font-source-code-pro',
-  subsets: ['latin'],
-})
+const fontVariables = cn(
+  inter.variable,
+  firaCode.variable,
+  geist.variable,
+  ibmPlexSans.variable,
+  atkinson.variable,
+  lora.variable,
+  robotoSlab.variable,
+  jetbrainsMono.variable,
+  sourceCodePro.variable,
+  ibmPlexMono.variable,
+  geistMono.variable,
+)
 
 export const metadata: Metadata = {
   title: 'T2Chat',
@@ -47,45 +68,21 @@ export const metadata: Metadata = {
   },
 }
 
-export default async function RootLayout({
+export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode
 }>) {
-  const cookieStore = await cookies()
-  const mainFont = cookieStore.get('mainFont')?.value || 'inter'
-  const codeFont = cookieStore.get('codeFont')?.value || 'fira-code'
-
-  const fontClasses = {
-    inter: inter.variable,
-    system: 'font-sans',
-    serif: 'font-serif',
-    mono: 'font-mono',
-    'roboto-slab': robotoSlab.variable,
-  }
-
-  const codeFontClasses = {
-    'fira-code': firaCode.variable,
-    mono: 'font-mono',
-    consolas: 'font-consolas',
-    jetbrains: 'font-jetbrains',
-    'source-code-pro': sourceCodePro.variable,
-  }
-
-  const bodyClassName = cn(
-    'antialiased',
-    fontClasses[mainFont as keyof typeof fontClasses],
-    codeFontClasses[codeFont as keyof typeof codeFontClasses],
-    interTight.variable
-  )
-
   return (
-    <html lang="en" suppressHydrationWarning>
-      <head>{/* <script crossOrigin="anonymous" async src="//unpkg.com/react-scan/dist/auto.global.js" /> */}</head>
-      <body className={bodyClassName} suppressHydrationWarning>
+    <html lang="en" className={fontVariables} suppressHydrationWarning>
+      <head>
+        {/* Applies saved theme/font/size variables before first paint (no flash of the default). */}
+        <script dangerouslySetInnerHTML={{ __html: APPEARANCE_BOOT_SCRIPT }} />
+      </head>
+      <body className="antialiased" suppressHydrationWarning>
         <ConvexClientProvider>
           <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-            {children}
+            <AppearanceProvider>{children}</AppearanceProvider>
           </ThemeProvider>
         </ConvexClientProvider>
       </body>

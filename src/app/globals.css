@@ -1,13 +1,13 @@
 @import 'tailwindcss';
-@import url('https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400..700;1,400..700&family=Roboto+Slab:wght@100..900&family=Source+Code+Pro:ital,wght@0,200..900;1,200..900&display=swap');
 
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-inter);
-  --font-mono: var(--font-inter-tight);
+  /* Selected in Settings → Customization (src/lib/theme/appearance.ts). */
+  --font-sans: var(--app-font-sans);
+  --font-mono: var(--app-font-mono);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -44,6 +44,18 @@
 }
 
 :root {
+  /*
+   * Appearance defaults. src/lib/theme overrides these (and any token below)
+   * at runtime from a <style id="t2chat-appearance"> with higher specificity.
+   */
+  --app-font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --app-font-mono: var(--font-fira-code), ui-monospace, monospace;
+  --app-ui-scale: 1;
+  --app-code-size: 0.875rem;
+  --md-font-code: var(--font-mono);
+  /* Readable text accent (links, highlights). Follows the accent setting via the rose-* scale. */
+  --brand: var(--color-rose-600);
+
   --radius: 0.625rem;
   --background: oklch(0.98 0.008 25);
   --foreground: oklch(0.18 0.015 25);
@@ -79,6 +91,7 @@
 }
 
 .dark {
+  --brand: var(--color-rose-300);
   --background: oklch(0.15 0.015 25);
   --foreground: oklch(0.98 0.005 25);
   --card: oklch(0.18 0.015 25);
@@ -110,6 +123,24 @@
   --sidebar-accent-foreground: oklch(0.98 0.005 25);
   --sidebar-border: oklch(0.9 0.01 25 / 10%);
   --sidebar-ring: oklch(0.7 0.015 25);
+}
+
+/* Appearance: interface size and code font/size (src/lib/theme). */
+html {
+  /* Everything sized in rem scales with the Interface size setting; layout heights use dvh and are unaffected. */
+  font-size: calc(var(--app-ui-scale) * 100%);
+}
+
+/* Syntax-highlighted blocks set their font inline; the user's code font and size win. */
+pre[class*='language-'],
+code[class*='language-'] {
+  font-family: var(--font-mono) !important;
+}
+pre[class*='language-'] {
+  font-size: var(--app-code-size) !important;
+}
+code[class*='language-'] {
+  font-size: inherit !important;
 }
 
 @layer base {

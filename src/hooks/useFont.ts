@@ -1,22 +1,22 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import Cookies from 'js-cookie'
+import { useAppearance } from '@/components/theme/AppearanceProvider'
+import type { CodeFontId, FontId } from '@/lib/theme/appearance'
 
-type Font = 'inter' | 'system' | 'serif' | 'mono' | 'roboto-slab'
-type CodeFont = 'fira-code' | 'mono' | 'consolas' | 'jetbrains' | 'source-code-pro'
-
-export function useFont(initialMainFont: Font = 'inter', initialCodeFont: CodeFont = 'fira-code') {
-  const [mainFont, setMainFont] = useState<Font>(initialMainFont)
-  const [codeFont, setCodeFont] = useState<CodeFont>(initialCodeFont)
-
-  useEffect(() => {
-    Cookies.set('mainFont', mainFont, { expires: 365 })
-  }, [mainFont])
-
-  useEffect(() => {
-    Cookies.set('codeFont', codeFont, { expires: 365 })
-  }, [codeFont])
-
-  return { mainFont, setMainFont, codeFont, setCodeFont }
+/**
+ * Main and code font, backed by the appearance engine (src/lib/theme).
+ * Changes apply live and persist like every other appearance setting.
+ *
+ * The arguments are accepted for backward compatibility and ignored: the
+ * font now comes from saved preferences, not from server-read cookies.
+ */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export function useFont(_initialMainFont?: string, _initialCodeFont?: string) {
+  const [appearance, update] = useAppearance()
+  return {
+    mainFont: appearance.font,
+    setMainFont: (font: FontId) => update({ font }),
+    codeFont: appearance.codeFont,
+    setCodeFont: (codeFont: CodeFontId) => update({ codeFont }),
+  }
 }

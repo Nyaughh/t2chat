@@ -9,6 +9,8 @@
  */
 
 import type * as api_keys from "../api_keys.js";
+import type * as appearance from "../appearance.js";
+import type * as appearanceValidator from "../appearanceValidator.js";
 import type * as auth from "../auth.js";
 import type * as chat_access from "../chat/access.js";
 import type * as chat_actions from "../chat/actions.js";
@@ -36,6 +38,8 @@ import type {
  */
 declare const fullApi: ApiFromModules<{
   api_keys: typeof api_keys;
+  appearance: typeof appearance;
+  appearanceValidator: typeof appearanceValidator;
   auth: typeof auth;
   "chat/access": typeof chat_access;
   "chat/actions": typeof chat_actions;
