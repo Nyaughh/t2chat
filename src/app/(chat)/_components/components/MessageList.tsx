@@ -29,6 +29,7 @@ interface MessageListProps {
   onCloseRetryDropdown: () => void
   onBranch: (messageId: string) => void
   isSignedIn: boolean
+  showTimestamps?: boolean
 }
 
 export function MessageList({
@@ -56,14 +57,16 @@ export function MessageList({
   onCloseRetryDropdown,
   onBranch,
   isSignedIn,
+  showTimestamps = false,
 }: MessageListProps) {
   return (
     <ScrollArea className="h-full scrollbar-hide" ref={scrollAreaRef}>
-      <div className="pt-16 px-4 md:px-4 pb-48 md:pb-40 space-y-4 max-w-4xl mx-auto">
+      <div className="mx-auto max-w-3xl space-y-5 px-4 pt-16 pb-48 md:pb-40">
         {messages.map((message) => (
           <MessageItem
             key={message.id}
             message={message}
+            showTimestamps={showTimestamps}
             editingMessageId={editingMessageId}
             editingContent={editingContent}
             copiedId={copiedId}
@@ -92,11 +95,11 @@ export function MessageList({
           messages[messages.length - 1]?.role === 'assistant' &&
           !messages[messages.length - 1]?.content && (
             <div className="flex justify-start">
-              <div className="text-foreground px-4 py-3">
-                <div className="flex gap-1.5 items-center">
-                  <div className="w-2 h-2 bg-rose-500/60 dark:bg-rose-300/60 rounded-full animate-bounce"></div>
-                  <div className="w-2 h-2 bg-rose-500/60 dark:bg-rose-300/60 rounded-full animate-bounce delay-100"></div>
-                  <div className="w-2 h-2 bg-rose-500/60 dark:bg-rose-300/60 rounded-full animate-bounce delay-200"></div>
+              <div className="px-0.5 py-2 text-foreground" role="status" aria-label="Generating response">
+                <div className="flex items-center gap-1">
+                  <div className="size-1.5 animate-bounce rounded-full bg-rose-500/50 dark:bg-rose-300/50"></div>
+                  <div className="size-1.5 animate-bounce rounded-full bg-rose-500/50 delay-100 dark:bg-rose-300/50"></div>
+                  <div className="size-1.5 animate-bounce rounded-full bg-rose-500/50 delay-200 dark:bg-rose-300/50"></div>
                 </div>
               </div>
             </div>

@@ -27,7 +27,6 @@ import {
   AudioLines,
   ImageIcon,
 } from 'lucide-react'
-import Link from 'next/link'
 import { AnimatePresence, motion } from 'framer-motion'
 import { getProviderColor, getProviderDisplayName, getVendorColor, ModelInfo, models } from '@/lib/models'
 import { useQuery } from 'convex/react'
@@ -35,6 +34,7 @@ import { api } from '../../../convex/_generated/api'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { buttonVariants } from '@/components/ui/button'
 import { ItemHighlight } from '@/components/ui/item-highlight'
+import { useSettingsDialog } from '@/components/settings/SettingsDialogProvider'
 
 interface Attachment {
   name: string
@@ -95,6 +95,8 @@ export default function AIInput({
     maxHeight: 160,
   })
   const uploadButtonRef = useRef<HTMLDivElement>(null)
+  const modelButtonRef = useRef<HTMLButtonElement>(null)
+  const { openSettings } = useSettingsDialog()
 
   const [isListening, setIsListening] = useState(false)
   const recognitionRef = useRef<any>(null)
@@ -488,7 +490,7 @@ export default function AIInput({
             onKeyDown={handleKeyDown}
             placeholder="Ask me anything..."
             disabled={isTyping}
-            className="w-full px-3 md:px-4 py-2 resize-none bg-transparent border-0 outline-none text-sm md:text-base min-h-[40px] leading-normal placeholder:text-muted-foreground text-foreground"
+            className="w-full px-3.5 md:px-4 pt-3 pb-1 resize-none bg-transparent border-0 outline-none text-sm md:text-[15px] min-h-[40px] leading-normal placeholder:text-muted-foreground/80 text-foreground"
             style={{
               overflow: 'hidden',
               outline: 'none',
@@ -501,16 +503,19 @@ export default function AIInput({
           />
         </div>
 
-        <div className="h-14 md:h-16">
-          <div className="absolute left-3 md:left-4 right-3 md:right-4 bottom-3 md:bottom-4 flex items-center justify-between gap-2">
+        <div className="h-12 md:h-[52px]">
+          <div className="absolute left-2 md:left-2.5 right-2 md:right-2.5 bottom-2 md:bottom-2.5 flex items-center justify-between gap-2">
             <div className="flex min-w-0 flex-1 items-center gap-1 md:gap-1.5">
               <div className="relative min-w-0">
                 <button
+                  ref={modelButtonRef}
                   type="button"
+                  aria-expanded={showModelSelect}
+                  aria-label={`Model: ${mounted ? selectedModel.name : models[0].name}. Change model`}
                   onClick={() => setShowModelSelect(!showModelSelect)}
                   className={cn(
                     'h-8 max-w-full px-2 md:px-2.5 text-sm transition-colors duration-150 rounded-md cursor-pointer',
-                    'bg-foreground/5 hover:bg-foreground/10',
+                    'hover:bg-foreground/[0.06] aria-expanded:bg-foreground/[0.06]',
                     'flex min-w-0 items-center gap-1 md:gap-1.5',
                     'text-foreground/80 hover:text-foreground',
                   )}
@@ -544,19 +549,23 @@ export default function AIInput({
                       className="surface-popover absolute z-50 bottom-full mb-2 left-0 rounded-xl overflow-hidden w-[300px] max-w-[calc(100vw-2rem)]"
                     >
                       {/* Header */}
-                      <div className="flex items-center justify-between px-3 py-2.5 border-b border-rose-500/10 dark:border-rose-300/10">
+                      <div className="flex items-center justify-between px-3 py-2 border-b border-border/70">
                         <h3 className="text-sm font-semibold text-foreground">Select Model</h3>
-                        <Link
-                          href="/settings?tab=models"
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowModelSelect(false)
+                            openSettings('keys', { returnFocusTo: modelButtonRef.current })
+                          }}
                           className={cn(buttonVariants({ variant: 'default', size: 'sm' }), 'h-7 gap-1 px-2.5 text-xs')}
                         >
                           BYOK
                           <Plus className="size-3" />
-                        </Link>
+                        </button>
                       </div>
 
                       {/* Compact Controls */}
-                      <div className="px-3 py-2 border-b border-rose-500/10 dark:border-rose-300/10">
+                      <div className="px-3 py-2 border-b border-border/70">
                         <div className="flex items-center justify-between gap-3">
                           {/* Thinking Mode Toggle */}
                           <div className="flex items-center gap-2">
@@ -605,7 +614,7 @@ export default function AIInput({
                         {Object.entries(sortedGroupedModels).map(([groupKey, groupModels]) => (
                           <div
                             key={groupKey}
-                            className="p-2 border-b border-rose-500/10 dark:border-rose-300/10 last:border-b-0"
+                            className="p-2 border-b border-border/60 last:border-b-0"
                           >
                             <div className="flex items-center gap-1.5 mb-1.5">
                               <div
@@ -761,6 +770,8 @@ export default function AIInput({
                   type="button"
                   onClick={() => setWebSearchEnabled(!webSearchEnabled)}
                   aria-pressed={webSearchEnabled}
+                  aria-label="Web search"
+                  title="Web search"
                   className={cn(buttonVariants({ variant: webSearchEnabled ? 'default' : 'ghost', size: 'icon-sm' }), 'shrink-0')}
                 >
                   <Globe />
@@ -771,6 +782,8 @@ export default function AIInput({
                   type="button"
                   onClick={() => setImageGenEnabled(!imageGenEnabled)}
                   aria-pressed={imageGenEnabled}
+                  aria-label="Image generation"
+                  title="Image generation"
                   className={cn(buttonVariants({ variant: imageGenEnabled ? 'default' : 'ghost', size: 'icon-sm' }), 'shrink-0')}
                 >
                   <ImageIcon />

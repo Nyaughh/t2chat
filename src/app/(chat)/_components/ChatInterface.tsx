@@ -227,6 +227,7 @@ export default function ChatInterface({ chatId, initialMessages }: ChatInterface
               onCloseRetryDropdown={() => setRetryDropdownId(null)}
               onBranch={handleBranch}
               isSignedIn={isAuthenticated}
+              showTimestamps={userSettings?.showTimestamps ?? true}
             />
           </ChatErrorBoundary>
         )}
@@ -235,7 +236,7 @@ export default function ChatInterface({ chatId, initialMessages }: ChatInterface
       <ScrollToBottomButton show={showScrollToBottom} onScrollToBottom={() => scrollToBottom('smooth')} />
 
       <div className="fixed md:absolute bottom-0 left-0 right-0 z-30">
-        <div className="max-w-4xl mx-auto w-full px-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+        <div className="max-w-3xl mx-auto w-full px-3 md:px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
           <AIInput
             value={inputValue}
             onValueChange={setInputValue}

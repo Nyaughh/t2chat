@@ -35,7 +35,7 @@ Reusable UI components:
 - **`ChatGroup.tsx`** - Group of chats (e.g., "Today", "Yesterday")
 - **`ChatItem.tsx`** - Individual chat item with hover effects
 - **`UserProfile.tsx`** - User profile section at bottom of sidebar
-- **`TopControls.tsx`** - Top control buttons (settings, theme, menu, new chat)
+- **`TopControls.tsx`** - Top control buttons (settings dialog, theme, open sidebar, new chat)
 
 ## Benefits of This Structure
 

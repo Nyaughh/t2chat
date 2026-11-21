@@ -107,10 +107,10 @@ export default function WelcomeScreen({ onPromptClick }: WelcomeScreenProps) {
       <div className="max-w-md w-full text-left">
         <div className="mt-8">
           <div className="px-3 mb-4">
-            <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-2">
+            <h1 className="text-2xl md:text-3xl font-semibold tracking-tight text-foreground mb-1.5">
               How can I help you?
             </h1>
-            <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+            <h3 className="text-sm text-muted-foreground">
               Here are some prompts to help you get started.
             </h3>
           </div>

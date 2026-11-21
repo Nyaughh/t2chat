@@ -1,286 +1,44 @@
 'use client'
 
-import { useMemo, useState, useEffect } from 'react'
+import { Suspense, useEffect, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
+import ChatInterface from '@/app/(chat)/_components/ChatInterface'
 import { useAuth } from '@/hooks/useAuth'
-import { useConversations } from '@/hooks/useConversations'
-import { useIsMobile } from '@/hooks/use-mobile'
-import { useMutation, useQuery } from 'convex/react'
-import { api } from '../../../../convex/_generated/api'
-import { Conversation, db } from '@/lib/dexie'
-import { AnimatePresence, motion } from 'framer-motion'
-import {
-  AccountSettings,
-  CustomizeSettings,
-  DataSettings,
-  ModelsKeysSettings,
-  SettingsSidebar,
-} from '@/components/settings'
-import { cn } from '@/lib/utils'
-import { Settings, X, LogOut, Loader2 } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import SpeechSettings from '@/components/settings/SpeechSettings'
-import { settingsSections, type SettingsSection } from '@/components/settings/config'
-import { authClient } from '@/lib/auth-client'
-import { toast } from 'sonner'
+import { useSettingsDialog } from '@/components/settings/SettingsDialogProvider'
+import { parseSettingsSection } from '@/components/settings/config'
 
-export default function SettingsPage() {
-  const { userMetadata, isPending, isSignedIn } = useAuth()
-
-  const { unmigratedLocalChats } = useConversations()
+/**
+ * Settings is a dialog now. /settings (and /settings?tab=<section>) stays as a link target
+ * for bookmarks and old links: it opens the dialog on the requested section over a new chat
+ * and swaps the URL to "/".
+ */
+function SettingsRedirect() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const isMobile = useIsMobile()
+  const { isSignedIn, isPending } = useAuth()
+  const { openSettings } = useSettingsDialog()
+  const handled = useRef(false)
 
-  const memoizedUser = useMemo(
-    () => ({
-      name: userMetadata.name || '',
-      email: userMetadata.email || '',
-      image: userMetadata.image || '',
-    }),
-    [userMetadata],
-  )
-
-  const [activeSection, setActiveSection] = useState<SettingsSection>('account')
-  const userSettings = useQuery(api.users.getMySettings)
-  const apiKeys = useQuery(api.api_keys.getApiKeys)
-
-  // Update active section based on URL query params
   useEffect(() => {
-    const tab = searchParams.get('tab') as SettingsSection
-    if (tab && settingsSections.some((section) => section.id === tab)) {
-      setActiveSection(tab)
+    if (isPending || handled.current) return
+    handled.current = true
+
+    if (isSignedIn) {
+      openSettings(parseSettingsSection(searchParams.get('tab')) ?? undefined)
     }
-  }, [searchParams])
+    router.replace('/')
+  }, [isPending, isSignedIn, searchParams, openSettings, router])
 
-  const handleSectionChange = (section: SettingsSection) => {
-    setActiveSection(section)
-    const url = new URL(window.location.href)
-    url.searchParams.set('tab', section)
-    router.replace(url.pathname + url.search)
-  }
+  return null
+}
 
-  const handleClose = () => {
-    router.back()
-  }
-
-  if (!isPending && !isSignedIn) {
-    router.push('/')
-  }
-
-  if (isPending) {
-    return (
-      <div className="flex-1 flex items-center justify-center">
-        <Loader2 className="size-5 animate-spin text-rose-500/70 dark:text-rose-300/70" />
-      </div>
-    )
-  }
-
-  const clearAllLocalData = async () => {
-    try {
-      // First try to clear Dexie databases
-      try {
-        await db.conversations.clear()
-        await db.messages.clear()
-      } catch (dexieError) {
-        console.warn('Failed to clear Dexie databases:', dexieError)
-      }
-
-      // Clear all IndexedDB databases completely
-      try {
-        if ('indexedDB' in window) {
-          // Get all database names
-          const databases = await indexedDB.databases()
-
-          // Delete each database
-          for (const dbInfo of databases) {
-            if (dbInfo.name) {
-              console.log(`Deleting IndexedDB database: ${dbInfo.name}`)
-              await new Promise((resolve, reject) => {
-                const deleteReq = indexedDB.deleteDatabase(dbInfo.name!)
-                deleteReq.onsuccess = () => {
-                  console.log(`Successfully deleted database: ${dbInfo.name}`)
-                  resolve(undefined)
-                }
-                deleteReq.onerror = () => {
-                  console.warn(`Failed to delete database: ${dbInfo.name}`)
-                  resolve(undefined) // Don't reject, just continue
-                }
-                deleteReq.onblocked = () => {
-                  console.warn(`Database deletion blocked: ${dbInfo.name}`)
-                  resolve(undefined) // Don't reject, just continue
-                }
-              })
-            }
-          }
-        }
-      } catch (indexedDbError) {
-        console.warn('Failed to clear IndexedDB:', indexedDbError)
-      }
-
-      // Clear all localStorage
-      try {
-        // Clear specific known keys first
-        const localStorageKeys = [
-          'lastUsedModelId', // Last selected model
-          't2chat-sidebar-open', // Sidebar state
-          'mainFont', // Font preferences
-          'codeFont', // Code font preferences
-          'selectedVoiceURI', // Speech synthesis voice
-          'thinkingEnabled', // AI thinking mode
-          'webSearchEnabled', // Web search toggle
-          'groupBy', // Model grouping preference
-        ]
-
-        localStorageKeys.forEach((key) => {
-          localStorage.removeItem(key)
-        })
-
-        // Clear any other t2chat related localStorage items
-        const allKeys = Object.keys(localStorage)
-        allKeys.forEach((key) => {
-          if (key.startsWith('t2chat-') || key.startsWith('t2Chat')) {
-            localStorage.removeItem(key)
-          }
-        })
-
-        console.log('Cleared localStorage')
-      } catch (localStorageError) {
-        console.warn('Failed to clear localStorage:', localStorageError)
-      }
-
-      // Clear sessionStorage as well
-      try {
-        const sessionKeys = Object.keys(sessionStorage)
-        sessionKeys.forEach((key) => {
-          if (key.startsWith('t2chat-') || key.startsWith('t2Chat')) {
-            sessionStorage.removeItem(key)
-          }
-        })
-        console.log('Cleared sessionStorage')
-      } catch (sessionStorageError) {
-        console.warn('Failed to clear sessionStorage:', sessionStorageError)
-      }
-
-      console.log('All local data cleared successfully')
-      toast.success('Local data cleared successfully')
-    } catch (error) {
-      console.error('Error clearing local data:', error)
-      toast.error('Failed to clear local data')
-    }
-  }
-
-  const handleSignOut = async () => {
-    await authClient.signOut({
-      fetchOptions: {
-        onSuccess: async () => {
-          // Clear all local data when user logs out
-          console.log('Clearing all local data')
-          await clearAllLocalData()
-          router.refresh()
-        },
-      },
-    })
-  }
-
-  const renderContent = () => {
-    switch (activeSection) {
-      case 'account':
-        return <AccountSettings user={memoizedUser} />
-      case 'models':
-        return <ModelsKeysSettings apiKeys={apiKeys || []} userSettings={userSettings} />
-      case 'customize':
-        return (
-          <CustomizeSettings
-            customization={{
-              userName: userSettings?.userName ?? '',
-              userRole: userSettings?.userRole ?? '',
-              userTraits: userSettings?.userTraits ?? [],
-              userAdditionalInfo: userSettings?.userAdditionalInfo ?? '',
-              promptTemplate: userSettings?.promptTemplate ?? '',
-              mainFont: userSettings?.mainFont ?? 'inter',
-              codeFont: userSettings?.codeFont ?? 'fira-code',
-              sendBehavior: userSettings?.sendBehavior ?? 'enter',
-              autoSave: userSettings?.autoSave ?? true,
-              showTimestamps: userSettings?.showTimestamps ?? true,
-            }}
-          />
-        )
-      case 'data':
-        return <DataSettings unmigratedLocalChats={unmigratedLocalChats as Conversation[]} />
-      case 'speech':
-        return <SpeechSettings />
-      default:
-        return null
-    }
-  }
-
+export default function SettingsPage() {
   return (
-    <div className="flex-1 flex flex-col min-h-0 bg-background relative">
-      {/* Logout & Close buttons - merged container positioned where settings icon appears */}
-      <div className="absolute top-2.5 right-2.5 z-10">
-        <div className="surface-glass flex items-center gap-0.5 rounded-lg p-1">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button onClick={handleSignOut} className="control-button" aria-label="Sign Out">
-                <LogOut />
-              </button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom">Sign Out</TooltipContent>
-          </Tooltip>
-
-          <div className="control-divider" />
-
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button onClick={handleClose} className="control-button" aria-label="Close Settings">
-                <X />
-              </button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom">Close Settings</TooltipContent>
-          </Tooltip>
-        </div>
-      </div>
-
-      <header className="flex items-center justify-between pt-2.5 pl-2.5 pr-4 pb-2.5 border-b border-border flex-shrink-0 bg-card/50 backdrop-blur-sm relative">
-        {/* Settings text centered over sidebar */}
-        <div className={cn(
-          'absolute left-0 flex items-center justify-center h-full',
-          isMobile ? 'w-full' : 'w-64'
-        )}>
-          <h1 className="text-2xl font-bold bg-gradient-to-r from-rose-600 via-rose-500 to-rose-600 dark:from-rose-300 dark:via-rose-200 dark:to-rose-300 bg-clip-text text-transparent tracking-tight leading-tight">
-            Settings
-          </h1>
-        </div>
-        
-        {/* Invisible content to maintain header height (matches the floating control cluster) */}
-        <div className="invisible h-[42px]" aria-hidden>
-          <span className="text-2xl font-bold leading-tight">Settings</span>
-        </div>
-      </header>
-      <div className={cn('flex flex-1 min-h-0', isMobile && 'flex-col')}>
-        <SettingsSidebar
-          settingsSections={settingsSections}
-          activeSection={activeSection}
-          setActiveSection={handleSectionChange}
-          isMobile={isMobile}
-        />
-        <main className={cn('flex-1 overflow-y-auto bg-background', isMobile ? 'p-4' : 'p-6')}>
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={activeSection}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.15 }}
-              className="max-w-4xl mx-auto"
-            >
-              {renderContent()}
-            </motion.div>
-          </AnimatePresence>
-        </main>
-      </div>
-    </div>
+    <>
+      <ChatInterface />
+      <Suspense fallback={null}>
+        <SettingsRedirect />
+      </Suspense>
+    </>
   )
 }

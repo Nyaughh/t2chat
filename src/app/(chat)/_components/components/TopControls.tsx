@@ -1,17 +1,17 @@
 'use client'
 
-import { Settings, Menu, Plus } from 'lucide-react'
+import { Settings, Menu, Plus, ChevronsRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import ThemeSwitcher from '@/components/ThemeSwitcher'
 import { useRouter } from 'next/navigation'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { useSettingsDialog } from '@/components/settings/SettingsDialogProvider'
 
 interface TopControlsProps {
   isSignedIn: boolean
   effectiveSidebarOpen: boolean
   isOnHomePage: boolean
   onToggleSidebar: () => void
-  onSettingsClick: () => void
   onNewChat: () => void
 }
 
@@ -20,14 +20,14 @@ export function TopControls({
   effectiveSidebarOpen,
   isOnHomePage,
   onToggleSidebar,
-  onSettingsClick,
   onNewChat,
 }: TopControlsProps) {
   const router = useRouter()
+  const { openSettings } = useSettingsDialog()
 
   const handleSettingsClick = () => {
     if (isSignedIn) {
-      onSettingsClick()
+      openSettings()
     } else {
       router.push('/auth')
     }
@@ -67,11 +67,12 @@ export function TopControls({
         <div className="surface-glass flex items-center gap-0.5 rounded-lg p-1">
           <Tooltip>
             <TooltipTrigger asChild>
-              <button onClick={onToggleSidebar} className="control-button" aria-label="Toggle sidebar">
-                <Menu />
+              <button onClick={onToggleSidebar} className="control-button" aria-label="Open sidebar">
+                <Menu className="md:hidden" />
+                <ChevronsRight className="hidden md:block" />
               </button>
             </TooltipTrigger>
-            <TooltipContent side="bottom">Toggle sidebar</TooltipContent>
+            <TooltipContent side="bottom">Open sidebar</TooltipContent>
           </Tooltip>
 
           <div className="control-divider" />

@@ -33,14 +33,14 @@ export const ChatGroup = memo(function ChatGroup({
   onChatShare,
 }: ChatGroupProps) {
   return (
-    <div className={cn('mb-4', isFirst && 'mt-0')}>
+    <div className={cn('mb-3', isFirst && 'mt-0')}>
       {/* Group header */}
-      <div className="px-3 py-1.5 mb-2">
-        <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{title}</h3>
+      <div className="px-3 pt-1 pb-1">
+        <h3 className="text-xs font-medium text-muted-foreground/80">{title}</h3>
       </div>
 
       {/* Group chats */}
-      <div className="space-y-1">
+      <div>
         {chats.map((chat, index) => (
           <ChatItem
             key={chat.id || `chat-${index}`}

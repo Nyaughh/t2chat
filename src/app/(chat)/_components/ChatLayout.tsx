@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter, usePathname } from 'next/navigation'
 import { useChatLayout } from './hooks/useChatLayout'
 import { Sidebar } from './components/Sidebar'
 import { TopControls } from './components/TopControls'
@@ -27,6 +26,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Input } from '@/components/ui/input'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Copy } from 'lucide-react'
+import { cn } from '@/lib/utils'
+import { SettingsDialogProvider } from '@/components/settings/SettingsDialogProvider'
+import { Toaster } from '@/components/ui/sonner'
 
 interface ChatLayoutProps {
   children: React.ReactNode
@@ -92,8 +94,6 @@ export default function ChatLayout({
   mainFont,
   codeFont,
 }: ChatLayoutProps) {
-  const router = useRouter()
-  const pathname = usePathname()
   const {
     effectiveSidebarOpen,
     activeChats,
@@ -110,20 +110,23 @@ export default function ChatLayout({
     toggleSidebar,
   } = useChatLayout(initialChats, defaultSidebarOpen)
 
-  const { isSignedIn, userMetadata, isPending } = useAuth({ serverIsSignedIn, serverUserMetadata })
+  const { isSignedIn, userMetadata } = useAuth({ serverIsSignedIn, serverUserMetadata })
   useFont(mainFont as any, codeFont as any)
 
   useEffect(() => {
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/sw.js').then(registration => {
-          console.log('SW registered: ', registration);
-        }).catch(registrationError => {
-          console.log('SW registration failed: ', registrationError);
-        });
-      });
+        navigator.serviceWorker
+          .register('/sw.js')
+          .then((registration) => {
+            console.log('SW registered: ', registration)
+          })
+          .catch((registrationError) => {
+            console.log('SW registration failed: ', registrationError)
+          })
+      })
     }
-  }, []);
+  }, [])
 
   const [renamingChatInfo, setRenamingChatInfo] = useState<{ id: string; title: string } | null>(null)
   const [deletingChatId, setDeletingChatId] = useState<string | null>(null)
@@ -187,24 +190,19 @@ export default function ChatLayout({
   }
 
   const isOnHomePage = currentChatId === null
-  const isSettingsPage = pathname === '/settings'
-
-  if (isPending) {
-    // ... existing code ...
-  }
 
   return (
-    <div className="flex h-[100dvh] bg-background overflow-hidden">
-      {/* Mobile Backdrop */}
-      {effectiveSidebarOpen && !isSettingsPage && (
-        <div
-          className="fixed inset-0 bg-black/20 dark:bg-black/40 z-40 md:hidden transition-opacity duration-300"
-          onClick={() => toggleSidebar()}
-        />
-      )}
+    <SettingsDialogProvider isSignedIn={isSignedIn} userMetadata={userMetadata}>
+      <div className="flex h-[100dvh] overflow-hidden bg-background md:bg-sidebar">
+        {/* Mobile Backdrop */}
+        {effectiveSidebarOpen && (
+          <div
+            className="fixed inset-0 bg-black/20 dark:bg-black/40 z-40 md:hidden transition-opacity duration-300"
+            onClick={() => toggleSidebar()}
+          />
+        )}
 
-      {/* Sidebar */}
-      {!isSettingsPage && (
+        {/* Sidebar */}
         <Sidebar
           effectiveSidebarOpen={effectiveSidebarOpen}
           isOnHomePage={isOnHomePage}
@@ -225,71 +223,76 @@ export default function ChatLayout({
           onChatDelete={handleOpenDeleteDialog}
           onChatRename={handleOpenRenameDialog}
           onChatShare={handleOpenShareDialog}
-          onSettingsClick={() => router.push('/settings')}
           allChats={activeChats || []}
         />
-      )}
 
-      {/* Main Content Area */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative w-full md:w-auto">
-        {!isSettingsPage && (
+        {/* Main Content Area */}
+        <div
+          className={cn(
+            'relative flex w-full min-w-0 flex-1 flex-col overflow-hidden bg-background md:w-auto',
+            // Desktop: an inset panel on the frame, with a hairline edge
+            'md:my-2 md:mr-2 md:rounded-xl md:border md:border-border/70 md:shadow-xs md:transition-[margin] md:duration-200',
+            !effectiveSidebarOpen && 'md:ml-2',
+          )}
+        >
           <TopControls
             isSignedIn={isSignedIn}
             effectiveSidebarOpen={effectiveSidebarOpen}
             isOnHomePage={isOnHomePage}
             onToggleSidebar={toggleSidebar}
-            onSettingsClick={() => router.push('/settings')}
             onNewChat={createNewChat}
           />
-        )}
 
-        {/* Page Content */}
-        {children}
-      </div>
+          {/* Page Content */}
+          {children}
+        </div>
 
-      {/* Delete Confirmation Dialog */}
-      <AlertDialog open={!!deletingChatId} onOpenChange={(open) => !open && setDeletingChatId(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete your chat and all of its messages.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleConfirmDelete} className={buttonVariants({ variant: 'destructive' })}>
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        {/* Delete Confirmation Dialog */}
+        <AlertDialog open={!!deletingChatId} onOpenChange={(open) => !open && setDeletingChatId(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This action cannot be undone. This will permanently delete your chat and all of its messages.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={handleConfirmDelete} className={buttonVariants({ variant: 'destructive' })}>
+                Delete
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
 
-      {/* Rename Dialog */}
-      <RenameDialog
-        isOpen={!!renamingChatInfo}
-        onClose={() => setRenamingChatInfo(null)}
-        onConfirm={handleConfirmRename}
-        currentTitle={renamingChatInfo?.title || ''}
-      />
+        {/* Rename Dialog */}
+        <RenameDialog
+          isOpen={!!renamingChatInfo}
+          onClose={() => setRenamingChatInfo(null)}
+          onConfirm={handleConfirmRename}
+          currentTitle={renamingChatInfo?.title || ''}
+        />
 
-      {/* Share Dialog */}
-      <Dialog open={!!sharingChatId} onOpenChange={(open) => !open && setSharingChatId(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Share Chat</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <p className="text-sm text-muted-foreground">Anyone with this link will be able to view this chat.</p>
-            <div className="flex items-center space-x-2">
-              <Input value={shareUrl} readOnly />
-              <Button onClick={handleCopyShareLink} size="icon" className="shrink-0" aria-label="Copy share link">
-                <Copy />
-              </Button>
+        {/* Share Dialog */}
+        <Dialog open={!!sharingChatId} onOpenChange={(open) => !open && setSharingChatId(null)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Share Chat</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">Anyone with this link will be able to view this chat.</p>
+              <div className="flex items-center space-x-2">
+                <Input value={shareUrl} readOnly />
+                <Button onClick={handleCopyShareLink} size="icon" className="shrink-0" aria-label="Copy share link">
+                  <Copy />
+                </Button>
+              </div>
             </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-    </div>
+          </DialogContent>
+        </Dialog>
+
+        <Toaster position="top-center" />
+      </div>
+    </SettingsDialogProvider>
   )
 }

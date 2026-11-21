@@ -31,9 +31,9 @@ export const ChatList = memo(function ChatList({
   onChatShare,
 }: ChatListProps) {
   return (
-    <div className="flex-1 min-h-0 px-4">
+    <div className="flex-1 min-h-0 px-2">
       <div className="h-full overflow-y-auto scrollbar-hide">
-        <div className="py-2">
+        <div className="pt-2 pb-1">
           {groupedChats.map((group, groupIndex) => (
             <ChatGroup
               key={group.title + groupIndex}

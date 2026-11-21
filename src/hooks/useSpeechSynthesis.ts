@@ -19,6 +19,8 @@ const sanitizeText = (text: string) => {
   return sanitizedText.trim()
 }
 
+const VOICE_STORAGE_KEY = 'selectedVoiceURI'
+
 export function useSpeechSynthesis() {
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([])
   const [selectedVoice, setSelectedVoice] = useState<string | null>(null)
@@ -44,18 +46,16 @@ export function useSpeechSynthesis() {
         // Fallback to any English voice
         const englishVoice = availableVoices.find((v) => v.lang.startsWith('en'))
 
-        // Check if user has a stored preference, but only if it's a Google voice
-        const storedVoiceURI = localStorage.getItem('selectedVoiceURI')
+        // The voice the user picked in Settings wins whenever this browser still has it;
+        // Google voices are only the default when there is no (valid) saved choice.
+        const storedVoiceURI = localStorage.getItem(VOICE_STORAGE_KEY)
         const storedVoice = storedVoiceURI ? availableVoices.find((v) => v.voiceURI === storedVoiceURI) : null
-        const isStoredVoiceGoogle = storedVoice?.name.includes('Google') ?? false
 
-        // Prefer Google voices over stored preference (unless stored is also Google)
-        const preferredVoice =
-          (isStoredVoiceGoogle && storedVoice) || googleUSVoice || googleEnglishVoice || englishVoice
+        const preferredVoice = storedVoice || googleUSVoice || googleEnglishVoice || englishVoice
 
         if (preferredVoice) {
           setSelectedVoice(preferredVoice.voiceURI)
-          localStorage.setItem('selectedVoiceURI', preferredVoice.voiceURI)
+          localStorage.setItem(VOICE_STORAGE_KEY, preferredVoice.voiceURI)
         }
       }
     }
@@ -96,8 +96,11 @@ export function useSpeechSynthesis() {
       const sanitizedText = sanitizeText(text)
       const utterance = new SpeechSynthesisUtterance(sanitizedText)
 
-      if (selectedVoice) {
-        const voice = voices.find((v) => v.voiceURI === selectedVoice)
+      // Read the saved choice at speak time: Settings may have changed it in another
+      // instance of this hook (e.g. the settings dialog) since this one mounted.
+      const voiceURI = localStorage.getItem(VOICE_STORAGE_KEY) ?? selectedVoice
+      if (voiceURI) {
+        const voice = voices.find((v) => v.voiceURI === voiceURI)
         if (voice) {
           utterance.voice = voice
         }
@@ -131,7 +134,7 @@ export function useSpeechSynthesis() {
 
   const setVoice = (voiceURI: string) => {
     setSelectedVoice(voiceURI)
-    localStorage.setItem('selectedVoiceURI', voiceURI)
+    localStorage.setItem(VOICE_STORAGE_KEY, voiceURI)
   }
 
   return {

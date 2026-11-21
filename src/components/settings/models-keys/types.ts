@@ -20,6 +20,8 @@ export type ModelSettingsState = {
 export interface ModelsKeysSettingsProps {
   apiKeys: ApiKey[]
   userSettings: UserSettings | null | undefined
+  /** Which half to render: the model on/off list, or the per-provider API keys. */
+  view?: 'models' | 'keys'
 }
 
 export interface ModelManagementSectionProps {

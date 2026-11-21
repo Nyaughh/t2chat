@@ -54,7 +54,7 @@ export const ChatItem = memo(function ChatItem({
         <div
           onClick={() => onSelect(chat.id)}
           className={cn(
-            'group px-3 py-2.5 cursor-pointer transition-colors duration-150 ease-[0.25,1,0.5,1] relative overflow-hidden',
+            'group relative cursor-pointer overflow-hidden px-3 py-2 transition-colors duration-150 ease-[0.25,1,0.5,1]',
             isActive
               ? 'text-rose-600 dark:text-rose-300'
               : 'text-foreground/70 hover:text-rose-600 dark:hover:text-rose-300',

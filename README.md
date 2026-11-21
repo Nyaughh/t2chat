@@ -253,7 +253,7 @@ Make sure to:
 
 ### AI Providers
 
-Configure AI providers in the Settings → Models & Keys section:
+Configure AI providers in Settings → API Keys (open Settings from the gear icon or the sidebar profile menu; `/settings?tab=keys` links straight there):
 
 #### Google AI
 
@@ -288,13 +288,13 @@ t2chat/
 │   ├── app/                   # Next.js App Router pages
 │   │   ├── (chat)/            # Chat-related pages and components
 │   │   │   └── chat/          # Chat-related pages and components
-│   │   │   ├── settings/      # Settings page
+│   │   │   ├── settings/      # /settings link target: opens the Settings dialog
 │   │   ├── api/               # API routes (auth, chat, uploadthing)
 │   │   ├── auth/              # Authentication pages
 │   │   ├── _providers/        # Providers for Convex, Better Auth, etc.
 │   ├── components/            # React components
 │   │   ├── ui/                # UI components (buttons, inputs, etc.)
-│   │   └── settings/          # Settings-specific components
+│   │   └── settings/          # Settings dialog, its provider and section panes
 │   ├── hooks/                 # Custom React hooks
 │   ├── lib/                   # Utility libraries and configurations
 │   └── styles/               # Global styles and CSS

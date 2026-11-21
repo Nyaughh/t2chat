@@ -1,10 +1,22 @@
 import React, { useState } from 'react'
-import { Button } from '@/components/ui/button'
+import { Button, buttonVariants } from '@/components/ui/button'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog'
 import { Download, Trash2, UploadCloud, Loader2 } from 'lucide-react'
 import { Conversation, db } from '@/lib/dexie'
-import { useMutation, useQuery } from 'convex/react'
+import { useConvex, useMutation } from 'convex/react'
 import { api } from '../../../convex/_generated/api'
 import { toast } from 'sonner'
+import { SettingsCard, SettingsGroup, SettingsRow } from './primitives'
 
 interface DataSettingsProps {
   unmigratedLocalChats: Conversation[]
@@ -14,9 +26,12 @@ export function DataSettings({ unmigratedLocalChats }: DataSettingsProps) {
   const [isMigrating, setIsMigrating] = useState(false)
   const [isExporting, setIsExporting] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
+  const convex = useConvex()
   const migrateChats = useMutation(api.chat.mutations.migrateAnonymousChats)
-  const exportData = useQuery(api.chat.queries.exportAllConversations)
   const deleteAllData = useMutation(api.chat.mutations.deleteAllConversations)
+
+  const localCount = unmigratedLocalChats?.length ?? 0
+  const plural = (n: number) => (n === 1 ? '' : 's')
 
   const handleMigrate = async () => {
     if (!unmigratedLocalChats || unmigratedLocalChats.length === 0) {
@@ -74,7 +89,9 @@ export function DataSettings({ unmigratedLocalChats }: DataSettingsProps) {
     const exportToast = toast.loading('Exporting your data...')
 
     try {
-      const data = exportData
+      // One-shot fetch on demand: a live subscription would re-download every conversation
+      // on each change for as long as this pane is open.
+      const data = await convex.query(api.chat.queries.exportAllConversations, {})
       const json = JSON.stringify(data, null, 2)
       const blob = new Blob([json], { type: 'application/json' })
       const url = URL.createObjectURL(blob)
@@ -111,64 +128,66 @@ export function DataSettings({ unmigratedLocalChats }: DataSettingsProps) {
 
   return (
     <div className="space-y-6">
-      {unmigratedLocalChats && unmigratedLocalChats.length > 0 && (
-        <div className="p-4 rounded-xl bg-muted/20 border border-border/50">
-          <h4 className="font-semibold text-rose-600 dark:text-rose-300 flex items-center gap-2 mb-3">
-            <UploadCloud className="w-4 h-4" />
-            Import Local Chats
-          </h4>
-          <p className="text-sm text-muted-foreground mb-3">
-            You have {unmigratedLocalChats.length} conversation{unmigratedLocalChats.length > 1 ? 's' : ''} from a
-            previous session. Import them to your account.
-          </p>
-          <Button
-            onClick={handleMigrate}
-            disabled={isMigrating}
-            variant="outline"
-            className="w-full"
-          >
-            {isMigrating ? (
-              <>
-                <Loader2 className="animate-spin" />
-                Importing...
-              </>
-            ) : (
-              `Import ${unmigratedLocalChats.length} conversation${unmigratedLocalChats.length > 1 ? 's' : ''}`
-            )}
-          </Button>
-        </div>
+      {localCount > 0 && (
+        <SettingsGroup title="Local chats">
+          <SettingsCard>
+            <SettingsRow
+              icon={UploadCloud}
+              label={`Import ${localCount} conversation${plural(localCount)}`}
+              description="These were saved in this browser before you signed in."
+            >
+              <Button onClick={handleMigrate} disabled={isMigrating} variant="outline" size="sm">
+                {isMigrating && <Loader2 className="animate-spin" />}
+                {isMigrating ? 'Importing…' : 'Import'}
+              </Button>
+            </SettingsRow>
+          </SettingsCard>
+        </SettingsGroup>
       )}
 
-      <div>
-        <h3 className="text-lg font-semibold text-foreground mb-4">Export Data</h3>
-        <div className="space-y-3 rounded-xl bg-muted/20 border border-border/50 p-4">
-          <Button
-            variant="outline"
-            className="w-full justify-start"
-            onClick={handleExport}
-            disabled={isExporting || !exportData}
-          >
-            {isExporting ? <Loader2 className="animate-spin" /> : <Download />}
-            Export All Conversations
-          </Button>
-        </div>
-      </div>
+      <SettingsGroup title="Export">
+        <SettingsCard>
+          <SettingsRow icon={Download} label="Export all conversations" description="Download your chats as JSON.">
+            <Button variant="outline" size="sm" onClick={handleExport} disabled={isExporting}>
+              {isExporting && <Loader2 className="animate-spin" />}
+              {isExporting ? 'Exporting…' : 'Export'}
+            </Button>
+          </SettingsRow>
+        </SettingsCard>
+      </SettingsGroup>
 
-      <div>
-        <h3 className="text-lg font-semibold text-foreground mb-4">Danger Zone</h3>
-        <div className="p-4 rounded-xl bg-muted/20 border border-border/50">
-          <h4 className="font-semibold text-red-600 dark:text-red-400 flex items-center gap-2 mb-3">
-            <Trash2 className="w-4 h-4" />
-            Delete All Data
-          </h4>
-          <p className="text-sm text-muted-foreground mb-3">
-            Deleting your conversations is a permanent action and cannot be undone.
-          </p>
-          <Button variant="destructive" className="w-full" onClick={handleDeleteAll} disabled={isDeleting}>
-            {isDeleting ? <Loader2 className="animate-spin" /> : <Trash2 />}I understand, delete all my data
-          </Button>
-        </div>
-      </div>
+      <SettingsGroup title="Danger zone">
+        <SettingsCard className="border-red-500/20 dark:border-red-400/20">
+          <SettingsRow
+            icon={Trash2}
+            label="Delete all conversations"
+            description="Permanently deletes every chat and message. This can't be undone."
+          >
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="destructive" size="sm" disabled={isDeleting}>
+                  {isDeleting && <Loader2 className="animate-spin" />}
+                  Delete all
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete all conversations?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This permanently deletes all of your chats and their messages. This action cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleDeleteAll} className={buttonVariants({ variant: 'destructive' })}>
+                    Delete everything
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </SettingsRow>
+        </SettingsCard>
+      </SettingsGroup>
     </div>
   )
 }

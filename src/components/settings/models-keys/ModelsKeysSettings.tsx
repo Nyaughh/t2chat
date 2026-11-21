@@ -1,49 +1,33 @@
-import React, { useState, useCallback } from 'react'
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
+import React, { useState } from 'react'
 import { useAction, useMutation, useQuery } from 'convex/react'
 import { ConvexError } from 'convex/values'
 import { toast } from 'sonner'
 import { api } from '../../../../convex/_generated/api'
-import { debounce } from 'lodash'
 import { ModelManagementSection } from './ModelManagementSection'
 import { LLMProviderKeysSection } from './LLMProviderKeysSection'
-import { ModelsKeysSettingsProps, UserSettings, ApiKey, ApiKeyDraft, ModelSettingsState } from './types'
+import { ModelsKeysSettingsProps, ApiKey, ApiKeyDraft, LLMProviderKeysSectionProps } from './types'
 
 const errorMessage = (error: unknown, fallback: string) =>
   error instanceof ConvexError && typeof error.data === 'string' ? error.data : fallback
 
-export function ModelsKeysSettings({ apiKeys, userSettings }: ModelsKeysSettingsProps) {
-  const [localSettings, setLocalSettings] = useState<Partial<UserSettings>>({})
-  const [modelSettings, setModelSettings] = useState<ModelSettingsState>({})
-  const [optimisticDisabledModels, setOptimisticDisabledModels] = useState<string[]>([])
+const NO_MODELS: string[] = []
 
-  const updateSettings = useMutation(api.users.updateUserSettings)
+export function ModelsKeysSettings({ apiKeys, view = 'models' }: ModelsKeysSettingsProps) {
   const saveApiKey = useAction(api.api_keys.saveApiKey)
   const deleteApiKey = useMutation(api.api_keys.deleteApiKey)
   const setDefaultApiKey = useMutation(api.api_keys.setDefaultApiKey)
   const updateDisabledModels = useMutation(api.api_keys.updateDisabledModels)
 
-  const serverDisabledModels = useQuery(api.api_keys.getDisabledModels) || []
-  const disabledModels = optimisticDisabledModels.length > 0 ? optimisticDisabledModels : serverDisabledModels
+  // Convex returns a stable array until the data changes. The old `|| []` fallback made a new
+  // array every render, and an effect keyed on it re-set state forever while the query loaded.
+  const serverDisabledModels = useQuery(api.api_keys.getDisabledModels) ?? NO_MODELS
+  // A pending toggle shows immediately; it is cleared once the server list catches up.
+  const [pendingDisabledModels, setPendingDisabledModels] = useState<string[] | null>(null)
+  const disabledModels = pendingDisabledModels ?? serverDisabledModels
 
   React.useEffect(() => {
-    if (userSettings) setLocalSettings(userSettings)
-  }, [userSettings])
-
-  React.useEffect(() => {
-    if (serverDisabledModels.length >= 0) setOptimisticDisabledModels(serverDisabledModels)
+    setPendingDisabledModels(null)
   }, [serverDisabledModels])
-
-  const debouncedUpdateSettings = useCallback(
-    debounce((settings: Partial<UserSettings>) => updateSettings(settings), 500),
-    [updateSettings],
-  )
-
-  const handleSaveSettings = (settings: Partial<UserSettings>) => {
-    const newSettings = { ...localSettings, ...settings }
-    setLocalSettings(newSettings)
-    debouncedUpdateSettings(settings)
-  }
 
   const handleSaveApiKey = async ({ _id, name, service, key }: ApiKeyDraft) => {
     try {
@@ -73,96 +57,56 @@ export function ModelsKeysSettings({ apiKeys, userSettings }: ModelsKeysSettings
     }
   }
 
-  const handleModelEnabledChange = (modelId: string, enabled: boolean) => {
-    setModelSettings((prev) => ({ ...prev, [modelId]: { enabled } }))
-  }
-
   const handleToggleModel = async (modelId: string, enabled: boolean) => {
-    const currentDisabled = optimisticDisabledModels.length > 0 ? optimisticDisabledModels : serverDisabledModels
-    const newDisabledModels = enabled 
+    const currentDisabled = disabledModels
+    const newDisabledModels = enabled
       ? currentDisabled.filter((id) => id !== modelId)
-      : [...currentDisabled, modelId]
+      : [...currentDisabled.filter((id) => id !== modelId), modelId]
 
-    setOptimisticDisabledModels(newDisabledModels)
+    setPendingDisabledModels(newDisabledModels)
 
     try {
       await updateDisabledModels({ disabledModels: newDisabledModels })
     } catch (error) {
-      setOptimisticDisabledModels(currentDisabled)
+      setPendingDisabledModels(null)
+      toast.error('Could not update your models. Please try again.')
       console.error('Failed to update model settings:', error)
     }
   }
 
+  if (view === 'models') {
+    return <ModelManagementSection disabledModels={disabledModels} onToggleModel={handleToggleModel} />
+  }
+
+  const providers: Array<Omit<LLMProviderKeysSectionProps, 'keys' | 'onSave' | 'onDelete' | 'onSetDefault'>> = [
+    {
+      title: 'Anthropic',
+      description: 'Use Claude models with your own key.',
+      provider: 'anthropic',
+      keyPlaceholder: 'sk-ant-...',
+    },
+    { title: 'OpenAI', description: 'Use GPT models with your own key.', provider: 'openai', keyPlaceholder: 'sk-...' },
+    { title: 'Gemini', description: 'Use Gemini models with your own key.', provider: 'gemini' },
+    { title: 'Groq', description: 'Use Groq-hosted models with your own key.', provider: 'groq' },
+    { title: 'OpenRouter', description: 'Use OpenRouter models with your own key.', provider: 'openrouter' },
+  ]
+
   return (
     <div className="space-y-6">
-      <Tabs defaultValue="models" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="models">Models</TabsTrigger>
-          <TabsTrigger value="keys">API Keys</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="models" className="space-y-4">
-          <ModelManagementSection disabledModels={disabledModels} onToggleModel={handleToggleModel} />
-        </TabsContent>
-
-        <TabsContent value="keys" className="space-y-4">
-          <div>
-            <h3 className="text-lg font-semibold text-foreground mb-4">API Keys</h3>
-            <p className="text-sm text-muted-foreground mb-4">
-              Add your own API keys to use Claude and GPT models and to unlock premium models. Your keys are encrypted at rest and only used for your own chats. When you have a key for a provider, it is used instead of our system keys.
-            </p>
-          </div>
-          <div className="space-y-4 p-3 rounded-lg bg-muted/20 border border-border/50">
-            <LLMProviderKeysSection
-              title="Anthropic Keys"
-              description="Use Claude models with your own Anthropic API key."
-              provider="anthropic"
-              keyPlaceholder="sk-ant-..."
-              keys={apiKeys}
-              onSave={handleSaveApiKey}
-              onDelete={handleDeleteApiKey}
-              onSetDefault={handleSetDefault}
-            />
-            <LLMProviderKeysSection
-              title="OpenAI Keys"
-              description="Use GPT models with your own OpenAI API key."
-              provider="openai"
-              keyPlaceholder="sk-..."
-              keys={apiKeys}
-              onSave={handleSaveApiKey}
-              onDelete={handleDeleteApiKey}
-              onSetDefault={handleSetDefault}
-            />
-            <LLMProviderKeysSection
-              title="Gemini Keys"
-              description="Manage your API keys for Gemini"
-              provider="gemini"
-              keys={apiKeys}
-              onSave={handleSaveApiKey}
-              onDelete={handleDeleteApiKey}
-              onSetDefault={handleSetDefault}
-            />
-            <LLMProviderKeysSection
-              title="Groq Keys"
-              description="Manage your API keys for Groq"
-              provider="groq"
-              keys={apiKeys}
-              onSave={handleSaveApiKey}
-              onDelete={handleDeleteApiKey}
-              onSetDefault={handleSetDefault}
-            />
-            <LLMProviderKeysSection
-              title="OpenRouter Keys"
-              description="Manage your API keys for OpenRouter"
-              provider="openrouter"
-              keys={apiKeys}
-              onSave={handleSaveApiKey}
-              onDelete={handleDeleteApiKey}
-              onSetDefault={handleSetDefault}
-            />
-          </div>
-        </TabsContent>
-      </Tabs>
+      <p className="text-sm text-muted-foreground">
+        Add your own API keys to use Claude and GPT models and to unlock premium models. Keys are encrypted at rest and
+        only used for your own chats. When you have a key for a provider, it is used instead of our system keys.
+      </p>
+      {providers.map((provider) => (
+        <LLMProviderKeysSection
+          key={provider.provider}
+          {...provider}
+          keys={apiKeys}
+          onSave={handleSaveApiKey}
+          onDelete={handleDeleteApiKey}
+          onSetDefault={handleSetDefault}
+        />
+      ))}
     </div>
   )
-} 
+}
