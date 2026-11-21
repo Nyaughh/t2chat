@@ -64,7 +64,9 @@ const CodeComponent = memo(({ inline, className, children, theme, ...props }: Co
               margin: 0,
               borderRadius: '0 0 8px 8px',
               background: theme === 'dark' ? '#1a1a1a' : '#f8f9fa',
-              fontSize: '14px',
+              // Follow Settings → Customization (code font and code size).
+              fontFamily: 'var(--font-mono)',
+              fontSize: 'var(--app-code-size)',
               lineHeight: '1.5',
               width: '100%',
               maxWidth: '100%',

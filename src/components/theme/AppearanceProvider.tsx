@@ -4,16 +4,22 @@ import { useEffect, useRef, useSyncExternalStore } from 'react'
 import { ErrorBoundary } from 'react-error-boundary'
 import { useConvexAuth, useMutation, useQuery } from 'convex/react'
 import { api } from '../../../convex/_generated/api'
-import { fromLegacySettings, sanitizeAppearance, APPEARANCE_STORAGE_KEY, type Appearance } from '@/lib/theme/appearance'
+import { fromLegacySettings, sanitizeAppearance, type Appearance } from '@/lib/theme/appearance'
 import {
+  APPEARANCE_STORAGE_KEYS,
   applyAppearance,
+  getAccountCopy,
+  getActiveOwner,
   getAppearanceSnapshot,
+  getGuestAppearance,
   getServerAppearanceSnapshot,
   reloadFromStorage,
-  setAppearance,
+  showAccount,
+  showGuest,
   subscribeAppearance,
   updateAppearance,
 } from '@/lib/theme/store'
+import { reconcile } from '@/lib/theme/sync'
 
 /** Current appearance preferences, and a setter that applies + persists them. */
 export function useAppearance(): [Appearance, typeof updateAppearance] {
@@ -25,15 +31,15 @@ const SAVE_DELAY_MS = 600
 
 /**
  * Applies appearance preferences app-wide and keeps them in sync:
- * - localStorage on every device (guests included; also read by the pre-paint boot script),
- * - Convex for signed-in users, newest `updatedAt` wins.
+ * - localStorage on every device (also read by the pre-paint boot script),
+ * - Convex for signed-in users, scoped to the account that owns each copy.
  */
 export function AppearanceProvider({ children }: { children: React.ReactNode }) {
   // Re-apply on mount: the boot script's snapshot may predate this build.
   useEffect(() => {
     applyAppearance(getAppearanceSnapshot())
     const onStorage = (e: StorageEvent) => {
-      if (e.key === APPEARANCE_STORAGE_KEY) reloadFromStorage()
+      if (e.key && APPEARANCE_STORAGE_KEYS.includes(e.key)) reloadFromStorage()
     }
     window.addEventListener('storage', onStorage)
     return () => window.removeEventListener('storage', onStorage)
@@ -51,60 +57,77 @@ export function AppearanceProvider({ children }: { children: React.ReactNode }) 
 }
 
 function AppearanceSync() {
-  const { isAuthenticated } = useConvexAuth()
+  const { isAuthenticated, isLoading } = useConvexAuth()
   const remote = useQuery(api.appearance.getAppearance, isAuthenticated ? {} : 'skip')
   const save = useMutation(api.appearance.updateAppearance)
-  /** `updatedAt` of the copy we know the server has, so we don't echo it back. */
-  const syncedAt = useRef<number | null>(null)
+  /** Which account the active copy was reconciled for, and the `updatedAt` its server copy has. */
+  const synced = useRef<{ owner: string; at: number } | null>(null)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const signedIn = useRef(false)
+  signedIn.current = isAuthenticated
 
-  // Reconcile with the server copy whenever it changes.
+  const cancelPending = () => {
+    if (timer.current) clearTimeout(timer.current)
+    timer.current = null
+  }
+
+  const push = (owner: string, appearance: Appearance) => {
+    save({ owner, appearance }).then(
+      () => {
+        if (synced.current?.owner === owner) synced.current = { owner, at: appearance.updatedAt }
+      },
+      (err) => console.error('Failed to save appearance', err),
+    )
+  }
+
+  // Signed out (including logout without a page reload): back to the guest copy,
+  // and drop any save still queued for the previous account.
   useEffect(() => {
-    if (!isAuthenticated || remote === undefined) return
-    const local = getAppearanceSnapshot()
-    const server = remote?.appearance ? sanitizeAppearance(remote.appearance) : null
+    if (isLoading || isAuthenticated) return
+    cancelPending()
+    synced.current = null
+    showGuest()
+  }, [isLoading, isAuthenticated])
 
-    if (server && server.updatedAt >= local.updatedAt) {
-      syncedAt.current = server.updatedAt
-      if (server.updatedAt > local.updatedAt) setAppearance(server)
-      return
-    }
-    if (!server && local.updatedAt === 0) {
-      // Never customized anywhere: carry over the old font settings, if any.
-      const legacy = fromLegacySettings(remote?.legacy.mainFont, remote?.legacy.codeFont)
-      if (Object.keys(legacy).length) updateAppearance(legacy)
-      return
-    }
-    // This device has newer changes than the server (e.g. made while signed out).
-    syncedAt.current = server?.updatedAt ?? null
-    if (local.updatedAt > 0) {
-      save({ appearance: local }).then(
-        () => (syncedAt.current = local.updatedAt),
-        (err) => console.error('Failed to save appearance', err),
-      )
-    }
-  }, [isAuthenticated, remote, save])
-
-  // Push local changes to the server, debounced.
+  // Signed in: reconcile this account's server copy with the device's copy for
+  // the same account. Another account's cached copy is replaced, never pushed.
   useEffect(() => {
-    if (!isAuthenticated) return
+    if (!isAuthenticated || !remote) return
+    const { userId } = remote
+    if (synced.current?.owner !== userId) cancelPending()
+    const result = reconcile({
+      userId,
+      account: getAccountCopy(),
+      guest: getGuestAppearance(),
+      server: remote.appearance ? sanitizeAppearance(remote.appearance) : null,
+      legacy: fromLegacySettings(remote.legacy.mainFont, remote.legacy.codeFont),
+    })
+    synced.current = { owner: userId, at: result.push ? -1 : result.appearance.updatedAt }
+    showAccount(userId, result.appearance)
+    if (result.push) push(userId, result.appearance)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated, remote])
+
+  // Push edits to the active account's copy, debounced, to that account only.
+  useEffect(() => {
     const unsubscribe = subscribeAppearance(() => {
+      const owner = getActiveOwner()
       const next = getAppearanceSnapshot()
-      if (next.updatedAt === 0 || next.updatedAt === syncedAt.current) return
-      if (timer.current) clearTimeout(timer.current)
+      if (!owner || !signedIn.current || synced.current?.owner !== owner) return
+      if (next.updatedAt === 0 || next.updatedAt === synced.current.at) return
+      cancelPending()
       timer.current = setTimeout(() => {
-        const latest = getAppearanceSnapshot()
-        save({ appearance: latest }).then(
-          () => (syncedAt.current = latest.updatedAt),
-          (err) => console.error('Failed to save appearance', err),
-        )
+        timer.current = null
+        if (!signedIn.current || getActiveOwner() !== owner || synced.current?.owner !== owner) return
+        push(owner, getAppearanceSnapshot())
       }, SAVE_DELAY_MS)
     })
     return () => {
       unsubscribe()
-      if (timer.current) clearTimeout(timer.current)
+      cancelPending()
     }
-  }, [isAuthenticated, save])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   return null
 }

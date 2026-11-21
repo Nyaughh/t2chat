@@ -1,5 +1,5 @@
 import { query, mutation } from './_generated/server'
-import { ConvexError, type Infer } from 'convex/values'
+import { ConvexError, v, type Infer } from 'convex/values'
 import { betterAuthComponent } from './auth'
 import { Id } from './_generated/dataModel'
 import { appearanceValidator } from './appearanceValidator'
@@ -49,7 +49,11 @@ function checkAppearance(a: Appearance) {
   }
 }
 
-/** The signed-in user's appearance preferences, or null (guest / never saved). */
+/**
+ * The signed-in user's appearance preferences (null when signed out). `userId` is
+ * the caller's own id: the client tags its cached copy with it so one account's
+ * preferences are never shown to or saved for another account on the same device.
+ */
 export const getAppearance = query({
   args: {},
   handler: async (ctx) => {
@@ -59,21 +63,27 @@ export const getAppearance = query({
       .query('userSettings')
       .withIndex('by_user', (q) => q.eq('userId', userId as Id<'users'>))
       .unique()
-    if (!settings) return null
     return {
-      appearance: settings.appearance ?? null,
+      userId: userId as string,
+      appearance: settings?.appearance ?? null,
       // Pre-appearance font choices, so they carry over the first time.
-      legacy: { mainFont: settings.mainFont ?? null, codeFont: settings.codeFont ?? null },
+      legacy: { mainFont: settings?.mainFont ?? null, codeFont: settings?.codeFont ?? null },
     }
   },
 })
 
-/** Saves the caller's own appearance. Stale writes (older `updatedAt`) are ignored. */
+/**
+ * Saves the caller's own appearance. `owner` is the account the client's copy
+ * belongs to; if the session has since switched to another account the write is
+ * refused, so a delayed save can never land on someone else's record. Stale
+ * writes (older `updatedAt`) are ignored.
+ */
 export const updateAppearance = mutation({
-  args: { appearance: appearanceValidator },
-  handler: async (ctx, { appearance }) => {
+  args: { owner: v.string(), appearance: appearanceValidator },
+  handler: async (ctx, { owner, appearance }) => {
     const userId = await betterAuthComponent.getAuthUserId(ctx)
     if (!userId) throw new ConvexError('Not authenticated')
+    if (owner !== userId) throw new ConvexError('Signed-in account changed; not saving')
     checkAppearance(appearance)
 
     const settings = await ctx.db

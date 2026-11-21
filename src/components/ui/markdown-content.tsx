@@ -68,7 +68,9 @@ const CodeBlock = memo(({ inline, className, children, theme = 'dark', ...props 
               margin: 0,
               borderRadius: '0 0 8px 8px',
               background: theme === 'dark' ? '#1a1a1a' : '#f8f9fa',
-              fontSize: '14px',
+              // Follow Settings → Customization (code font and code size).
+              fontFamily: 'var(--font-mono)',
+              fontSize: 'var(--app-code-size)',
               lineHeight: '1.5',
               width: '100%',
               maxWidth: '100%',
@@ -207,7 +209,19 @@ const components: Partial<Components> = {
       </code>
     )
   },
-  pre: ({ children }) => <>{children}</>,
+  pre: ({ children }) => {
+    // Fences with a language render their own block via CodeBlock; the rest
+    // (```-fences without a language) get a plain code block here instead of
+    // falling through to inline-code styling.
+    const child = Array.isArray(children) ? children[0] : children
+    const childClass = isValidElement<{ className?: string }>(child) ? (child.props.className ?? '') : ''
+    if (/language-\w+/.test(childClass)) return <>{children}</>
+    return (
+      <pre className="my-4 max-w-[87vw] overflow-x-auto rounded-lg border border-border bg-muted/50 p-4 font-mono text-[length:var(--app-code-size)] leading-relaxed md:max-w-full">
+        <code className="font-mono">{extractTextContent(child).replace(/\n$/, '')}</code>
+      </pre>
+    )
+  },
 }
 
 function parseMarkdownIntoBlocks(markdown: string): string[] {
