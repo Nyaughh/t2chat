@@ -8,8 +8,9 @@ import { ChatList } from './ChatList'
 import { UserProfile } from './UserProfile'
 import { CommandPalette } from './CommandPalette'
 import { ConvexChat, UserMetadata } from '@/lib/types'
-import { memo, useCallback, useState, useEffect } from 'react'
+import { memo, useCallback, useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
+import { useSettingsDialog } from '@/components/settings/SettingsDialogProvider'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { Id } from '../../../../../convex/_generated/dataModel'
 
@@ -69,6 +70,12 @@ export const Sidebar = memo(function Sidebar({
 }: SidebarProps) {
 
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false)
+  // Read through a ref so the global shortcut listener isn't re-registered on every toggle
+  const { isOpen: settingsOpen } = useSettingsDialog()
+  const settingsOpenRef = useRef(settingsOpen)
+  useEffect(() => {
+    settingsOpenRef.current = settingsOpen
+  }, [settingsOpen])
 
   const handleSearchChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -79,6 +86,9 @@ export const Sidebar = memo(function Sidebar({
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Not while Settings is open: the palette would open over the dialog, steal focus
+      // from the form being edited and allow navigating away mid-edit.
+      if (settingsOpenRef.current) return
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault()
         setCommandPaletteOpen(true)

@@ -24,10 +24,12 @@ export const InlineKeyForm = ({
         e.preventDefault()
         if (canSave) onSave()
       }}
+      // Esc cancels the form rather than closing the whole settings dialog: the dialog skips
+      // its own Escape handling while focus is inside a [data-settings-escape] element.
+      data-settings-escape=""
       onKeyDown={(e) => {
-        // Esc cancels the form rather than closing the whole settings dialog
         if (e.key === 'Escape') {
-          e.stopPropagation()
+          e.preventDefault()
           onCancel()
         }
       }}

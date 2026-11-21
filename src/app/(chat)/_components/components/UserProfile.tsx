@@ -5,9 +5,8 @@ import Link from 'next/link'
 import { UserMetadata } from '@/lib/types'
 import React, { memo, useMemo, useCallback, useRef, useState } from 'react'
 import { Settings, LogOut, Github, MessageCircle, ChevronDown, ChevronRight, LogIn } from 'lucide-react'
-import { authClient } from '@/lib/auth-client'
-import { useRouter } from 'next/navigation'
 import { useSettingsDialog } from '@/components/settings/SettingsDialogProvider'
+import { useSignOut } from '@/hooks/useSignOut'
 import { ItemHighlight } from '@/components/ui/item-highlight'
 import { MASKED_EMAIL, MASKED_NAME, usePrivacyPref } from '@/hooks/usePrivacyPrefs'
 
@@ -88,7 +87,6 @@ ProfileDropdown.displayName = 'ProfileDropdown'
 const SignedInProfile = memo(
   ({ userMetadata }: { userMetadata: UserMetadata }) => {
     const [isDropdownOpen, setIsDropdownOpen] = useState(false)
-    const router = useRouter()
     const { openSettings } = useSettingsDialog()
     const triggerRef = useRef<HTMLButtonElement>(null)
     const [showName] = usePrivacyPref('showName')
@@ -107,16 +105,11 @@ const SignedInProfile = memo(
       openSettings(undefined, { returnFocusTo: triggerRef.current })
     }, [openSettings])
 
+    const { signOut } = useSignOut()
     const handleSignOut = useCallback(async () => {
       setIsDropdownOpen(false)
-      await authClient.signOut({
-        fetchOptions: {
-          onSuccess: () => {
-            router.refresh()
-          },
-        },
-      })
-    }, [router])
+      await signOut()
+    }, [signOut])
 
     // Close dropdown when clicking outside
     const handleDocumentClick = useCallback((e: MouseEvent) => {

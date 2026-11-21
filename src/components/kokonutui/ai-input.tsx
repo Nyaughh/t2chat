@@ -35,6 +35,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { buttonVariants } from '@/components/ui/button'
 import { ItemHighlight } from '@/components/ui/item-highlight'
 import { useSettingsDialog } from '@/components/settings/SettingsDialogProvider'
+import { useRouter } from 'next/navigation'
 
 interface Attachment {
   name: string
@@ -97,6 +98,7 @@ export default function AIInput({
   const uploadButtonRef = useRef<HTMLDivElement>(null)
   const modelButtonRef = useRef<HTMLButtonElement>(null)
   const { openSettings } = useSettingsDialog()
+  const router = useRouter()
 
   const [isListening, setIsListening] = useState(false)
   const recognitionRef = useRef<any>(null)
@@ -555,6 +557,11 @@ export default function AIInput({
                           type="button"
                           onClick={() => {
                             setShowModelSelect(false)
+                            // API keys need an account: guests go to sign in, as with the gear
+                            if (!isSignedIn) {
+                              router.push('/auth')
+                              return
+                            }
                             openSettings('keys', { returnFocusTo: modelButtonRef.current })
                           }}
                           className={cn(buttonVariants({ variant: 'default', size: 'sm' }), 'h-7 gap-1 px-2.5 text-xs')}

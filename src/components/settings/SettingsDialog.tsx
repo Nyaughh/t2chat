@@ -1,7 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useEffect, useMemo, useRef } from 'react'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
 import * as TabsPrimitive from '@radix-ui/react-tabs'
 import { useQuery } from 'convex/react'
@@ -11,8 +10,7 @@ import { api } from '../../../convex/_generated/api'
 import { useConversations } from '@/hooks/useConversations'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { Conversation } from '@/lib/dexie'
-import { authClient } from '@/lib/auth-client'
-import { clearAllLocalData } from '@/lib/clear-local-data'
+import { useSignOut } from '@/hooks/useSignOut'
 import { UserMetadata } from '@/lib/types'
 import { cn } from '@/lib/utils'
 import { AccountSettings } from './AccountSettings'
@@ -55,6 +53,13 @@ export function SettingsDialog({
         <DialogPrimitive.Content
           aria-describedby={undefined}
           onCloseAutoFocus={onCloseAutoFocus}
+          onEscapeKeyDown={(event) => {
+            // Radix sees Escape first (document capture). If focus is inside a widget that
+            // handles Escape itself, like the inline API key form, leave the dialog open and
+            // let the keydown reach that widget.
+            const active = document.activeElement
+            if (active instanceof Element && active.closest('[data-settings-escape]')) event.preventDefault()
+          }}
           className={cn(
             'fixed z-50 flex flex-col overflow-hidden bg-background text-foreground outline-none',
             // Mobile: full-screen sheet
@@ -85,28 +90,12 @@ export function SettingsDialog({
 }
 
 function SignOutButton({ onSignedOut, className }: { onSignedOut: () => void; className?: string }) {
-  const router = useRouter()
-  const [isSigningOut, setIsSigningOut] = useState(false)
-
-  const handleSignOut = async () => {
-    setIsSigningOut(true)
-    await authClient.signOut({
-      fetchOptions: {
-        onSuccess: async () => {
-          // Clear all local data when user logs out
-          await clearAllLocalData()
-          onSignedOut()
-          router.refresh()
-        },
-        onError: () => setIsSigningOut(false),
-      },
-    })
-  }
+  const { signOut, isSigningOut } = useSignOut(onSignedOut)
 
   return (
     <button
       type="button"
-      onClick={handleSignOut}
+      onClick={signOut}
       disabled={isSigningOut}
       className={cn(
         'flex h-8 cursor-pointer items-center gap-2.5 rounded-md px-2.5 text-sm text-muted-foreground transition-colors duration-150 hover:bg-red-500/10 hover:text-red-600 disabled:opacity-50 dark:hover:bg-red-400/10 dark:hover:text-red-400',

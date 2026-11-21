@@ -1,6 +1,6 @@
 'use client'
 
-import { createContext, useCallback, useContext, useMemo, useRef, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { UserMetadata } from '@/lib/types'
 import { SettingsDialog } from './SettingsDialog'
@@ -42,12 +42,29 @@ export function SettingsDialogProvider({
   const [section, setSection] = useState<SettingsSection>(DEFAULT_SETTINGS_SECTION)
   const returnFocusRef = useRef<HTMLElement | null>(null)
 
-  const openSettings = useCallback<OpenSettings>((nextSection, options) => {
-    const active = typeof document !== 'undefined' ? document.activeElement : null
-    returnFocusRef.current = options?.returnFocusTo ?? (active instanceof HTMLElement ? active : null)
-    setSection(nextSection ?? DEFAULT_SETTINGS_SECTION)
-    setIsOpen(true)
-  }, [])
+  const router = useRouter()
+
+  const openSettings = useCallback<OpenSettings>(
+    (nextSection, options) => {
+      // Settings is account-only. Send guests to sign in (as the gear does) instead of
+      // setting an open flag that would pop the dialog up after a later sign-in.
+      if (!isSignedIn) {
+        router.push('/auth')
+        return
+      }
+      const active = typeof document !== 'undefined' ? document.activeElement : null
+      returnFocusRef.current = options?.returnFocusTo ?? (active instanceof HTMLElement ? active : null)
+      setSection(nextSection ?? DEFAULT_SETTINGS_SECTION)
+      setIsOpen(true)
+    },
+    [isSignedIn, router],
+  )
+
+  // Signing out (from the dialog or another tab) closes settings for good, so it can't
+  // reappear on the next sign-in.
+  useEffect(() => {
+    if (!isSignedIn) setIsOpen(false)
+  }, [isSignedIn])
 
   const closeSettings = useCallback(() => setIsOpen(false), [])
 

@@ -108,31 +108,33 @@ export function MessageActions({
             <TooltipContent>Branch from this message</TooltipContent>
           </Tooltip>
 
-          <div className="relative">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  onClick={() => onRetryClick(messageId)}
-                  aria-label="Retry with model selection"
-                  className={cn(buttonVariants({ variant: 'ghost', size: 'icon-xs' }), 'cursor-pointer')}
-                >
-                  <RotateCcw />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent>Retry with model selection</TooltipContent>
-            </Tooltip>
-            {retryDropdownId === messageId && (
-              <ModelDropdown
-                selectedModel={selectedModel}
-                onModelSelect={(modelId) => onRetryWithModel(messageId, modelId)}
-                onClose={onCloseRetryDropdown}
-                className="absolute left-0"
-                isSignedIn={isSignedIn}
-                apiKeys={apiKeys}
-              />
-            )}
-          </div>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                onClick={() => onRetryClick(messageId)}
+                aria-label="Retry with model selection"
+                className={cn(buttonVariants({ variant: 'ghost', size: 'icon-xs' }), 'cursor-pointer')}
+              >
+                <RotateCcw />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent>Retry with model selection</TooltipContent>
+          </Tooltip>
         </div>
+      )}
+
+      {/* Anchored to the whole row (the message's left edge), not the retry button: the
+          button sits after the model label, time and other actions, so on narrow screens a
+          button-anchored menu would start far right and run off-screen. */}
+      {!isStreaming && retryDropdownId === messageId && (
+        <ModelDropdown
+          selectedModel={selectedModel}
+          onModelSelect={(modelId) => onRetryWithModel(messageId, modelId)}
+          onClose={onCloseRetryDropdown}
+          className="absolute inset-x-0 top-0 h-full"
+          isSignedIn={isSignedIn}
+          apiKeys={apiKeys}
+        />
       )}
     </div>
   )

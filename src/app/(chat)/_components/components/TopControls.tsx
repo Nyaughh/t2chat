@@ -25,9 +25,9 @@ export function TopControls({
   const router = useRouter()
   const { openSettings } = useSettingsDialog()
 
-  const handleSettingsClick = () => {
+  const handleSettingsClick = (event: React.MouseEvent<HTMLButtonElement>) => {
     if (isSignedIn) {
-      openSettings()
+      openSettings(undefined, { returnFocusTo: event.currentTarget })
     } else {
       router.push('/auth')
     }
