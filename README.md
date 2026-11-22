@@ -51,7 +51,7 @@ That's where T2Chat comes in. Self-hosted or hosted by us. Multi-model by design
 - **🎨 Customizable Interface**: Dark/light themes with extensive customization options
 - **🗂️ Advanced Chat Management**: Organize, rename, share, and delete conversations
 - **🔑 API Key Management**: Secure storage and management of your API keys
-- **🎤 Speech Features**: Text-to-speech and speech recognition capabilities
+- **🎤 Speech Features**: Read replies aloud with an on-device voice ([tiny-voca](https://github.com/n4ze3m/tiny-voca), a one-time 8 MB download), Gemini cloud voices or system voices, plus speech recognition
 - **📤 File Uploads**: Support for file attachments via UploadThing
 - **🔍 Smart Search**: Search through your entire conversation history
 - **⚙️ Comprehensive Settings**: Extensive customization and personalization options
@@ -153,6 +153,8 @@ Here is what you need to be able to run T2Chat.
    OPENAI_API_KEY=your-openai-key
    GOOGLE_AI_API_KEY=your-google-ai-key
    GROQ_API_KEY=your-groq-key
+   # Also used by Gemini read-aloud voices (/api/tts, signed-in users only)
+   GEMINI_API_KEY=your-gemini-key
    ```
 
 4. **Set up Convex**
@@ -280,7 +282,7 @@ T2Chat supports extensive customization:
 - Appearance settings apply instantly, are stored on the device (no flash of the wrong theme on load) and sync to your account when signed in. The engine lives in `src/lib/theme/`
 - **User Profile**: Set your name, role, and personality traits
 - **Behavior**: Configure send behavior (Enter vs Ctrl+Enter) and auto-save
-- **Speech**: Text-to-speech settings and voice selection
+- **Speech**: Read-aloud engine (on-device, Gemini cloud or system voices) and voice selection. The on-device model is downloaded once, after the user agrees, and saved in the browser
 
 ## 📁 Project Structure
 

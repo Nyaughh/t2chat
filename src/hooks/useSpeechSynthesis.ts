@@ -1,148 +1,121 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+'use client'
 
-const sanitizeText = (text: string) => {
-  // Remove code blocks
-  let sanitizedText = text.replace(/```[\s\S]*?```/g, 'a code block is shown here.')
-  // Remove inline code
-  sanitizedText = sanitizedText.replace(/`[^`]+`/g, '')
-  // Remove markdown images
-  sanitizedText = sanitizedText.replace(/!\[.*?\]\(.*?\)/g, '')
-  // Remove markdown links
-  sanitizedText = sanitizedText.replace(/\[(.*?)\]\(.*?\)/g, '$1')
-  // Remove bold, italics
-  sanitizedText = sanitizedText.replace(/(\*\*|__|\*|_)(.*?)\1/g, '$2')
-  // Remove headings
-  sanitizedText = sanitizedText.replace(/^#+\s/gm, '')
-  // Remove horizontal rules
-  sanitizedText = sanitizedText.replace(/---/g, '')
+import { useCallback, useEffect, useState, useSyncExternalStore } from 'react'
+import {
+  getSpeechState,
+  speak as speakText,
+  stopSpeaking,
+  subscribeSpeech,
+  type SpeakOptions,
+  type SpeechState,
+} from '@/lib/tts/controller'
+import {
+  PREFS_EVENT,
+  VOICE_STORAGE_KEY,
+  getBrowserVoiceURI,
+  getEngine,
+  getVoiceFor,
+  setEngine as saveEngine,
+  setVoiceFor,
+  type TtsEngine,
+} from '@/lib/tts/voices'
 
-  return sanitizedText.trim()
+const IDLE_STATE: SpeechState = { status: 'idle', ownerId: null, engine: null }
+
+/** Picks the browser voice used by the "System voices" engine. A saved choice always wins. */
+const pickBrowserVoice = (voices: SpeechSynthesisVoice[]) => {
+  const stored = getBrowserVoiceURI()
+  const storedVoice = stored ? voices.find((v) => v.voiceURI === stored) : undefined
+  return (
+    storedVoice ??
+    voices.find((v) => v.name.includes('Google') && v.lang.startsWith('en-US')) ??
+    voices.find((v) => v.name.includes('Google') && v.lang.startsWith('en')) ??
+    voices.find((v) => v.lang.startsWith('en'))
+  )
 }
 
-const VOICE_STORAGE_KEY = 'selectedVoiceURI'
+/** Re-renders when the saved engine/voice changes (in this tab or another). */
+function usePrefsVersion() {
+  const [version, setVersion] = useState(0)
+  useEffect(() => {
+    const bump = () => setVersion((v) => v + 1)
+    window.addEventListener(PREFS_EVENT, bump)
+    window.addEventListener('storage', bump)
+    return () => {
+      window.removeEventListener(PREFS_EVENT, bump)
+      window.removeEventListener('storage', bump)
+    }
+  }, [])
+  return version
+}
 
+/** Just the shared player's status ('idle' | 'loading' | 'speaking'); cheap to use per message. */
+export function useSpeechStatus() {
+  return useSyncExternalStore(subscribeSpeech, () => getSpeechState().status, () => 'idle' as const)
+}
+
+/**
+ * Read-aloud for the whole app. All instances share one player, so only one
+ * thing speaks at a time and any instance can stop it. The engine and voice
+ * are read from storage at speak time, so a change in Settings applies to
+ * every caller immediately.
+ */
 export function useSpeechSynthesis() {
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([])
   const [selectedVoice, setSelectedVoice] = useState<string | null>(null)
-  const [isSpeaking, setIsSpeaking] = useState(false)
-  const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null)
-  const isStopped = useRef(false)
+  const prefsVersion = usePrefsVersion()
+  const speech = useSyncExternalStore(subscribeSpeech, getSpeechState, () => IDLE_STATE)
 
   useEffect(() => {
+    const synth = typeof window !== 'undefined' ? window.speechSynthesis : undefined
+    if (!synth) return
     const handleVoicesChanged = () => {
-      const availableVoices = window.speechSynthesis.getVoices()
-      setVoices(availableVoices)
-
-      // Always prioritize Google voices for better quality
-      if (availableVoices.length > 0) {
-        // First try to find Google US English voices (highest priority)
-        const googleUSVoice = availableVoices.find(
-          (v) => v.name.includes('Google') && (v.lang === 'en-US' || v.lang.startsWith('en-US')),
-        )
-
-        // Then try any Google English voice
-        const googleEnglishVoice = availableVoices.find((v) => v.name.includes('Google') && v.lang.startsWith('en'))
-
-        // Fallback to any English voice
-        const englishVoice = availableVoices.find((v) => v.lang.startsWith('en'))
-
-        // The voice the user picked in Settings wins whenever this browser still has it;
-        // Google voices are only the default when there is no (valid) saved choice.
-        const storedVoiceURI = localStorage.getItem(VOICE_STORAGE_KEY)
-        const storedVoice = storedVoiceURI ? availableVoices.find((v) => v.voiceURI === storedVoiceURI) : null
-
-        const preferredVoice = storedVoice || googleUSVoice || googleEnglishVoice || englishVoice
-
-        if (preferredVoice) {
-          setSelectedVoice(preferredVoice.voiceURI)
-          localStorage.setItem(VOICE_STORAGE_KEY, preferredVoice.voiceURI)
-        }
+      const available = synth.getVoices()
+      setVoices(available)
+      const preferred = pickBrowserVoice(available)
+      if (preferred) {
+        setSelectedVoice(preferred.voiceURI)
+        // Like master: a missing or no-longer-available saved voice is replaced by
+        // the default. Written directly (no prefs event) so this effect doesn't re-run.
+        if (getBrowserVoiceURI() !== preferred.voiceURI) localStorage.setItem(VOICE_STORAGE_KEY, preferred.voiceURI)
       }
     }
-
-    window.speechSynthesis.addEventListener('voiceschanged', handleVoicesChanged)
-    // Initial call in case voices are already loaded
+    synth.addEventListener('voiceschanged', handleVoicesChanged)
     handleVoicesChanged()
+    return () => synth.removeEventListener('voiceschanged', handleVoicesChanged)
+  }, [prefsVersion])
 
-    return () => {
-      window.speechSynthesis.removeEventListener('voiceschanged', handleVoicesChanged)
-      if (isSpeaking) {
-        window.speechSynthesis.cancel()
-      }
-    }
-  }, [isSpeaking])
+  const stop = useCallback(() => stopSpeaking(), [])
 
-  const stop = useCallback(() => {
-    isStopped.current = true
-    if (window.speechSynthesis) {
-      window.speechSynthesis.cancel()
-    }
-    setIsSpeaking(false)
-    utteranceRef.current = null
+  /** Reads text aloud, replacing anything already playing. onEnd runs when it finishes on its own. */
+  const speak = useCallback((text: string, onEnd?: () => void, options?: Omit<SpeakOptions, 'onEnd'>) => {
+    void speakText(text, { ...options, onEnd })
   }, [])
 
-  const speak = useCallback(
-    (text: string, onEnd: () => void) => {
-      // Reset stopped flag when starting new speech
-      isStopped.current = false
-
-      if (isSpeaking) {
-        window.speechSynthesis.cancel()
-        setIsSpeaking(false)
-        onEnd() // Ensure onEnd is called when stopping
-        return
-      }
-
-      const sanitizedText = sanitizeText(text)
-      const utterance = new SpeechSynthesisUtterance(sanitizedText)
-
-      // Read the saved choice at speak time: Settings may have changed it in another
-      // instance of this hook (e.g. the settings dialog) since this one mounted.
-      const voiceURI = localStorage.getItem(VOICE_STORAGE_KEY) ?? selectedVoice
-      if (voiceURI) {
-        const voice = voices.find((v) => v.voiceURI === voiceURI)
-        if (voice) {
-          utterance.voice = voice
-        }
-      }
-
-      utterance.onstart = () => {
-        if (!isStopped.current) {
-          setIsSpeaking(true)
-        }
-      }
-
-      utterance.onend = () => {
-        setIsSpeaking(false)
-        if (!isStopped.current) {
-          onEnd()
-        }
-      }
-
-      utterance.onerror = () => {
-        setIsSpeaking(false)
-        if (!isStopped.current) {
-          onEnd()
-        }
-      }
-
-      utteranceRef.current = utterance
-      window.speechSynthesis.speak(utterance)
-    },
-    [selectedVoice, voices, isSpeaking],
-  )
-
-  const setVoice = (voiceURI: string) => {
+  /** Sets the system (browser) voice. */
+  const setVoice = useCallback((voiceURI: string) => {
     setSelectedVoice(voiceURI)
-    localStorage.setItem(VOICE_STORAGE_KEY, voiceURI)
-  }
+    setVoiceFor('browser', voiceURI)
+  }, [])
+
+  const engine: TtsEngine = typeof window === 'undefined' ? 'local' : getEngine()
+  void prefsVersion // engine/voice below are re-read whenever prefs change
 
   return {
+    // System voices (kept for existing callers)
     voices,
     selectedVoice,
     setVoice,
+    // Shared player
     speak,
     stop,
-    isSpeaking,
+    isSpeaking: speech.status !== 'idle',
+    status: speech.status,
+    speakingId: speech.ownerId,
+    // Engine preferences
+    engine,
+    setEngine: saveEngine,
+    engineVoice: getVoiceFor(engine),
+    setEngineVoice: setVoiceFor,
   }
 }

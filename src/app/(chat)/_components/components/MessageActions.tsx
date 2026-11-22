@@ -1,7 +1,9 @@
 'use client'
 
 import type React from 'react'
-import { Copy, Check, RotateCcw, GitFork, Volume2, VolumeX } from 'lucide-react'
+import { Copy, Check, RotateCcw, GitFork, Volume2, VolumeX, Loader2 } from 'lucide-react'
+import { useSpeechStatus } from '@/hooks/useSpeechSynthesis'
+import { prewarmSpeech } from '@/lib/tts/controller'
 import { ModelDropdown } from '@/components/ui/model-dropdown'
 import { getModelDisplayName, getVendorColor, ModelInfo } from '@/lib/models'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
@@ -52,6 +54,7 @@ export function MessageActions({
   meta,
 }: MessageActionsProps) {
   const apiKeys = useQuery(api.api_keys.getApiKeys, isSignedIn ? {} : 'skip') || []
+  const speechStatus = useSpeechStatus()
   return (
     <div className="relative flex h-7 items-center gap-2">
       {/* Model and time come first so the hover-revealed buttons never leave a gap before them */}
@@ -86,10 +89,20 @@ export function MessageActions({
             <TooltipTrigger asChild>
               <button
                 onClick={() => onReadAloud(content, messageId)}
+                onPointerEnter={prewarmSpeech}
+                onFocus={prewarmSpeech}
                 aria-label={speakingMessageId === messageId ? 'Stop reading' : 'Read aloud'}
                 className={cn(buttonVariants({ variant: 'ghost', size: 'icon-xs' }), 'cursor-pointer')}
               >
-                {speakingMessageId === messageId ? <VolumeX /> : <Volume2 />}
+                {speakingMessageId === messageId ? (
+                  speechStatus === 'loading' ? (
+                    <Loader2 className="animate-spin" />
+                  ) : (
+                    <VolumeX />
+                  )
+                ) : (
+                  <Volume2 />
+                )}
               </button>
             </TooltipTrigger>
             <TooltipContent>{speakingMessageId === messageId ? 'Stop reading' : 'Read aloud'}</TooltipContent>

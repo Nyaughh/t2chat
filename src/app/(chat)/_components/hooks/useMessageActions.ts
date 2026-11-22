@@ -13,9 +13,8 @@ export function useMessageActions(props?: UseMessageActionsProps) {
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null)
   const [editingContent, setEditingContent] = useState('')
   const [retryDropdownId, setRetryDropdownId] = useState<string | null>(null)
-  const [speakingMessageId, setSpeakingMessageId] = useState<string | null>(null)
   const editInputRef = useRef<HTMLTextAreaElement>(null)
-  const { speak } = useSpeechSynthesis()
+  const { speak, stop, speakingId: speakingMessageId } = useSpeechSynthesis()
 
   const handleCopy = async (text: string, messageId: string) => {
     try {
@@ -27,14 +26,10 @@ export function useMessageActions(props?: UseMessageActionsProps) {
     }
   }
 
+  // Clicking the same message stops it; clicking another switches to it.
   const handleReadAloud = (text: string, messageId: string) => {
-    if (speakingMessageId === messageId) {
-      // If the same message is clicked, 'speak' will handle cancellation
-      speak(text, () => setSpeakingMessageId(null))
-    } else {
-      setSpeakingMessageId(messageId)
-      speak(text, () => setSpeakingMessageId(null))
-    }
+    if (speakingMessageId === messageId) stop()
+    else speak(text, undefined, { ownerId: messageId })
   }
 
   const startEditing = (messageId: string, content: string) => {
