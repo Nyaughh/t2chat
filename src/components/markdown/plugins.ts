@@ -146,7 +146,7 @@ export function repairStreamingTail(block: string): string {
 
   const ranges = protectedRanges(block)
   const openFrom = ranges.reduce((max, [, e]) => Math.max(max, e), 0)
-  let head = block.slice(0, openFrom)
+  const head = block.slice(0, openFrom)
   let tail = block.slice(openFrom)
   let close = ''
 

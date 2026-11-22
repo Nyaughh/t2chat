@@ -299,6 +299,7 @@ export const VAR_RULES: VarRules = {
   rose: ROSE_STEPS.map(([step]) => `--color-rose-${step}`),
 }
 
+/* eslint-disable no-var -- ES5 on purpose, see below */
 /**
  * Builds one CSS rule from untrusted entries, keeping only variables in `rules`.
  * `scope` is 'root' (fonts, sizes, density, radius, accent) or 'mode' (palette
@@ -328,6 +329,7 @@ export function cssBlock(rules: VarRules, scope: string, selector: string, entri
   }
   return body ? selector + '{' + body + '}' : ''
 }
+/* eslint-enable no-var */
 
 export function varsToCss(vars: AppearanceVars): string {
   // Doubled/compound selectors outrank globals.css's `:root` and `.dark` regardless of order.

@@ -52,7 +52,17 @@ const fontVariables = cn(
   geistMono.variable,
 )
 
+/** Absolute base for OG/manifest URLs: the canonical app URL (same source as middleware.ts). */
+function siteUrl(): URL {
+  try {
+    return new URL(process.env.BETTER_AUTH_URL || 'https://chat.lh3k.dev')
+  } catch {
+    return new URL('https://chat.lh3k.dev')
+  }
+}
+
 export const metadata: Metadata = {
+  metadataBase: siteUrl(),
   title: 'T2Chat',
   description: 'Modern AI chat interface with multiple model support',
   manifest: '/site.webmanifest',

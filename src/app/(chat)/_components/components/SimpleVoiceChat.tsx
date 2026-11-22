@@ -196,7 +196,7 @@ export function SimpleVoiceChat({
                   </div>
                   <h3 className="text-lg font-semibold mb-3">Voice Chat Not Supported</h3>
                   <p className="text-sm text-muted-foreground mb-6 leading-relaxed">
-                    Your browser doesn't support speech recognition. Please try using Chrome, Edge, or Safari for the
+                    Your browser doesn&apos;t support speech recognition. Please try using Chrome, Edge, or Safari for the
                     best voice chat experience.
                   </p>
                   <Button onClick={handleClose} className="w-full">

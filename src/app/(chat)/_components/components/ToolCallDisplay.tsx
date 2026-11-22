@@ -35,7 +35,7 @@ const ToolCallDisplay = ({ toolCalls }: { toolCalls: any[] }) => {
                 <div className="flex items-center gap-2 text-sm text-black/60 dark:text-white/60 mb-2">
                   {call.result ? <Search className="w-4 h-4" /> : <Loader2 className="w-4 h-4 animate-spin" />}
                   <span>
-                    {call.result ? 'Searched the web for:' : 'Searching the web for:'} <em>"{call.args.query}"</em>
+                    {call.result ? 'Searched the web for:' : 'Searching the web for:'} <em>&quot;{call.args.query}&quot;</em>
                   </span>
                 </div>
                 {hasResults && (
