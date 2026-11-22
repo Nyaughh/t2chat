@@ -259,6 +259,36 @@ code[class*='language-'] {
 }
 
 
+/* ---- Chat markdown palette ------------------------------------------
+ * Read by src/components/markdown/markdown.css. Themes override any of
+ * these on :root / .dark. Syntax and alert hues are mixed with --foreground,
+ * so one value reads well on light and dark backgrounds.
+ */
+:root {
+  --md-accent: var(--brand, var(--color-rose-600));
+  --md-link: var(--md-accent);
+  --md-syntax-text: color-mix(in oklab, var(--foreground) 90%, var(--background));
+  --md-syntax-comment: var(--muted-foreground);
+  --md-syntax-punctuation: color-mix(in oklab, var(--foreground) 62%, var(--background));
+  --md-syntax-keyword: color-mix(in oklch, var(--foreground) 30%, oklch(0.6 0.2 295));
+  --md-syntax-string: color-mix(in oklch, var(--foreground) 30%, oklch(0.62 0.15 150));
+  --md-syntax-number: color-mix(in oklch, var(--foreground) 28%, oklch(0.66 0.16 55));
+  --md-syntax-escape: color-mix(in oklch, var(--foreground) 30%, oklch(0.64 0.12 190));
+  --md-syntax-function: color-mix(in oklch, var(--foreground) 30%, oklch(0.62 0.16 252));
+  --md-syntax-type: color-mix(in oklch, var(--foreground) 28%, oklch(0.7 0.14 85));
+  --md-syntax-tag: color-mix(in oklch, var(--foreground) 30%, oklch(0.62 0.19 20));
+  --md-alert-note: color-mix(in oklch, var(--foreground) 25%, oklch(0.6 0.16 252));
+  --md-alert-tip: color-mix(in oklch, var(--foreground) 25%, oklch(0.6 0.15 150));
+  --md-alert-important: color-mix(in oklch, var(--foreground) 25%, oklch(0.58 0.2 295));
+  --md-alert-warning: color-mix(in oklch, var(--foreground) 22%, oklch(0.68 0.16 70));
+  --md-alert-caution: color-mix(in oklch, var(--foreground) 22%, oklch(0.6 0.2 25));
+}
+
+.dark {
+  --md-accent: var(--brand, var(--color-rose-300));
+}
+/* ---- End chat markdown palette ---------------------------------------- */
+
 ::view-transition-group(root) {
   animation-duration: 0.7s;
   animation-timing-function: var(--expo-out);

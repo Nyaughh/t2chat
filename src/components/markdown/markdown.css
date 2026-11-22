@@ -1,0 +1,613 @@
+/*
+ * Chat markdown. Modeled on Feather's markdown viewer: calm type, solid and
+ * hollow bullets, bordered code blocks with an icon-only copy button,
+ * GitHub-style alerts.
+ *
+ * Colours come only from theme tokens. The markdown palette lives with the
+ * other tokens in src/app/globals.css; themes can override on :root/.dark:
+ *   --md-accent        quote/alert bars, checkboxes (defaults to --brand)
+ *   --md-link          link colour (defaults to --md-accent)
+ *   --md-syntax-{text,comment,punctuation,keyword,string,number,escape,function,type,tag}
+ *   --md-alert-{note,tip,important,warning,caution}
+ *   --md-code-bg       code block background (optional)
+ *   --md-font-code     code font family (optional, defaults to the app's code font)
+ *   --app-code-size    code font size (default 0.875rem)
+ *
+ * Sizes are relative (em), so the text size set on the message scales everything.
+ */
+
+.md {
+  --md-fg: var(--foreground);
+  --md-muted: var(--muted-foreground);
+  --md-border: var(--border);
+  --md-link-color: var(--md-link);
+  --md-accent-color: var(--md-accent);
+  --md-surface: var(--md-code-bg, color-mix(in oklab, var(--foreground) 3.5%, var(--background)));
+  --md-surface-strong: color-mix(in oklab, var(--foreground) 7%, var(--background));
+  --md-inline-code-bg: color-mix(in oklab, var(--foreground) 7%, transparent);
+  --md-mono: var(--md-font-code, var(--font-fira-code, var(--font-source-code-pro, var(--font-mono)))), ui-monospace,
+    SFMono-Regular, Menlo, Consolas, monospace;
+  --md-code-size: var(--app-code-size, 0.875rem);
+  --md-radius: calc(var(--radius, 0.625rem) - 2px);
+
+  color: var(--md-fg);
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+
+/* ---- Flow ------------------------------------------------------------- */
+
+.md > :first-child,
+.md li > :first-child,
+.md blockquote > :first-child,
+.md td > :first-child,
+.md th > :first-child {
+  margin-top: 0;
+}
+
+.md > :last-child,
+.md li > :last-child,
+.md blockquote > :last-child {
+  margin-bottom: 0;
+}
+
+.md p,
+.md ul,
+.md ol,
+.md blockquote,
+.md .md-table-wrap,
+.md .md-code,
+.md hr,
+.md .katex-display,
+.md section.footnotes {
+  margin-top: 0;
+  margin-bottom: 0.9em;
+}
+
+/* ---- Headings --------------------------------------------------------- */
+
+.md h1,
+.md h2,
+.md h3,
+.md h4,
+.md h5,
+.md h6 {
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: -0.012em;
+  margin: 1.5em 0 0.55em;
+  color: var(--md-fg);
+  text-wrap: balance;
+}
+
+.md h1 {
+  font-size: 1.55em;
+  letter-spacing: -0.02em;
+}
+.md h2 {
+  font-size: 1.3em;
+  letter-spacing: -0.016em;
+}
+.md h3 {
+  font-size: 1.12em;
+}
+.md h4 {
+  font-size: 1em;
+}
+.md h5,
+.md h6 {
+  font-size: 0.92em;
+  color: var(--md-muted);
+}
+.md h6 {
+  font-weight: 500;
+}
+
+/* ---- Inline ----------------------------------------------------------- */
+
+.md strong {
+  font-weight: 600;
+  color: var(--md-fg);
+}
+
+.md em {
+  font-style: italic;
+}
+
+.md del {
+  text-decoration-thickness: 1px;
+  color: var(--md-muted);
+}
+
+.md a {
+  color: var(--md-link-color);
+  text-decoration: underline;
+  text-decoration-color: color-mix(in oklab, var(--md-link-color) 40%, transparent);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.2em;
+  transition: text-decoration-color 120ms ease;
+  border-radius: 2px;
+}
+.md a:hover {
+  text-decoration-color: currentColor;
+}
+
+.md .md-inline-code {
+  font-family: var(--md-mono);
+  font-size: 0.875em;
+  padding: 0.12em 0.38em;
+  border-radius: 0.35em;
+  background: var(--md-inline-code-bg);
+  border: 1px solid color-mix(in oklab, var(--foreground) 6%, transparent);
+  color: var(--md-fg);
+  overflow-wrap: anywhere;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+
+.md h1 .md-inline-code,
+.md h2 .md-inline-code,
+.md h3 .md-inline-code {
+  font-size: 0.85em;
+}
+
+.md a .md-inline-code {
+  color: inherit;
+}
+
+/* ---- Lists ------------------------------------------------------------ */
+
+.md ul,
+.md ol {
+  padding-left: 1.6em;
+}
+
+.md ul {
+  list-style: disc;
+}
+.md ul ul {
+  list-style: circle;
+}
+.md ul ul ul {
+  list-style: square;
+}
+.md ol {
+  list-style: decimal;
+}
+.md ol ol {
+  list-style: lower-alpha;
+}
+.md ol ol ol {
+  list-style: lower-roman;
+}
+
+.md li {
+  margin: 0.3em 0;
+  padding-left: 0.2em;
+}
+.md li::marker {
+  color: var(--md-muted);
+}
+.md ol > li::marker {
+  font-variant-numeric: tabular-nums;
+}
+
+.md li > ul,
+.md li > ol {
+  margin-top: 0.3em;
+  margin-bottom: 0.3em;
+}
+
+/* Loose lists: paragraphs inside items keep a little air. */
+.md li > p {
+  margin-bottom: 0.4em;
+}
+
+/* Task lists */
+.md ul.contains-task-list,
+.md ol.contains-task-list {
+  list-style: none;
+  padding-left: 0.25em;
+}
+.md li.task-list-item {
+  list-style: none;
+  padding-left: 0;
+}
+.md li.task-list-item .contains-task-list {
+  padding-left: 1.6em;
+}
+.md .md-task-check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.05em;
+  height: 1.05em;
+  margin-right: 0.55em;
+  vertical-align: -0.16em;
+  border-radius: 0.3em;
+  border: 1.5px solid color-mix(in oklab, var(--foreground) 32%, transparent);
+  background: var(--background);
+  flex-shrink: 0;
+}
+.md .md-task-check[data-checked] {
+  border-color: var(--md-accent-color);
+  background: var(--md-accent-color);
+  color: var(--background);
+}
+.md .md-task-check svg {
+  width: 0.8em;
+  height: 0.8em;
+}
+.md li.task-list-item:has(> .md-task-check[data-checked]),
+.md li.task-list-item:has(> p > .md-task-check[data-checked]) {
+  color: var(--md-muted);
+}
+
+/* ---- Blockquotes and alerts ------------------------------------------ */
+
+.md blockquote {
+  padding: 0.1em 0 0.1em 1em;
+  border-left: 3px solid color-mix(in oklab, var(--foreground) 16%, transparent);
+  color: color-mix(in oklab, var(--foreground) 78%, var(--background));
+}
+
+.md blockquote.md-alert {
+  --md-alert: var(--md-accent-color);
+  padding: 0.65em 0.9em 0.7em 1em;
+  border-left-color: var(--md-alert);
+  border-radius: 0 var(--md-radius) var(--md-radius) 0;
+  background: color-mix(in oklab, var(--md-alert) 7%, transparent);
+  color: var(--md-fg);
+}
+.md blockquote.md-alert[data-alert='note'] {
+  --md-alert: var(--md-alert-note);
+}
+.md blockquote.md-alert[data-alert='tip'] {
+  --md-alert: var(--md-alert-tip);
+}
+.md blockquote.md-alert[data-alert='important'] {
+  --md-alert: var(--md-alert-important);
+}
+.md blockquote.md-alert[data-alert='warning'] {
+  --md-alert: var(--md-alert-warning);
+}
+.md blockquote.md-alert[data-alert='caution'] {
+  --md-alert: var(--md-alert-caution);
+}
+.md .md-alert-title {
+  display: flex;
+  align-items: center;
+  gap: 0.45em;
+  margin: 0 0 0.3em;
+  font-weight: 600;
+  font-size: 0.93em;
+  color: var(--md-alert);
+}
+.md .md-alert-title svg {
+  width: 1.05em;
+  height: 1.05em;
+  flex-shrink: 0;
+}
+
+/* ---- Rule ------------------------------------------------------------- */
+
+.md hr {
+  border: 0;
+  height: 1px;
+  background: var(--md-border);
+  margin-top: 1.6em;
+  margin-bottom: 1.6em;
+}
+
+/* ---- Images ----------------------------------------------------------- */
+
+.md .md-img-link {
+  display: inline-block;
+  max-width: 100%;
+  border-radius: var(--md-radius);
+  text-decoration: none;
+}
+.md img {
+  display: block;
+  max-width: 100%;
+  max-height: 32rem;
+  height: auto;
+  border-radius: var(--md-radius);
+  border: 1px solid var(--md-border);
+  background: var(--md-surface);
+}
+.md p > .md-img-link:only-child {
+  display: block;
+  width: fit-content;
+}
+.md .md-img-fallback {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+  padding: 0.2em 0.6em;
+  border: 1px dashed var(--md-border);
+  border-radius: var(--md-radius);
+  color: var(--md-muted);
+  font-size: 0.9em;
+}
+
+/* ---- Tables ----------------------------------------------------------- */
+
+.md .md-table-wrap {
+  max-width: 100%;
+  overflow-x: auto;
+  border: 1px solid var(--md-border);
+  border-radius: var(--md-radius);
+  -webkit-overflow-scrolling: touch;
+}
+.md table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.93em;
+  line-height: 1.55;
+  font-variant-numeric: tabular-nums;
+}
+.md th,
+.md td {
+  padding: 0.5em 0.85em;
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid var(--md-border);
+  overflow-wrap: normal;
+  min-width: 4em;
+}
+.md th + th,
+.md td + td {
+  border-left: 1px solid var(--md-border);
+}
+.md th {
+  font-weight: 600;
+  background: var(--md-surface);
+  white-space: nowrap;
+}
+.md tbody tr:last-child td {
+  border-bottom: 0;
+}
+.md tbody tr:hover td {
+  background: color-mix(in oklab, var(--foreground) 2.5%, transparent);
+}
+.md th[align='center'],
+.md td[align='center'] {
+  text-align: center;
+}
+.md th[align='right'],
+.md td[align='right'] {
+  text-align: right;
+}
+
+/* ---- Code blocks ------------------------------------------------------ */
+
+.md .md-code {
+  position: relative;
+  border: 1px solid var(--md-border);
+  border-radius: var(--md-radius);
+  background: var(--md-surface);
+  max-width: 100%;
+  min-width: 0;
+}
+
+.md .md-code-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5em;
+  height: 2.35rem;
+  padding: 0 0.4rem 0 0.9rem;
+  border-bottom: 1px solid color-mix(in oklab, var(--foreground) 6%, transparent);
+  user-select: none;
+}
+
+.md .md-code-lang {
+  font-family: var(--md-mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.01em;
+  color: var(--md-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.md .md-code-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.125rem;
+}
+
+.md .md-code-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  height: 1.75rem;
+  min-width: 1.75rem;
+  justify-content: center;
+  padding: 0 0.45rem;
+  border-radius: calc(var(--md-radius) - 2px);
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--md-muted);
+  cursor: pointer;
+  transition:
+    color 120ms ease,
+    background-color 120ms ease;
+}
+.md .md-code-button:hover {
+  color: var(--md-fg);
+  background: color-mix(in oklab, var(--foreground) 7%, transparent);
+}
+.md .md-code-button[aria-pressed='true'] {
+  color: var(--md-fg);
+  background: color-mix(in oklab, var(--foreground) 6%, transparent);
+}
+.md .md-code-button[data-copied] {
+  color: var(--md-syntax-string);
+}
+.md .md-code-button svg {
+  width: 0.9rem;
+  height: 0.9rem;
+  flex-shrink: 0;
+}
+/* Narrow screens: icon only. */
+@media (max-width: 480px) {
+  .md .md-code-button-text {
+    display: none;
+  }
+}
+
+.md .md-code-body {
+  margin: 0;
+  padding: 0.85rem 0.95rem 0.95rem;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  font-family: var(--md-mono);
+  font-size: var(--md-code-size);
+  line-height: 1.6;
+  tab-size: 2;
+  color: var(--md-syntax-text);
+  white-space: pre;
+  overflow-wrap: normal;
+  word-break: normal;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in oklab, var(--foreground) 18%, transparent) transparent;
+  border-radius: 0 0 var(--md-radius) var(--md-radius);
+}
+.md .md-code-body:focus-visible {
+  outline: 2px solid color-mix(in oklab, var(--ring) 60%, transparent);
+  outline-offset: -2px;
+}
+.md .md-code-body code {
+  font: inherit;
+  display: block;
+  width: max-content;
+  min-width: 100%;
+}
+.md .md-code-line {
+  display: block;
+  min-height: 1lh;
+}
+.md .md-code[data-wrap] .md-code-body {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.md .md-code[data-wrap] .md-code-body code {
+  width: auto;
+}
+
+/* Token classes from highlighter.ts */
+.md .tk-comment {
+  color: var(--md-syntax-comment);
+}
+.md .tk-punctuation {
+  color: var(--md-syntax-punctuation);
+}
+.md .tk-keyword {
+  color: var(--md-syntax-keyword);
+}
+.md .tk-string {
+  color: var(--md-syntax-string);
+}
+.md .tk-number {
+  color: var(--md-syntax-number);
+}
+.md .tk-escape {
+  color: var(--md-syntax-escape);
+}
+.md .tk-function {
+  color: var(--md-syntax-function);
+}
+.md .tk-type {
+  color: var(--md-syntax-type);
+}
+.md .tk-tag {
+  color: var(--md-syntax-tag);
+}
+.md .tk-italic {
+  font-style: italic;
+}
+
+/* ---- Math ------------------------------------------------------------- */
+
+.md .katex {
+  font-size: 1.08em;
+}
+.md .katex-display {
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 0.25em 0;
+  margin-left: 0;
+  margin-right: 0;
+}
+.md .katex-display > .katex {
+  max-width: 100%;
+}
+.md .katex-error {
+  color: var(--md-muted) !important;
+  font-family: var(--md-mono);
+  font-size: 0.9em;
+}
+
+/* ---- Footnotes -------------------------------------------------------- */
+
+.md section.footnotes {
+  margin-top: 1.5em;
+  padding-top: 0.8em;
+  border-top: 1px solid var(--md-border);
+  font-size: 0.88em;
+  color: var(--md-muted);
+}
+.md section.footnotes ol {
+  padding-left: 1.3em;
+}
+.md section.footnotes li > p:last-of-type {
+  display: inline;
+}
+.md .md-fn-back {
+  margin-left: 0.35em;
+  text-decoration: none;
+  font-size: 0.9em;
+}
+.md sup a[data-footnote-ref] {
+  text-decoration: none;
+  font-size: 0.8em;
+  padding: 0 0.1em;
+}
+.md .sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ---- Compact variant (reasoning / secondary text) --------------------- */
+
+.md.md-compact {
+  line-height: 1.6;
+}
+.md.md-compact p,
+.md.md-compact ul,
+.md.md-compact ol,
+.md.md-compact blockquote,
+.md.md-compact .md-table-wrap,
+.md.md-compact .md-code {
+  margin-bottom: 0.7em;
+}
+.md.md-compact h1,
+.md.md-compact h2,
+.md.md-compact h3,
+.md.md-compact h4 {
+  font-size: 1.05em;
+  margin-top: 1.1em;
+}
+.md.md-compact .md-code-body {
+  font-size: 0.95em;
+}

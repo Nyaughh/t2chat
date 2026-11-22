@@ -1,13 +1,28 @@
 'use client'
 
-import React, { memo, useMemo, useState } from 'react'
-import { useTheme } from 'next-themes'
-import { MemoizedMarkdown } from './MemoizedMarkdown'
-import { MarkdownContent } from './ui/markdown-content'
+import React, { Suspense, lazy, memo, useMemo, useState } from 'react'
 import { ChevronDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { models } from '@/lib/models'
 import ToolCallDisplay from '@/app/(chat)/_components/components/ToolCallDisplay'
+
+// The markdown renderer (react-markdown, remark/rehype, the block lexer) is
+// its own chunk, loaded when the first message renders. Shiki grammars and
+// KaTeX load later still, only when a message needs them.
+const Markdown = lazy(() => import('./markdown/Markdown'))
+
+/** Shown for the moment before the renderer chunk arrives: the raw text, same flow. */
+function PlainText({ content, compact }: { content: string; compact?: boolean }) {
+  return <div className={cn('md whitespace-pre-wrap', compact && 'md-compact')}>{content}</div>
+}
+
+function LazyMarkdown({ content, streaming, compact }: { content: string; streaming?: boolean; compact?: boolean }) {
+  return (
+    <Suspense fallback={<PlainText content={content} compact={compact} />}>
+      <Markdown content={content} streaming={streaming} variant={compact ? 'compact' : 'default'} />
+    </Suspense>
+  )
+}
 
 interface MessageRendererProps {
   content: string
@@ -29,29 +44,6 @@ const MessageRenderer: React.FC<MessageRendererProps> = memo(
       const model = models.find((m) => m.id === modelId)
       return model?.supportsThinking || false
     }, [modelId])
-
-    // Generate a stable ID based on content
-    const messageId = useMemo(() => {
-      let hash = 0
-      for (let i = 0; i < content.length; i++) {
-        const char = content.charCodeAt(i)
-        hash = (hash << 5) - hash + char
-        hash = hash & hash
-      }
-      return `message-${Math.abs(hash).toString(36)}`
-    }, [content])
-
-    // Generate a stable ID for thinking content
-    const thinkingId = useMemo(() => {
-      if (!thinking) return ''
-      let hash = 0
-      for (let i = 0; i < thinking.length; i++) {
-        const char = thinking.charCodeAt(i)
-        hash = (hash << 5) - hash + char
-        hash = hash & hash
-      }
-      return `thinking-${Math.abs(hash).toString(36)}`
-    }, [thinking])
 
     const contentParts = useMemo(() => {
       if (!content) return []
@@ -129,7 +121,7 @@ const MessageRenderer: React.FC<MessageRendererProps> = memo(
             {!isThinkingCollapsed && thinking && (
               <div className="mt-1 ml-6 pl-3 border-l-2 border-rose-500/20 dark:border-rose-300/20">
                 <div className="text-xs text-black/70 dark:text-white/70 leading-relaxed">
-                  <MarkdownContent content={thinking} id={thinkingId} />
+                  <LazyMarkdown content={thinking} streaming={isTyping && !thinkingDuration} compact />
                 </div>
               </div>
             )}
@@ -142,9 +134,16 @@ const MessageRenderer: React.FC<MessageRendererProps> = memo(
           if (match && toolCalls) {
             const toolCallId = match[1]
             const toolCall = toolCalls.find((tc) => tc.toolCallId === toolCallId)
-            return toolCall ? <ToolCallDisplay key={`${messageId}-tool-${index}`} toolCalls={[toolCall]} /> : null
+            return toolCall ? <ToolCallDisplay key={`tool-${index}`} toolCalls={[toolCall]} /> : null
           }
-          return <MarkdownContent content={part} id={`${messageId}-part-${index}`} key={`${messageId}-part-${index}`} />
+          // Index keys: parts only append while streaming, so earlier parts keep their state.
+          return (
+            <LazyMarkdown
+              key={`part-${index}`}
+              content={part}
+              streaming={isTyping && index === contentParts.length - 1}
+            />
+          )
         })}
       </div>
     )
