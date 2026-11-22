@@ -82,6 +82,7 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
   // A lockfile in a parent directory would otherwise make Next guess the wrong workspace root.
   outputFileTracingRoot: path.resolve(__dirname),
+  turbopack: { root: path.resolve(__dirname) },
   images: {
     remotePatterns: [
       { protocol: 'https', hostname: 'avatars.githubusercontent.com' },

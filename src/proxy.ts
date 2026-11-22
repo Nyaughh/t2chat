@@ -6,7 +6,7 @@ const DEFAULT_CANONICAL_URL = 'https://chat.lh3k.dev'
 // (BETTER_AUTH_URL). In production, send page visits on any other host (e.g.
 // t2chat.vercel.app) to the canonical domain so sign-in starts and finishes
 // on the same host.
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   if (process.env.VERCEL_ENV !== 'production') {
     return NextResponse.next()
   }

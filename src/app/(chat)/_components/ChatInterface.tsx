@@ -15,7 +15,7 @@ import { Paperclip, FileText, Phone } from 'lucide-react'
 import { toast } from 'sonner'
 import { useState, useEffect } from 'react'
 import { cn } from '@/lib/utils'
-import { ConvexMessage } from '@/lib/types'
+import type { Attachment, ConvexMessage } from '@/lib/types'
 import { useMutation } from 'convex/react'
 import { api } from '../../../../convex/_generated/api'
 import { useRouter } from 'next/navigation'
@@ -100,7 +100,7 @@ export default function ChatInterface({ chatId, initialMessages }: ChatInterface
     }
   }
 
-  const handleUploadComplete = (res: any) => {
+  const handleUploadComplete = (res: Attachment[]) => {
     // Clear all progress and uploading state
     setUploadProgress({})
     setIsUploading(false)
@@ -113,8 +113,8 @@ export default function ChatInterface({ chatId, initialMessages }: ChatInterface
         toast.error(`Only added ${remainingSlots} files. Maximum ${maxFiles} files allowed.`)
       } else {
         // Determine file types in the uploaded files
-        const pdfCount = filesToAdd.filter((file: any) => file.type?.includes('pdf')).length
-        const imageCount = filesToAdd.filter((file: any) => file.type?.startsWith('image/')).length
+        const pdfCount = filesToAdd.filter((file) => file.type.includes('pdf')).length
+        const imageCount = filesToAdd.filter((file) => file.type.startsWith('image/')).length
 
         let message = `Added ${filesToAdd.length} file${filesToAdd.length > 1 ? 's' : ''}`
         if (pdfCount > 0 && imageCount > 0) {
@@ -296,8 +296,10 @@ export default function ChatInterface({ chatId, initialMessages }: ChatInterface
                         return updated
                       })
                     }}
-                    onClientUploadComplete={(res) => {
-                      handleUploadComplete(res)
+                    onClientUploadComplete={(files) => {
+                      handleUploadComplete(
+                        files.map(({ name, type, size, ufsUrl }) => ({ name, type, size, url: ufsUrl })),
+                      )
                     }}
                     onUploadError={(error: Error) => {
                       handleUploadError(error, 'file')

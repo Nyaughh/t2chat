@@ -1,9 +1,5 @@
-import { dirname } from 'path'
-import { fileURLToPath } from 'url'
-import { FlatCompat } from '@eslint/eslintrc'
-
-const __dirname = dirname(fileURLToPath(import.meta.url))
-const compat = new FlatCompat({ baseDirectory: __dirname })
+import nextVitals from 'eslint-config-next/core-web-vitals'
+import nextTypeScript from 'eslint-config-next/typescript'
 
 const eslintConfig = [
   {
@@ -18,7 +14,8 @@ const eslintConfig = [
       'next-env.d.ts',
     ],
   },
-  ...compat.extends('next/core-web-vitals', 'next/typescript'),
+  ...nextVitals,
+  ...nextTypeScript,
   {
     rules: {
       // Existing typing debt; kept visible as warnings instead of blocking lint.

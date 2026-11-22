@@ -1,0 +1,101 @@
+{
+  "src/app/(chat)/_components/ChatLayout.tsx": {
+    "react-hooks/set-state-in-effect": {
+      "count": 1
+    }
+  },
+  "src/app/(chat)/_components/components/CommandPalette.tsx": {
+    "react-hooks/set-state-in-effect": {
+      "count": 1
+    }
+  },
+  "src/app/(chat)/_components/components/SimpleVoiceChat.tsx": {
+    "react-hooks/purity": {
+      "count": 1
+    }
+  },
+  "src/app/(chat)/_components/hooks/useChatLayout.ts": {
+    "react-hooks/set-state-in-effect": {
+      "count": 1
+    }
+  },
+  "src/components/ThemeSwitcher.tsx": {
+    "react-hooks/set-state-in-effect": {
+      "count": 1
+    }
+  },
+  "src/components/WelcomeScreen.tsx": {
+    "react-hooks/set-state-in-effect": {
+      "count": 1
+    }
+  },
+  "src/components/kokonutui/ai-input.tsx": {
+    "react-hooks/set-state-in-effect": {
+      "count": 1
+    }
+  },
+  "src/components/markdown/CodeBlock.tsx": {
+    "react-hooks/refs": {
+      "count": 15
+    }
+  },
+  "src/components/settings/CustomizeSettings.tsx": {
+    "react-hooks/set-state-in-effect": {
+      "count": 1
+    }
+  },
+  "src/components/settings/SettingsDialogProvider.tsx": {
+    "react-hooks/set-state-in-effect": {
+      "count": 1
+    }
+  },
+  "src/components/settings/models-keys/ModelsKeysSettings.tsx": {
+    "react-hooks/set-state-in-effect": {
+      "count": 1
+    }
+  },
+  "src/components/theme/AppearanceProvider.tsx": {
+    "react-hooks/refs": {
+      "count": 1
+    }
+  },
+  "src/hooks/use-convex-chat.ts": {
+    "react-hooks/refs": {
+      "count": 7
+    }
+  },
+  "src/hooks/use-mobile.ts": {
+    "react-hooks/set-state-in-effect": {
+      "count": 1
+    }
+  },
+  "src/hooks/useAuth.ts": {
+    "react-hooks/preserve-manual-memoization": {
+      "count": 1
+    }
+  },
+  "src/hooks/useConversations.ts": {
+    "react-hooks/purity": {
+      "count": 1
+    },
+    "react-hooks/refs": {
+      "count": 6
+    },
+    "react-hooks/set-state-in-effect": {
+      "count": 8
+    }
+  },
+  "src/hooks/useSidebar.ts": {
+    "react-hooks/set-state-in-effect": {
+      "count": 2
+    }
+  },
+  "src/hooks/useSimpleVoiceChat.ts": {
+    "react-hooks/refs": {
+      "count": 2
+    },
+    "react-hooks/set-state-in-effect": {
+      "count": 2
+    }
+  }
+}

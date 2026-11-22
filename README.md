@@ -64,7 +64,7 @@ That's where T2Chat comes in. Self-hosted or hosted by us. Multi-model by design
 
 ### Frontend
 
-- **[Next.js 15](https://nextjs.org/?ref=t2chat)** - React framework with App Router
+- **[Next.js 16](https://nextjs.org/?ref=t2chat)** - React framework with App Router
 - **[React 19](https://reactjs.org/?ref=t2chat)** - Latest React with concurrent features
 - **[TypeScript](https://typescriptlang.org/?ref=t2chat)** - Type-safe JavaScript
 - **[Tailwind CSS](https://tailwindcss.com/?ref=t2chat)** - Utility-first CSS framework
@@ -101,7 +101,7 @@ To get a local copy up and running, please follow these simple steps.
 
 Here is what you need to be able to run T2Chat.
 
-- Node.js (Version: >=18.x)
+- Node.js 22.18 or later
 - npm/yarn/pnpm _(npm is used here might switch to pnpm)_
 
 > If you want to enable any of the available AI integrations, you may want to obtain API keys for each provider. More details can be found below under the [AI Providers section](#ai-providers).
