@@ -1,7 +1,6 @@
 import { fetchQuery } from 'convex/nextjs'
-import { getToken } from '@convex-dev/better-auth/nextjs'
+import { getToken } from '@/lib/auth-server'
 import { api } from '../../../../convex/_generated/api'
-import { createAuth } from '../../../../convex/auth'
 import { GEMINI_TTS_MODEL, TTS_MAX_CHARS, TTS_RATE_LIMITS } from '@/lib/tts/limits'
 import { GEMINI_VOICE_IDS, DEFAULT_GEMINI_VOICE } from '@/lib/tts/voices'
 
@@ -53,7 +52,7 @@ export async function POST(req: Request) {
   // Auth: only signed-in users may use the server's key.
   let userId: string | undefined
   try {
-    const token = await getToken(createAuth)
+    const token = await getToken()
     const user = token ? await fetchQuery(api.auth.getCurrentUser, {}, { token }) : null
     userId = user?.userId ?? user?._id ?? undefined
   } catch {

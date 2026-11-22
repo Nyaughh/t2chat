@@ -2,11 +2,10 @@ import ChatLayout from '@/app/(chat)/_components/ChatLayout'
 import { cookies } from 'next/headers'
 import { api } from '../../../convex/_generated/api'
 import { fetchQuery } from 'convex/nextjs'
-import { createAuth } from '../../../convex/auth'
-import { getToken } from '@convex-dev/better-auth/nextjs'
+import { getToken } from '@/lib/auth-server'
 
 export default async function ChatLayoutPage({ children }: { children: React.ReactNode }) {
-  const token = await getToken(createAuth)
+  const token = await getToken()
   const user = await fetchQuery(api.auth.getCurrentUser, {}, { token })
 
   // Fetch initial chats if user is authenticated to prevent flash
@@ -15,7 +14,7 @@ export default async function ChatLayoutPage({ children }: { children: React.Rea
   const userMetadata = {
     name: user?.name,
     email: user?.email,
-    image: user?.image,
+    image: user?.image ?? undefined,
   }
 
   const cookieStore = await cookies()

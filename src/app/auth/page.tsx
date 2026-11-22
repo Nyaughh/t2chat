@@ -3,10 +3,9 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { ArrowLeft, Cloud, KeyRound, Mic } from 'lucide-react'
 import { fetchQuery } from 'convex/nextjs'
-import { getToken } from '@convex-dev/better-auth/nextjs'
+import { getToken } from '@/lib/auth-server'
 import ThemeSwitcher from '@/components/ThemeSwitcher'
 import { api } from '../../../convex/_generated/api'
-import { createAuth } from '../../../convex/auth'
 import SignInForm from './_components/form'
 
 export const metadata: Metadata = {
@@ -33,7 +32,7 @@ function describeError(code?: string) {
 
 async function isSignedIn() {
   try {
-    const token = await getToken(createAuth)
+    const token = await getToken()
     if (!token) return false
     const user = await fetchQuery(api.auth.getCurrentUser, {}, { token })
     return !!user

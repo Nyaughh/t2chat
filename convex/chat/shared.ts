@@ -17,7 +17,6 @@ import { createGroq } from '@ai-sdk/groq'
 import { z } from 'zod'
 import { Modality } from '@google/genai'
 import { basePersonality } from '../../prompts/base'
-import { Buffer } from 'buffer'
 import { getUserApiKey } from '../api_keys'
 import { describeProviderError, providerErrorStatus, userFacingProviderError } from '../../src/lib/provider-errors'
 
@@ -252,8 +251,8 @@ export const generateAIResponse = async (
           }
 
           if (imageData) {
-            // Convert base64 to buffer and store in Convex
-            const imageBuffer = Buffer.from(imageData, 'base64')
+            // Decode base64 to bytes and store in Convex
+            const imageBuffer = Uint8Array.from(atob(imageData), (c) => c.charCodeAt(0))
 
             // Store the image in Convex file storage
             const storageId = await ctx.storage.store(new Blob([imageBuffer], { type: imageMimeType }))

@@ -5,13 +5,13 @@
 import { ConvexError, v, type Infer } from 'convex/values'
 import type { Doc, Id } from '../_generated/dataModel'
 import type { QueryCtx } from '../_generated/server'
-import { betterAuthComponent } from '../auth'
+import { getAuthUserId } from '../auth'
 
-type AuthCtx = Parameters<typeof betterAuthComponent.getAuthUserId>[0]
+type AuthCtx = Parameters<typeof getAuthUserId>[0]
 
 /** The signed-in user's id, or a ConvexError when there is no session. */
 export const requireUserId = async (ctx: AuthCtx): Promise<Id<'users'>> => {
-  const userId = await betterAuthComponent.getAuthUserId(ctx)
+  const userId = await getAuthUserId(ctx)
   if (!userId) {
     throw new ConvexError('Authentication required')
   }

@@ -1,6 +1,6 @@
 import { query, mutation } from './_generated/server'
 import { ConvexError, v, type Infer } from 'convex/values'
-import { betterAuthComponent } from './auth'
+import { getAuthUserId } from './auth'
 import { Id } from './_generated/dataModel'
 import { appearanceValidator } from './appearanceValidator'
 
@@ -57,7 +57,7 @@ function checkAppearance(a: Appearance) {
 export const getAppearance = query({
   args: {},
   handler: async (ctx) => {
-    const userId = await betterAuthComponent.getAuthUserId(ctx)
+    const userId = await getAuthUserId(ctx)
     if (!userId) return null
     const settings = await ctx.db
       .query('userSettings')
@@ -81,7 +81,7 @@ export const getAppearance = query({
 export const updateAppearance = mutation({
   args: { owner: v.string(), appearance: appearanceValidator },
   handler: async (ctx, { owner, appearance }) => {
-    const userId = await betterAuthComponent.getAuthUserId(ctx)
+    const userId = await getAuthUserId(ctx)
     if (!userId) throw new ConvexError('Not authenticated')
     if (owner !== userId) throw new ConvexError('Signed-in account changed; not saving')
     checkAppearance(appearance)

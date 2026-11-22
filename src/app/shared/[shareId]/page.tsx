@@ -8,12 +8,20 @@ import { models } from '@/lib/models'
 import { Id } from '../../../../convex/_generated/dataModel'
 import { ConvexMessage } from '@/lib/types'
 import { Loader2 } from 'lucide-react'
+import { useSpeechSynthesis } from '@/hooks/useSpeechSynthesis'
 
 export default function SharedChatPage() {
   const params = useParams()
   const shareId = params.shareId as string
 
   const sharedChatData = useQuery(api.chat.queries.getSharedChat, { shareId })
+  const { speak, stop, speakingId } = useSpeechSynthesis()
+
+  // Same behaviour as the chat view: clicking the message being read stops it.
+  const handleReadAloud = (text: string, messageId: string) => {
+    if (speakingId === messageId) stop()
+    else speak(text, undefined, { ownerId: messageId })
+  }
 
   if (sharedChatData === undefined) {
     return (
@@ -55,10 +63,8 @@ export default function SharedChatPage() {
         onCloseRetryDropdown={() => {}}
         onBranch={() => {}}
         isSignedIn={false}
-        speakingMessageId={null}
-        onReadAloud={function (text: string, messageId: string): void {
-          throw new Error('Function not implemented.')
-        }}
+        speakingMessageId={speakingId}
+        onReadAloud={handleReadAloud}
       />
     </div>
   )

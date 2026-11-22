@@ -2,8 +2,7 @@ import { createUploadthing, type FileRouter } from 'uploadthing/next'
 import { UploadThingError } from 'uploadthing/server'
 import { api } from '../../../../convex/_generated/api'
 import { fetchQuery } from 'convex/nextjs'
-import { getToken } from '@convex-dev/better-auth/nextjs'
-import { createAuth } from '../../../../convex/auth'
+import { getToken } from '@/lib/auth-server'
 
 const f = createUploadthing()
 
@@ -13,7 +12,7 @@ export const ourFileRouter = {
   imageUploader: f({ image: { maxFileSize: '4MB' } })
     // Set permissions and file types for this FileRoute
     .middleware(async ({ req }) => {
-      const token = await getToken(createAuth)
+      const token = await getToken()
       const user = await fetchQuery(api.auth.getCurrentUser, {}, { token })
       // If you throw, the user will not be able to upload
       if (!user?.userId) throw new UploadThingError('Unauthorized')
@@ -31,7 +30,7 @@ export const ourFileRouter = {
     }),
   pdfUploader: f({ pdf: { maxFileSize: '16MB' } })
     .middleware(async ({ req }) => {
-      const token = await getToken(createAuth)
+      const token = await getToken()
       const user = await fetchQuery(api.auth.getCurrentUser, {}, { token })
       if (!user?.userId) throw new UploadThingError('Unauthorized')
       return { userId: user.userId }
@@ -45,7 +44,7 @@ export const ourFileRouter = {
     pdf: { maxFileSize: '16MB' },
   })
     .middleware(async ({ req }) => {
-      const token = await getToken(createAuth)
+      const token = await getToken()
       const user = await fetchQuery(api.auth.getCurrentUser, {}, { token })
       if (!user?.userId) throw new UploadThingError('Unauthorized')
       return { userId: user.userId }

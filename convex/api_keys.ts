@@ -2,7 +2,7 @@ import { query, mutation, action, internalMutation, internalQuery, type ActionCt
 import { internal } from './_generated/api'
 import { ConvexError, v, type Infer } from 'convex/values'
 import { Doc, Id } from './_generated/dataModel'
-import { betterAuthComponent } from './auth'
+import { getAuthUserId } from './auth'
 import { DEFAULT_MODEL_ID } from '../src/lib/models'
 
 export const apiKeyServiceValidator = v.union(
@@ -146,7 +146,7 @@ const verifyProviderKey = async (service: ApiKeyService, key: string) => {
 export const getApiKeys = query({
   args: {},
   handler: async (ctx) => {
-    const userId = await betterAuthComponent.getAuthUserId(ctx)
+    const userId = await getAuthUserId(ctx)
     if (!userId) {
       return []
     }
@@ -165,7 +165,7 @@ export const hasApiKeyForProvider = query({
     provider: apiKeyServiceValidator,
   },
   handler: async (ctx, { provider }) => {
-    const userId = await betterAuthComponent.getAuthUserId(ctx)
+    const userId = await getAuthUserId(ctx)
     if (!userId) {
       return false
     }
@@ -192,7 +192,7 @@ export const saveApiKey = action({
     key: v.optional(v.string()),
   },
   handler: async (ctx, { _id, name, service, key }): Promise<null> => {
-    const userId = await betterAuthComponent.getAuthUserId(ctx)
+    const userId = await getAuthUserId(ctx)
     if (!userId) throw new ConvexError('Not authenticated')
 
     const trimmedName = name.trim().slice(0, 100)
@@ -223,7 +223,7 @@ export const saveApiKey = action({
 export const deleteApiKey = mutation({
   args: { _id: v.id('apiKeys') },
   handler: async (ctx, { _id }) => {
-    const userId = await betterAuthComponent.getAuthUserId(ctx)
+    const userId = await getAuthUserId(ctx)
     if (!userId) throw new ConvexError('Not authenticated')
 
     const existingKey = await ctx.db.get(_id)
@@ -252,7 +252,7 @@ export const deleteApiKey = mutation({
 export const setDefaultApiKey = mutation({
   args: { _id: v.id('apiKeys') },
   handler: async (ctx, { _id }) => {
-    const userId = await betterAuthComponent.getAuthUserId(ctx)
+    const userId = await getAuthUserId(ctx)
     if (!userId) throw new ConvexError('Not authenticated')
 
     const targetKey = await ctx.db.get(_id)
@@ -287,7 +287,7 @@ export const storeApiKey = internalMutation({
     keyHint: v.optional(v.string()),
   },
   handler: async (ctx, { _id, name, service, key, keyHint }) => {
-    const userId = await betterAuthComponent.getAuthUserId(ctx)
+    const userId = await getAuthUserId(ctx)
     if (!userId) throw new ConvexError('Not authenticated')
 
     if (_id) {
@@ -326,7 +326,7 @@ export const getStoredDefaultApiKey = internalQuery({
     service: apiKeyServiceValidator,
   },
   handler: async (ctx, { service }) => {
-    const userId = await betterAuthComponent.getAuthUserId(ctx)
+    const userId = await getAuthUserId(ctx)
     if (!userId) {
       return null
     }
@@ -356,7 +356,7 @@ const MAX_DISABLED_MODELS = 500
 export const getDisabledModels = query({
   args: {},
   handler: async (ctx) => {
-    const userId = await betterAuthComponent.getAuthUserId(ctx)
+    const userId = await getAuthUserId(ctx)
     if (!userId) {
       return []
     }
@@ -375,7 +375,7 @@ export const updateDisabledModels = mutation({
     disabledModels: v.array(v.string()),
   },
   handler: async (ctx, { disabledModels }) => {
-    const userId = await betterAuthComponent.getAuthUserId(ctx)
+    const userId = await getAuthUserId(ctx)
     if (!userId) throw new ConvexError('Not authenticated')
 
     if (disabledModels.length > MAX_DISABLED_MODELS || disabledModels.some((id) => id.length > 200)) {
