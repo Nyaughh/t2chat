@@ -274,9 +274,7 @@ export function computeVars(appearance: Appearance): AppearanceVars {
 }
 
 /**
- * The exact domain of every variable this module can generate. The boot script
- * and `varsToCss` accept nothing else, so a tampered or stale stored snapshot can
- * never inject an unknown property, an unregistered font or an out-of-range size.
+ * The exact domain of variables accepted by varsToCss.
  */
 export type VarRules = {
   /** Root-only variables with an enumerated set of allowed values. */
@@ -299,23 +297,21 @@ export const VAR_RULES: VarRules = {
   rose: ROSE_STEPS.map(([step]) => `--color-rose-${step}`),
 }
 
-/* eslint-disable no-var -- ES5 on purpose, see below */
 /**
  * Builds one CSS rule from untrusted entries, keeping only variables in `rules`.
  * `scope` is 'root' (fonts, sizes, density, radius, accent) or 'mode' (palette
- * colors, syntax colors, accent). Deliberately self-contained ES5 with no outside
- * references: its source is embedded verbatim in the pre-paint boot script.
+ * colors, syntax colors, accent).
  */
 export function cssBlock(rules: VarRules, scope: string, selector: string, entries: unknown): string {
   if (!entries || typeof entries !== 'object') return ''
-  var has = Object.prototype.hasOwnProperty
-  var obj = entries as Record<string, unknown>
-  var body = ''
-  for (var k in obj) {
+  const has = Object.prototype.hasOwnProperty
+  const obj = entries as Record<string, unknown>
+  let body = ''
+  for (const k in obj) {
     if (!has.call(obj, k)) continue
-    var v = obj[k]
+    const v = obj[k]
     if (typeof v !== 'string') continue
-    var ok = false
+    let ok = false
     if (rules.rose.indexOf(k) !== -1) {
       ok = /^oklch\((?:0|1|0\.\d{1,3}) (?:0|0\.\d{1,3}) \d{1,3}(?:\.\d{1,2})?\)$/.test(v)
     } else if (scope === 'mode') {
@@ -329,7 +325,6 @@ export function cssBlock(rules: VarRules, scope: string, selector: string, entri
   }
   return body ? selector + '{' + body + '}' : ''
 }
-/* eslint-enable no-var */
 
 export function varsToCss(vars: AppearanceVars): string {
   // Doubled/compound selectors outrank globals.css's `:root` and `.dark` regardless of order.
@@ -341,15 +336,8 @@ export function varsToCss(vars: AppearanceVars): string {
 }
 
 export const APPEARANCE_STORAGE_KEY = 't2chat-appearance'
-/** Precomputed variables for the pre-paint boot script. */
-export const APPEARANCE_VARS_STORAGE_KEY = 't2chat-appearance-vars'
 export const APPEARANCE_STYLE_ID = 't2chat-appearance'
-
-/** Font stacks for the pre-engine `mainFont` / `codeFont` cookies (their ids are a subset of ours). */
-export const LEGACY_COOKIE_FONTS = {
-  mainFont: Object.fromEntries(FONTS.map((f) => [f.id, f.stack])),
-  codeFont: Object.fromEntries(CODE_FONTS.map((f) => [f.id, f.stack])),
-}
+export const APPEARANCE_BOOT_ID = 't2chat-appearance-boot'
 
 /** Reads the legacy font cookies, keeping only known ids. */
 export function legacyCookieFonts(cookie: string): Partial<Pick<Appearance, 'font' | 'codeFont'>> {
@@ -363,17 +351,3 @@ export function legacyCookieFonts(cookie: string): Partial<Pick<Appearance, 'fon
   }
   return fromLegacySettings(read('mainFont'), read('codeFont'))
 }
-
-/**
- * Runs in <head> before first paint, so a saved theme never flashes the default.
- * Self-contained (it is serialized into the page): it rebuilds the CSS from the
- * stored variables with `cssBlock` and the exact `VAR_RULES` domains. With no
- * stored snapshot yet, it applies the legacy font cookies (allowlisted ids only).
- */
-export const APPEARANCE_BOOT_SCRIPT = `(function(){try{var R=${JSON.stringify(VAR_RULES)};var B=(${cssBlock.toString()});var css='';var raw=localStorage.getItem(${JSON.stringify(
-  APPEARANCE_VARS_STORAGE_KEY,
-)});if(raw&&raw.length<65536){var v=JSON.parse(raw);css=B(R,'root',':root:root',v&&v.root)+B(R,'mode',':root:not(.dark)',v&&v.light)+B(R,'mode',':root.dark',v&&v.dark)}else{var L=${JSON.stringify(
-  LEGACY_COOKIE_FONTS,
-)};var c=document.cookie,e={};var g=function(n){var m=new RegExp('(?:^|; )'+n+'=([^;]*)').exec(c);try{return m?decodeURIComponent(m[1]):null}catch(x){return null}};var a=g('mainFont'),b=g('codeFont');if(a&&Object.prototype.hasOwnProperty.call(L.mainFont,a))e['--app-font-sans']=L.mainFont[a];if(b&&Object.prototype.hasOwnProperty.call(L.codeFont,b))e['--app-font-mono']=L.codeFont[b];css=B(R,'root',':root:root',e)}if(!css)return;var el=document.createElement('style');el.id=${JSON.stringify(
-  APPEARANCE_STYLE_ID,
-)};el.textContent=css;document.head.appendChild(el)}catch(e){}})()`

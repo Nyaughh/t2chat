@@ -4,22 +4,20 @@ import { useEffect, useRef, useSyncExternalStore } from 'react'
 import { ErrorBoundary } from 'react-error-boundary'
 import { useConvexAuth, useMutation, useQuery } from 'convex/react'
 import { api } from '../../../convex/_generated/api'
-import { fromLegacySettings, sanitizeAppearance, type Appearance } from '@/lib/theme/appearance'
+import type { Appearance } from '@/lib/theme/appearance'
 import {
   APPEARANCE_STORAGE_KEYS,
-  applyAppearance,
-  getAccountCopy,
+  applyInitialAppearance,
   getActiveOwner,
   getAppearanceSnapshot,
-  getGuestAppearance,
   getServerAppearanceSnapshot,
+  reconcileAccount,
   reloadFromStorage,
   showAccount,
   showGuest,
   subscribeAppearance,
   updateAppearance,
 } from '@/lib/theme/store'
-import { reconcile } from '@/lib/theme/sync'
 
 /** Current appearance preferences, and a setter that applies + persists them. */
 export function useAppearance(): [Appearance, typeof updateAppearance] {
@@ -35,9 +33,9 @@ const SAVE_DELAY_MS = 600
  * - Convex for signed-in users, scoped to the account that owns each copy.
  */
 export function AppearanceProvider({ children }: { children: React.ReactNode }) {
-  // Re-apply on mount: the boot script's snapshot may predate this build.
+  // Initialize the hydrated store with the same selection used for first paint.
   useEffect(() => {
-    applyAppearance(getAppearanceSnapshot())
+    applyInitialAppearance()
     const onStorage = (e: StorageEvent) => {
       if (e.key && APPEARANCE_STORAGE_KEYS.includes(e.key)) reloadFromStorage()
     }
@@ -95,13 +93,7 @@ function AppearanceSync() {
     if (!isAuthenticated || !remote) return
     const { userId } = remote
     if (synced.current?.owner !== userId) cancelPending()
-    const result = reconcile({
-      userId,
-      account: getAccountCopy(),
-      guest: getGuestAppearance(),
-      server: remote.appearance ? sanitizeAppearance(remote.appearance) : null,
-      legacy: fromLegacySettings(remote.legacy.mainFont, remote.legacy.codeFont),
-    })
+    const result = reconcileAccount(remote)
     synced.current = { owner: userId, at: result.push ? -1 : result.appearance.updatedAt }
     showAccount(userId, result.appearance)
     if (result.push) push(userId, result.appearance)

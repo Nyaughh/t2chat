@@ -3,23 +3,26 @@
  *
  * The device keeps a guest copy (shown when signed out) and one account copy
  * tagged with the account that owns it (see sync.ts). Whichever is active is
- * applied live by rewriting one <style> element, and its variables are cached
- * for the pre-paint boot script. AppearanceProvider decides which copy is
- * active from the auth state and mirrors account copies to Convex.
+ * applied before paint and on live changes by rewriting one <style> element.
  */
 
 import {
+  APPEARANCE_BOOT_ID,
   APPEARANCE_STORAGE_KEY,
   APPEARANCE_STYLE_ID,
-  APPEARANCE_VARS_STORAGE_KEY,
   DEFAULT_APPEARANCE,
   computeVars,
+  fromLegacySettings,
   legacyCookieFonts,
   sanitizeAppearance,
   varsToCss,
   type Appearance,
 } from './appearance'
-import type { AccountCopy } from './sync'
+import { reconcile, type AccountCopy } from './sync'
+import type { FunctionReturnType } from 'convex/server'
+import type { api } from '../../../convex/_generated/api'
+
+type RemoteAppearance = NonNullable<FunctionReturnType<typeof api.appearance.getAppearance>>
 
 /** The account copy and which copy is active. (The guest copy keeps the original key.) */
 export const APPEARANCE_ACCOUNT_STORAGE_KEY = 't2chat-appearance-account'
@@ -103,7 +106,7 @@ export const getGuestAppearance = () => current().guest
 export const getAccountCopy = () => current().account
 export const getActiveOwner = () => current().active
 
-/** Writes the variables to the page (and the boot-script snapshot). */
+/** Writes the variables to the page. */
 export function applyAppearance(appearance: Appearance) {
   if (typeof document === 'undefined') return
   const vars = computeVars(appearance)
@@ -115,7 +118,31 @@ export function applyAppearance(appearance: Appearance) {
     document.head.appendChild(el)
   }
   if (el.textContent !== css) el.textContent = css
-  write(APPEARANCE_VARS_STORAGE_KEY, vars)
+}
+
+export function reconcileAccount(remote: RemoteAppearance) {
+  return reconcile({
+    userId: remote.userId,
+    account: getAccountCopy(),
+    guest: getGuestAppearance(),
+    server: remote.appearance ? sanitizeAppearance(remote.appearance) : null,
+    legacy: fromLegacySettings(remote.legacy.mainFont, remote.legacy.codeFont),
+  })
+}
+
+/** Used by both the blocking head script and the hydrated store. An absent
+ * attribute means the server lookup failed, so keep the last device copy. */
+export function applyInitialAppearance() {
+  const data = document.getElementById(APPEARANCE_BOOT_ID)?.dataset.account
+  if (data) {
+    const remote: RemoteAppearance | null = JSON.parse(data)
+    if (remote) {
+      showAccount(remote.userId, reconcileAccount(remote).appearance)
+      return
+    }
+    showGuest()
+  }
+  applyAppearance(getAppearanceSnapshot())
 }
 
 function display(next: Appearance) {

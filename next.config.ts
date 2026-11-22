@@ -1,4 +1,5 @@
 import path from 'path'
+import { buildSync } from 'esbuild'
 import type { NextConfig } from 'next'
 
 const isDev = process.env.NODE_ENV !== 'production'
@@ -79,6 +80,17 @@ const securityHeaders = [
 ]
 
 const nextConfig: NextConfig = {
+  // Run the same appearance resolver before paint and after hydration.
+  compiler: {
+    defineServer: {
+      APPEARANCE_BOOT_SCRIPT: buildSync({
+        entryPoints: [path.join(__dirname, 'src/lib/theme/boot.ts')],
+        bundle: true,
+        minify: true,
+        write: false,
+      }).outputFiles[0].text,
+    },
+  },
   poweredByHeader: false,
   // A lockfile in a parent directory would otherwise make Next guess the wrong workspace root.
   outputFileTracingRoot: path.resolve(__dirname),
