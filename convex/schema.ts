@@ -31,7 +31,7 @@ export default defineSchema({
       ),
     ),
     sendBehavior: v.optional(v.union(v.literal('enter'), v.literal('shiftEnter'), v.literal('button'))),
-    autoSave: v.optional(v.boolean()),
+    autoSave: v.optional(v.boolean()), // Deprecated. Existing settings may contain this field.
     showTimestamps: v.optional(v.boolean()),
     disabledModels: v.optional(v.array(v.string())), // Array of disabled model IDs
     appearance: v.optional(appearanceValidator), // Theme, fonts, sizes (convex/appearance.ts)

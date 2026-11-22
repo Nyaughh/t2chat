@@ -281,7 +281,7 @@ T2Chat supports extensive customization:
 - **Fonts and sizes**: Interface and code fonts, interface size (87.5–125%) and code size, applied live
 - Appearance settings apply instantly, are stored on the device (no flash of the wrong theme on load) and sync to your account when signed in. The engine lives in `src/lib/theme/`
 - **User Profile**: Set your name, role, and personality traits
-- **Behavior**: Configure send behavior (Enter vs Ctrl+Enter) and auto-save
+- **Behavior**: Choose how to send messages
 - **Speech**: Read-aloud engine (on-device, Gemini cloud or system voices) and voice selection. The on-device model is downloaded once, after the user agrees, and saved in the browser
 
 ## 📁 Project Structure

@@ -23,12 +23,12 @@ export const updateUserSettings = mutation({
       ),
     ),
     sendBehavior: v.optional(v.union(v.literal('enter'), v.literal('shiftEnter'), v.literal('button'))),
-    autoSave: v.optional(v.boolean()),
+    autoSave: v.optional(v.boolean()), // Deprecated. Older clients may still send this field.
     showTimestamps: v.optional(v.boolean()),
     uploadthing_key: v.optional(v.string()),
     tavily_key: v.optional(v.string()),
   },
-  handler: async (ctx, args) => {
+  handler: async (ctx, { autoSave: _autoSave, ...args }) => {
     const userId = await betterAuthComponent.getAuthUserId(ctx)
     if (!userId) {
       throw new Error('Not authenticated')

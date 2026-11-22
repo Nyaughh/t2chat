@@ -22,7 +22,6 @@ export type CustomizationState = {
   /** Legacy: see `mainFont`. */
   codeFont: 'fira-code' | 'mono' | 'consolas' | 'jetbrains' | 'source-code-pro'
   sendBehavior: 'enter' | 'shiftEnter' | 'button'
-  autoSave: boolean
   showTimestamps: boolean
 }
 
@@ -36,7 +35,6 @@ const profileFields = (c: CustomizationState): ProfileFields => ({
   userAdditionalInfo: c.userAdditionalInfo,
   promptTemplate: c.promptTemplate,
   sendBehavior: c.sendBehavior,
-  autoSave: c.autoSave,
   showTimestamps: c.showTimestamps,
 })
 
@@ -245,9 +243,6 @@ export function CustomizeSettings({ customization }: { customization: Customizat
             ]}
             onChange={(v) => handleChange('sendBehavior', v)}
           />
-        </Row>
-        <Row label="Auto-save conversations" description="Automatically save chat history." htmlFor="autoSave">
-          <Switch id="autoSave" checked={local.autoSave} onCheckedChange={(checked) => handleChange('autoSave', checked)} />
         </Row>
         <Row label="Show message timestamps" description="Display the time for each message." htmlFor="showTimestamps">
           <Switch

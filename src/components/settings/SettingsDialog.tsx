@@ -212,7 +212,6 @@ function SettingsPanes({
       mainFont: userSettings?.mainFont ?? 'inter',
       codeFont: userSettings?.codeFont ?? 'fira-code',
       sendBehavior: userSettings?.sendBehavior ?? 'enter',
-      autoSave: userSettings?.autoSave ?? true,
       showTimestamps: userSettings?.showTimestamps ?? true,
     }),
     [userSettings],
