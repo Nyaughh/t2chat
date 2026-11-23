@@ -1,6 +1,8 @@
 'use client'
 
 import { useCallback, useEffect, useState, useSyncExternalStore } from 'react'
+import { useConvexAuth, useQuery } from 'convex/react'
+import { api } from '../../convex/_generated/api'
 import {
   getSpeechState,
   speak as speakText,
@@ -16,6 +18,7 @@ import {
   getEngine,
   getVoiceFor,
   setEngine as saveEngine,
+  setGeminiAvailable,
   setVoiceFor,
   type TtsEngine,
 } from '@/lib/tts/voices'
@@ -65,6 +68,12 @@ export function useSpeechSynthesis() {
   const [selectedVoice, setSelectedVoice] = useState<string | null>(null)
   const prefsVersion = usePrefsVersion()
   const speech = useSyncExternalStore(subscribeSpeech, getSpeechState, () => IDLE_STATE)
+
+  // Gemini voices need the user's own saved Gemini key.
+  const { isAuthenticated } = useConvexAuth()
+  const hasGeminiKey = useQuery(api.api_keys.hasApiKeyForProvider, isAuthenticated ? { provider: 'gemini' } : 'skip')
+  const geminiAvailable = isAuthenticated && hasGeminiKey === true
+  useEffect(() => setGeminiAvailable(geminiAvailable), [geminiAvailable])
 
   useEffect(() => {
     const synth = typeof window !== 'undefined' ? window.speechSynthesis : undefined
@@ -117,5 +126,7 @@ export function useSpeechSynthesis() {
     setEngine: saveEngine,
     engineVoice: getVoiceFor(engine),
     setEngineVoice: setVoiceFor,
+    /** Whether the user has a saved Gemini key, which Gemini voices require. */
+    geminiAvailable,
   }
 }

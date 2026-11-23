@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Check, Cloud, Cpu, Download, Loader2, MonitorSpeaker, Play, RotateCcw, Square } from 'lucide-react'
 import { useSpeechSynthesis } from '@/hooks/useSpeechSynthesis'
 import { useAuth } from '@/hooks/useAuth'
+import { useSettingsDialog } from './SettingsDialogProvider'
 import { Button } from '@/components/ui/button'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Label } from '@/components/ui/label'
@@ -175,8 +176,10 @@ export default function SpeechSettings() {
     setEngine,
     engineVoice,
     setEngineVoice,
+    geminiAvailable,
   } = useSpeechSynthesis()
   const { isSignedIn } = useAuth()
+  const { openSettings } = useSettingsDialog()
 
   // System voices: English only, Google voices first
   const systemVoices: VoiceOption[] = useMemo(
@@ -260,7 +263,8 @@ export default function SpeechSettings() {
           <SettingsCard>
             {ENGINES.map((option) => {
               const Icon = ENGINE_ICONS[option.id]
-              const locked = option.id === 'gemini' && !isSignedIn
+              // Gemini voices use only the user's own saved Gemini key.
+              const locked = option.id === 'gemini' && !geminiAvailable
               return (
                 <div key={option.id} className={cn(rowClass, 'items-start py-2.5', locked && 'opacity-60')}>
                   <RadioGroupItem value={option.id} id={`engine-${option.id}`} disabled={locked} className="mt-0.5" />
@@ -275,9 +279,18 @@ export default function SpeechSettings() {
                         {option.id === 'local' && <Badge>Recommended</Badge>}
                       </span>
                       <span className="text-xs leading-relaxed text-muted-foreground">
-                        {locked ? 'Sign in to use Gemini voices.' : option.description}
+                        {!locked
+                          ? option.description
+                          : isSignedIn
+                            ? 'Uses your own Gemini API key. Add one to turn on Gemini voices.'
+                            : 'Sign in and add your Gemini API key to use Gemini voices.'}
                       </span>
                     </Label>
+                    {locked && isSignedIn && (
+                      <button type="button" className={cn(linkButton, 'mt-1')} onClick={() => openSettings('keys')}>
+                        Add a Gemini key in API Keys
+                      </button>
+                    )}
                     {option.id === 'local' && <LocalModelStatus />}
                   </div>
                 </div>

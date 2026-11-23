@@ -21,7 +21,7 @@ export const ENGINES: { id: TtsEngine; name: string; description: string }[] = [
   {
     id: 'gemini',
     name: 'Gemini voices (cloud)',
-    description: 'Studio-quality voices from Google Gemini. Requires sign-in, and takes a few seconds to start.',
+    description: 'Studio-quality voices from Google Gemini, using your own Gemini API key. Takes a few seconds to start.',
   },
   {
     id: 'browser',
@@ -88,9 +88,22 @@ const write = (key: string, value: string) => {
 
 export const PREFS_EVENT = 'tts-prefs-changed'
 
+// Gemini voices only use the user's own saved Gemini key (never a server key).
+// Until a key is known to exist, a saved Gemini choice reads on-device instead;
+// the choice itself is kept, so it comes back once a key is added.
+let geminiAvailable = false
+export const isGeminiAvailable = () => geminiAvailable
+export const setGeminiAvailable = (available: boolean) => {
+  if (geminiAvailable === available) return
+  geminiAvailable = available
+  window.dispatchEvent(new CustomEvent(PREFS_EVENT, { detail: 'geminiAvailable' }))
+}
+
+/** The engine to read with: the saved choice, minus Gemini when it isn't available. */
 export const getEngine = (): TtsEngine => {
   const stored = read(ENGINE_STORAGE_KEY)
-  return stored === 'local' || stored === 'gemini' || stored === 'browser' ? stored : DEFAULT_ENGINE
+  const engine = stored === 'local' || stored === 'gemini' || stored === 'browser' ? stored : DEFAULT_ENGINE
+  return engine === 'gemini' && !geminiAvailable ? 'local' : engine
 }
 export const setEngine = (engine: TtsEngine) => write(ENGINE_STORAGE_KEY, engine)
 

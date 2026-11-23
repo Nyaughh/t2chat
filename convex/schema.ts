@@ -53,6 +53,12 @@ export default defineSchema({
     is_default: v.optional(v.boolean()),
   }).index('by_user_and_service', ['userId', 'service']),
 
+  // Gemini read-aloud usage per user, for the /tts rate limits (recent requests only).
+  ttsUsage: defineTable({
+    userId: v.id('users'),
+    requests: v.array(v.object({ at: v.number(), chars: v.number() })),
+  }).index('by_user', ['userId']),
+
   chats: defineTable({
     userId: v.id('users'),
     title: v.string(),
