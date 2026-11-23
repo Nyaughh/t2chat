@@ -7,11 +7,13 @@ import {
   IMAGE_GENERATION_MODEL_ID,
   getProviderDisplayName,
   groqReasoningOptions,
+  openaiReasoningEffort,
 } from '../../src/lib/models'
+import { serverKeyEnvVar } from '../../src/lib/serverQuota'
 import { streamText, tool, ModelMessage, isStepCount, type LanguageModel, type ToolSet } from 'ai'
 import { createGoogleGenerativeAI, type GoogleLanguageModelOptions } from '@ai-sdk/google'
 import { createAnthropic, type AnthropicLanguageModelOptions } from '@ai-sdk/anthropic'
-import { createOpenAI } from '@ai-sdk/openai'
+import { createOpenAI, type OpenAILanguageModelResponsesOptions } from '@ai-sdk/openai'
 import { createOpenRouter } from '@openrouter/ai-sdk-provider'
 import { createGroq } from '@ai-sdk/groq'
 import { z } from 'zod'
@@ -38,42 +40,47 @@ export const mapModel = (modelId: string) => {
   }
 }
 
-/**
- * Creates the language model for a catalog entry. Gemini, Groq and OpenRouter
- * fall back to the server keys; Anthropic and OpenAI need the user's own key.
- */
-const createLanguageModel = async (ctx: any, model: ModelInfo): Promise<LanguageModel> => {
-  const requireUserKey = (key: string | null) => {
-    if (!key) {
-      throw new ConvexError(
-        `${model.name} needs your own ${getProviderDisplayName(model.provider)} API key. Add one in Settings → Models & Keys.`,
-      )
-    }
-    return key
-  }
-
+const buildLanguageModel = (model: ModelInfo, apiKey: string): LanguageModel => {
   switch (model.provider) {
-    case 'gemini': {
-      const apiKey = (await getUserApiKey(ctx, 'gemini')) ?? process.env.GEMINI_API_KEY
+    case 'gemini':
       return createGoogleGenerativeAI({ apiKey })(model.id)
-    }
-    case 'groq': {
-      const apiKey = (await getUserApiKey(ctx, 'groq')) ?? process.env.GROQ_API_KEY
+    case 'groq':
       return createGroq({ apiKey })(model.id)
-    }
-    case 'openrouter': {
-      const apiKey = (await getUserApiKey(ctx, 'openrouter')) ?? process.env.OPENROUTER_API_KEY
+    case 'openrouter':
       return createOpenRouter({ apiKey })(model.id, { extraBody: { transforms: ['middle-out'] } })
-    }
-    case 'anthropic': {
-      const apiKey = requireUserKey(await getUserApiKey(ctx, 'anthropic'))
+    case 'anthropic':
       return createAnthropic({ apiKey })(model.id)
-    }
-    case 'openai': {
-      const apiKey = requireUserKey(await getUserApiKey(ctx, 'openai'))
+    case 'openai':
       return createOpenAI({ apiKey })(model.id)
-    }
   }
+}
+
+/**
+ * Creates the language model for a catalog entry. The user's own key for the provider always wins
+ * (no server limits). Otherwise only free models run, on the server key and within the server
+ * limits (convex/serverQuota.ts); every other model needs the user's own key.
+ */
+const createLanguageModel = async (ctx: any, model: ModelInfo): Promise<{ model: LanguageModel; serverKey: boolean }> => {
+  const userKey = await getUserApiKey(ctx, model.provider)
+  if (userKey) return { model: buildLanguageModel(model, userKey), serverKey: false }
+
+  const providerName = getProviderDisplayName(model.provider)
+  const envVar = serverKeyEnvVar(model)
+  if (!envVar) {
+    throw new ConvexError(`${model.name} needs your own ${providerName} API key. Add one in Settings → Models & Keys.`)
+  }
+  const serverKey = process.env[envVar]
+  if (!serverKey) throw new ConvexError(`${model.name} isn't available right now. Please pick another model.`)
+
+  const status = await ctx.runMutation(api.serverQuota.consumeForUser, { modelId: model.id })
+  if (!status.available) {
+    throw new ConvexError(
+      status.reason === 'cooldown'
+        ? `${model.name} is busy right now. Try again in a few minutes or pick another model.`
+        : `You've reached today's free limit for ${model.name}. Pick another model, or add your own ${providerName} API key in Settings → Models & Keys.`,
+    )
+  }
+  return { model: buildLanguageModel(model, serverKey), serverKey: true }
 }
 
 /** Provider options that make reasoning visible for "thinking" models. */
@@ -93,8 +100,11 @@ const reasoningProviderOptions = (model: ModelInfo, thinking: boolean): Provider
             } satisfies AnthropicLanguageModelOptions,
           }
         : undefined
-    case 'openai':
+    case 'openai': {
+      const reasoningEffort = openaiReasoningEffort(model)
+      if (reasoningEffort) return { openai: { reasoningEffort } satisfies OpenAILanguageModelResponsesOptions }
       return thinking ? { openai: { reasoningSummary: 'auto' } } : undefined
+    }
     case 'groq': {
       const groq = thinking ? groqReasoningOptions(model) : undefined
       return groq ? { groq } : undefined
@@ -119,8 +129,9 @@ export const generateAIResponse = async (
   }
 
   let aiModel: LanguageModel
+  let usesServerKey = false
   try {
-    aiModel = await createLanguageModel(ctx, model)
+    ;({ model: aiModel, serverKey: usesServerKey } = await createLanguageModel(ctx, model))
   } catch (error) {
     if (!(error instanceof ConvexError)) throw error
     // Missing or unreadable user key: explain it in the chat instead of failing silently
@@ -539,6 +550,14 @@ export const generateAIResponse = async (
   } else if (outcome.kind === 'error') {
     // Log controlled fields only: the provider's error text can echo request details
     console.error('Model stream error:', describeProviderError({ provider, model: model.id }, outcome.error))
+    // The server key hit the provider's rate limit or quota: hide the model for a while
+    if (usesServerKey && providerErrorStatus(outcome.error) === 429) {
+      try {
+        await ctx.runMutation(internal.serverQuota.startProviderCooldown, { modelId: model.id })
+      } catch (cooldownError) {
+        console.warn('Failed to record provider cooldown:', cooldownError)
+      }
+    }
     await finalize({ content: withErrorNote(outcome.error) })
   } else {
     // The stream ended without a finish event

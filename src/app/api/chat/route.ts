@@ -1,28 +1,30 @@
 import { streamText, type LanguageModel, type ModelMessage } from 'ai'
 import { createGoogleGenerativeAI } from '@ai-sdk/google'
 import { createGroq } from '@ai-sdk/groq'
-import { createOpenRouter } from '@openrouter/ai-sdk-provider'
+import { createOpenAI } from '@ai-sdk/openai'
 
-import { models, DEFAULT_MODEL_ID, getProviderDisplayName, groqReasoningOptions, type ModelInfo } from '@/lib/models'
-import { describeProviderError, userFacingProviderError } from '@/lib/provider-errors'
+import {
+  models,
+  DEFAULT_MODEL_ID,
+  getProviderDisplayName,
+  groqReasoningOptions,
+  openaiReasoningEffort,
+  type ModelInfo,
+} from '@/lib/models'
+import { describeProviderError, providerErrorStatus, userFacingProviderError } from '@/lib/provider-errors'
+import { serverKeyEnvVar } from '@/lib/serverQuota'
+import { clientIp, consumeServerQuota, hasServerKey, reportProviderLimit } from '@/lib/server-quota-client'
+import { getToken } from '@/lib/auth-server'
 import { basePersonality } from '../../../../prompts/base'
 
 export const maxDuration = 30
 
-// This route has no access to a user's own keys, so it only serves models that
-// run on the server's Gemini, Groq and OpenRouter keys. Anthropic and OpenAI
-// models go through the signed-in Convex chat flow instead.
-const google = createGoogleGenerativeAI({
-  apiKey: process.env.GEMINI_API_KEY,
-})
-
-const groq = createGroq({
-  apiKey: process.env.GROQ_API_KEY,
-})
-
-const openrouter = createOpenRouter({
-  apiKey: process.env.OPENROUTER_API_KEY,
-})
+// This route has no access to a user's own keys, so it only serves the free models that run on the
+// server's keys (GEMINI_API_KEY, GROQ_API_KEY, OPENAI_API_KEY), within the usage limits in Convex.
+// Every other model goes through the signed-in Convex chat flow with the user's own key.
+const google = createGoogleGenerativeAI({ apiKey: process.env.GEMINI_API_KEY })
+const groq = createGroq({ apiKey: process.env.GROQ_API_KEY })
+const openai = createOpenAI({ apiKey: process.env.OPENAI_API_KEY })
 
 interface UserSettings {
   userName?: string
@@ -59,18 +61,33 @@ const mapModel = (
 ): { info: ModelInfo; model: LanguageModel; thinking: boolean } | { error: string } => {
   const info = models.find((m) => m.id === modelId) ?? defaultModel
 
+  if (!serverKeyEnvVar(info)) {
+    return {
+      error: `${info.name} needs your own ${getProviderDisplayName(info.provider)} API key. Sign in and add one in Settings → Models & Keys, or pick a free model.`,
+    }
+  }
+  if (!hasServerKey(info.id)) return { error: `${info.name} isn't available right now. Please pick another model.` }
+
   switch (info.provider) {
     case 'gemini':
       return { info, model: google(info.id), thinking: !!info.supportsThinking }
     case 'groq':
       return { info, model: groq(info.id), thinking: !!info.supportsThinking }
-    case 'openrouter':
-      return { info, model: openrouter(info.id), thinking: false }
+    case 'openai':
+      return { info, model: openai(info.id), thinking: false }
     default:
-      return {
-        error: `${info.name} needs your own ${getProviderDisplayName(info.provider)} API key and isn't available here. Choose a Gemini, Groq or OpenRouter model instead.`,
-      }
+      return { error: `${info.name} isn't available here. Please pick another model.` }
   }
+}
+
+type ProviderOptions = Parameters<typeof streamText>[0]['providerOptions']
+
+const providerOptionsFor = (info: ModelInfo, thinking: boolean): ProviderOptions => {
+  const reasoningEffort = info.provider === 'openai' ? openaiReasoningEffort(info) : undefined
+  if (reasoningEffort) return { openai: { reasoningEffort } }
+  if (thinking && info.provider === 'gemini') return { google: { thinkingConfig: { includeThoughts: true } } }
+  const groqOptions = thinking ? groqReasoningOptions(info) : undefined
+  return groqOptions ? { groq: groqOptions } : undefined
 }
 
 // Same line format as the AI SDK v4 data stream ("2:" data parts), which
@@ -98,16 +115,23 @@ export async function POST(req: Request) {
     }
     const { info, model, thinking } = mapped
 
+    // Usage limits (Convex): signed-in callers by account, guests by IP
+    const quota = await consumeServerQuota(info.id, { token: await getToken().catch(() => undefined), ip: clientIp(req.headers) })
+    if (!quota.available) {
+      const message =
+        quota.reason === 'cooldown'
+          ? `${info.name} is busy right now. Try again in a few minutes or pick another model.`
+          : quota.reason === 'no-key'
+            ? `${info.name} isn't available right now. Please pick another model.`
+            : `You've reached today's free limit for ${info.name}. Pick another model, or sign in and add your own ${getProviderDisplayName(info.provider)} API key.`
+      return new Response(dataLine('error', message), { status: 200, headers: streamHeaders })
+    }
+
     const { stream } = streamText({
       instructions: buildPersonalizedSystemPrompt(userSettings),
       model,
       messages,
-      providerOptions:
-        thinking && info.provider === 'gemini'
-          ? { google: { thinkingConfig: { includeThoughts: true } } }
-          : thinking && groqReasoningOptions(info)
-            ? { groq: groqReasoningOptions(info)! }
-            : undefined,
+      providerOptions: providerOptionsFor(info, thinking),
       abortSignal: req.signal,
       // Errors are forwarded to the client in the stream loop below
       onError: () => {},
@@ -143,6 +167,7 @@ export async function POST(req: Request) {
                 }),
               )
             } else if (chunk.type === 'error') {
+              if (providerErrorStatus(chunk.error) === 429) await reportProviderLimit(info.id)
               // Never forward or log the provider's own error text (it can echo request details)
               console.error(
                 'Chat API stream error:',
@@ -158,6 +183,7 @@ export async function POST(req: Request) {
           }
         } catch (error) {
           if (!req.signal.aborted) {
+            if (providerErrorStatus(error) === 429) await reportProviderLimit(info.id)
             console.error(
               'Chat API stream error:',
               describeProviderError({ provider: info.provider, model: info.id }, error),

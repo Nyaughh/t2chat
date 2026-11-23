@@ -5,11 +5,14 @@ export type ModelProvider = 'gemini' | 'openrouter' | 'groq' | 'anthropic' | 'op
 /** Providers whose models only run on the user's own API key (there is no server key for them). */
 export const USER_KEY_ONLY_PROVIDERS: readonly ModelProvider[] = ['anthropic', 'openai']
 
-/** Providers whose models are only offered to users who added their own key for that provider. */
+/**
+ * Providers whose models are only offered to users who added their own key for that provider,
+ * except models marked `isFree`, which run on the server key (with usage limits) for everyone.
+ */
 const KEY_GATED_PROVIDERS: readonly ModelProvider[] = ['openrouter', ...USER_KEY_ONLY_PROVIDERS]
 
-/** Free model every visitor (signed in or not) can use. It can't be disabled. */
-export const DEFAULT_MODEL_ID = 'gemini-3.5-flash-lite'
+/** Free model every visitor (signed in or not) gets by default, on the server key with usage limits. */
+export const DEFAULT_MODEL_ID = 'gpt-6-luna'
 
 /** Server-side model used for chat title generation. */
 export const TITLE_MODEL_ID = 'gemini-3.5-flash-lite'
@@ -46,7 +49,15 @@ export interface ModelInfo {
   }
   isApiKeyOnly?: boolean
   toolCalls?: boolean
+  /** Runs on the server's key for everyone (rate limited) unless the user has their own key. */
   isFree?: boolean
+}
+
+/** Server env var holding the shared key for each provider that has one (never sent to clients). */
+export const SERVER_KEY_ENV_VARS: Partial<Record<ModelProvider, 'GEMINI_API_KEY' | 'GROQ_API_KEY' | 'OPENAI_API_KEY'>> = {
+  gemini: 'GEMINI_API_KEY',
+  groq: 'GROQ_API_KEY',
+  openai: 'OPENAI_API_KEY',
 }
 
 const allAttachments = { pdf: true, image: true }
@@ -54,6 +65,21 @@ const imageOnly = { pdf: false, image: true }
 const noAttachments = { pdf: false, image: false }
 
 const modelList: ModelInfo[] = [
+  // Default: server OpenAI key (rate limited), or the user's own OpenAI key when they add one
+  {
+    id: 'gpt-6-luna',
+    name: 'GPT-6 Luna',
+    description: 'Fast everyday model, free with daily limits',
+    provider: 'openai',
+    vendor: 'openai',
+    features: ['vision', 'web', 'code'],
+    supportsThinking: false,
+    unauthenticated: true,
+    attachmentsSuppport: allAttachments,
+    toolCalls: true,
+    isFree: true,
+  },
+
   // Gemini: server key, or the user's own Gemini key when they add one
   {
     id: 'gemini-3.5-flash-lite',
@@ -77,6 +103,34 @@ const modelList: ModelInfo[] = [
     features: ['vision', 'web', 'code', 'imagegen'],
     isNew: true,
     supportsThinking: false,
+    isApiKeyOnly: true,
+    attachmentsSuppport: allAttachments,
+    toolCalls: true,
+  },
+  {
+    id: 'gemini-4-carbon',
+    name: 'Gemini 4 Carbon',
+    description: 'Strongest Gemini reasoning model',
+    provider: 'gemini',
+    vendor: 'google',
+    features: ['vision', 'web', 'code', 'imagegen'],
+    isPro: true,
+    isNew: true,
+    supportsThinking: true,
+    isApiKeyOnly: true,
+    attachmentsSuppport: allAttachments,
+    toolCalls: true,
+  },
+  {
+    id: 'gemini-4-neon',
+    name: 'Gemini 4 Neon',
+    description: 'Frontier Gemini model, fast on long tasks',
+    provider: 'gemini',
+    vendor: 'google',
+    features: ['vision', 'web', 'code', 'imagegen'],
+    isPro: true,
+    isNew: true,
+    supportsThinking: true,
     isApiKeyOnly: true,
     attachmentsSuppport: allAttachments,
     toolCalls: true,
@@ -238,17 +292,6 @@ const modelList: ModelInfo[] = [
     attachmentsSuppport: allAttachments,
     toolCalls: true,
   },
-  {
-    id: 'gpt-6-luna',
-    name: 'GPT-6 Luna',
-    description: 'Uses your OpenAI key. Fastest GPT model',
-    provider: 'openai',
-    vendor: 'openai',
-    features: ['vision', 'web', 'code'],
-    supportsThinking: false,
-    attachmentsSuppport: allAttachments,
-    toolCalls: true,
-  },
 
   // OpenRouter: offered to users with their own OpenRouter key (server key is the fallback)
   {
@@ -331,7 +374,7 @@ const modelList: ModelInfo[] = [
 ]
 
 export const models: ModelInfo[] = modelList.map((model) => {
-  const keyGated = KEY_GATED_PROVIDERS.includes(model.provider)
+  const keyGated = KEY_GATED_PROVIDERS.includes(model.provider) && !model.isFree
   return {
     ...model,
     isApiKeyOnly: model.isApiKeyOnly || keyGated,
@@ -348,6 +391,13 @@ export const groqReasoningOptions = (model: ModelInfo) =>
   model.provider === 'groq' && model.supportsThinking && !model.id.startsWith('openai/gpt-oss')
     ? { reasoningFormat: 'parsed' as const, reasoningEffort: 'medium' as const }
     : undefined
+
+/**
+ * Reasoning effort for OpenAI models that should run at the lowest effort the API allows.
+ * GPT-6 Luna supports none/low/medium/high/xhigh/max (developers.openai.com/api/docs/models/gpt-6-luna).
+ */
+export const openaiReasoningEffort = (model: ModelInfo): 'none' | undefined =>
+  model.id === 'gpt-6-luna' ? 'none' : undefined
 
 /**
  * Models voice chat can use. Voice goes through /api/chat, which only has the

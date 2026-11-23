@@ -12,22 +12,34 @@ const errorMessage = (error: unknown, fallback: string) =>
 
 const NO_MODELS: string[] = []
 
-export function ModelsKeysSettings({ apiKeys, view = 'models' }: ModelsKeysSettingsProps) {
+/** An optimistic value that only applies while the server value is the one it was set against. */
+function usePending<T>(serverValue: T) {
+  const [pending, setPending] = useState<{ value: T; base: T } | null>(null)
+  const current = pending && Object.is(pending.base, serverValue) ? pending.value : null
+  const set = (value: T | null) => setPending(value === null ? null : { value, base: serverValue })
+  return [current, set] as const
+}
+
+export function ModelsKeysSettings({ apiKeys, userSettings, view = 'models' }: ModelsKeysSettingsProps) {
   const saveApiKey = useAction(api.api_keys.saveApiKey)
   const deleteApiKey = useMutation(api.api_keys.deleteApiKey)
   const setDefaultApiKey = useMutation(api.api_keys.setDefaultApiKey)
   const updateDisabledModels = useMutation(api.api_keys.updateDisabledModels)
+  const updateModelVisibility = useMutation(api.api_keys.updateModelVisibility)
 
   // Convex returns a stable array until the data changes. The old `|| []` fallback made a new
   // array every render, and an effect keyed on it re-set state forever while the query loaded.
   const serverDisabledModels = useQuery(api.api_keys.getDisabledModels) ?? NO_MODELS
-  // A pending toggle shows immediately; it is cleared once the server list catches up.
-  const [pendingDisabledModels, setPendingDisabledModels] = useState<string[] | null>(null)
-  const disabledModels = pendingDisabledModels ?? serverDisabledModels
+  const serverDisabledProviders = userSettings?.disabledProviders ?? NO_MODELS
+  const serverShowOnlyAvailable = userSettings?.showOnlyAvailableModels ?? false
 
-  React.useEffect(() => {
-    setPendingDisabledModels(null)
-  }, [serverDisabledModels])
+  // A pending toggle shows immediately and is dropped once the server value changes.
+  const [pendingDisabledModels, setPendingDisabledModels] = usePending(serverDisabledModels)
+  const [pendingDisabledProviders, setPendingDisabledProviders] = usePending(serverDisabledProviders)
+  const [pendingShowOnlyAvailable, setPendingShowOnlyAvailable] = usePending(serverShowOnlyAvailable)
+  const disabledModels = pendingDisabledModels ?? serverDisabledModels
+  const disabledProviders = pendingDisabledProviders ?? serverDisabledProviders
+  const showOnlyAvailable = pendingShowOnlyAvailable ?? serverShowOnlyAvailable
 
   const handleSaveApiKey = async ({ _id, name, service, key }: ApiKeyDraft) => {
     try {
@@ -74,8 +86,43 @@ export function ModelsKeysSettings({ apiKeys, view = 'models' }: ModelsKeysSetti
     }
   }
 
+  const handleToggleProvider = async (provider: string, enabled: boolean) => {
+    const next = enabled
+      ? disabledProviders.filter((id) => id !== provider)
+      : [...disabledProviders.filter((id) => id !== provider), provider]
+    setPendingDisabledProviders(next)
+    try {
+      await updateModelVisibility({ disabledProviders: next })
+    } catch (error) {
+      setPendingDisabledProviders(null)
+      toast.error('Could not update your providers. Please try again.')
+      console.error('Failed to update provider settings:', error)
+    }
+  }
+
+  const handleToggleShowOnlyAvailable = async (enabled: boolean) => {
+    setPendingShowOnlyAvailable(enabled)
+    try {
+      await updateModelVisibility({ showOnlyAvailableModels: enabled })
+    } catch (error) {
+      setPendingShowOnlyAvailable(null)
+      toast.error('Could not update your models. Please try again.')
+      console.error('Failed to update model settings:', error)
+    }
+  }
+
   if (view === 'models') {
-    return <ModelManagementSection disabledModels={disabledModels} onToggleModel={handleToggleModel} />
+    return (
+      <ModelManagementSection
+        disabledModels={disabledModels}
+        disabledProviders={disabledProviders}
+        showOnlyAvailable={showOnlyAvailable}
+        keyProviders={apiKeys.map((key) => key.service)}
+        onToggleModel={handleToggleModel}
+        onToggleProvider={handleToggleProvider}
+        onToggleShowOnlyAvailable={handleToggleShowOnlyAvailable}
+      />
+    )
   }
 
   const providers: Array<Omit<LLMProviderKeysSectionProps, 'keys' | 'onSave' | 'onDelete' | 'onSetDefault'>> = [

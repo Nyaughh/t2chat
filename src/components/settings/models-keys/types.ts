@@ -26,7 +26,13 @@ export interface ModelsKeysSettingsProps {
 
 export interface ModelManagementSectionProps {
   disabledModels: string[]
+  disabledProviders: string[]
+  showOnlyAvailable: boolean
+  /** Providers the user has added their own API key for. */
+  keyProviders: string[]
   onToggleModel: (modelId: string, enabled: boolean) => void
+  onToggleProvider: (provider: string, enabled: boolean) => void
+  onToggleShowOnlyAvailable: (enabled: boolean) => void
 }
 
 export interface LLMProviderKeysSectionProps {

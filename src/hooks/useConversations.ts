@@ -37,7 +37,9 @@ import {
   type SendDestination,
 } from '@/lib/local-data-policy'
 import { useLocalOwnership } from './useLocalOwnership'
-import { useQuery } from 'convex/react'
+import { useModelPreferences } from './useModelPreferences'
+import { resolveSelectedModel } from '@/lib/modelPreferences'
+import { useMutation, useQuery } from 'convex/react'
 import { api } from '../../convex/_generated/api'
 
 type ActiveMessage = ClientMessage & { modelId: string; attachments?: any[]; toolCalls?: any[] }
@@ -95,6 +97,25 @@ const reportGuestResult = (result: GuestReplyResult) => {
   else if (result.status === 'rejected') toast.error('This chat is no longer available.')
 }
 
+type ModelPick = { modelId: string; userId: string | null; savedModelId: string | undefined }
+
+// The browser's last-picked model (also the guest's only memory of it), read as an external store.
+const STORED_MODEL_KEY = 'lastUsedModelId'
+const storedModelListeners = new Set<() => void>()
+const subscribeStoredModel = (listener: () => void) => {
+  storedModelListeners.add(listener)
+  window.addEventListener('storage', listener)
+  return () => {
+    storedModelListeners.delete(listener)
+    window.removeEventListener('storage', listener)
+  }
+}
+const readStoredModel = () => localStorage.getItem(STORED_MODEL_KEY)
+const writeStoredModel = (modelId: string) => {
+  localStorage.setItem(STORED_MODEL_KEY, modelId)
+  storedModelListeners.forEach((listener) => listener())
+}
+
 export const useConversations = (
   chatId?: string,
   initialMessages?: ConvexMessage[] | null,
@@ -104,7 +125,11 @@ export const useConversations = (
   const pathname = usePathname()
   const chatIdFromUrl = Array.isArray(chatId) ? chatId[1] : chatId
   const [currentChatId, setCurrentChatId] = useState<string | null>(chatIdFromUrl || null)
-  const [selectedModel, setSelectedModel] = useState<ModelInfo>(models[0])
+  // The model shown in the composer is derived, never stored: an explicit pick this session, else the
+  // signed-in user's saved model (Convex), else the browser's last pick (localStorage, also for guests).
+  // `resolveSelectedModel` falls back when that model is gone, hidden or unusable without saving it.
+  const [pick, setPick] = useState<ModelPick | null>(null)
+  const storedModelId = useSyncExternalStore(subscribeStoredModel, readStoredModel, () => null)
   const [mounted, setMounted] = useState(false)
 
   const {
@@ -121,7 +146,8 @@ export const useConversations = (
   } = useConvexChat(currentChatId ? (currentChatId as Id<'chats'>) : undefined)
 
   const userSettings = useQuery(api.users.getMySettings, isAuthenticated ? {} : 'skip')
-  const disabledModels = useQuery(api.api_keys.getDisabledModels, isAuthenticated ? {} : 'skip') || []
+  const modelPrefs = useModelPreferences()
+  const saveSelectedModel = useMutation(api.api_keys.setSelectedModel)
 
   // The Better Auth session is the verified identity. Its user id is the app
   // `users` id, the same id the server stores in `chats.userId`.
@@ -460,42 +486,36 @@ export const useConversations = (
     return result
   }, [sendGate])
 
-  // This effect correctly sets the displayed model on mount and on auth change
-  // without incorrectly writing to localStorage.
   useEffect(() => {
     setMounted(true)
+  }, [])
 
-    const lastUsedModelId = localStorage.getItem('lastUsedModelId')
-    const availableModels = models.filter((m) => {
-      // Check if model is disabled by user
-      if (isAuthenticated && disabledModels.includes(m.id)) {
-        return false
+  // A pick only counts for the account it was made in, and only until the saved model changes (this
+  // pick reaching the server, or a pick on another device); then the saved value is the source of truth.
+  const savedModelId = modelPrefs.savedModelId
+  const pickedModelId =
+    pick && pick.userId === verifiedUserId && pick.savedModelId === savedModelId ? pick.modelId : null
+  const preferredModelId = pickedModelId ?? savedModelId ?? storedModelId
+  const { isLoading: modelPrefsLoading, prefs: modelPreferences, access: modelAccess } = modelPrefs
+  const selectedModel = useMemo<ModelInfo>(() => {
+    // While settings and keys load, show the preferred model as-is instead of flashing the fallback.
+    if (modelPrefsLoading) return models.find((m) => m.id === preferredModelId) ?? models[0]
+    return resolveSelectedModel(preferredModelId, modelPreferences, modelAccess)
+  }, [preferredModelId, modelPrefsLoading, modelPreferences, modelAccess])
+
+  // Manual model selection: remembered in this browser and, when signed in, on the account.
+  const handleSetSelectedModel = useCallback(
+    (model: ModelInfo) => {
+      writeStoredModel(model.id)
+      setPick({ modelId: model.id, userId: verifiedUserId, savedModelId })
+      if (isAuthenticated) {
+        saveSelectedModel({ modelId: model.id }).catch((error) => {
+          console.error('Failed to save the selected model:', error)
+        })
       }
-      // For unauthenticated users, only show free models
-      if (!isAuthenticated && !m.isFree) {
-        return false
-      }
-      return true
-    })
-
-    // Default to the first available model.
-    let modelToDisplay = availableModels.length > 0 ? availableModels[0] : models[0]
-
-    if (lastUsedModelId) {
-      const preferredModel = models.find((m) => m.id === lastUsedModelId)
-      // Check if the user's preferred model is valid in the current auth context.
-      if (preferredModel && availableModels.some((m) => m.id === preferredModel.id)) {
-        modelToDisplay = preferredModel
-      }
-    }
-    setSelectedModel(modelToDisplay)
-  }, [isAuthenticated, disabledModels])
-
-  // This new function handles manual model selection, saving the user's preference.
-  const handleSetSelectedModel = (model: ModelInfo) => {
-    localStorage.setItem('lastUsedModelId', model.id)
-    setSelectedModel(model)
-  }
+    },
+    [isAuthenticated, saveSelectedModel, verifiedUserId, savedModelId],
+  )
 
   const runGuestReply = useCallback(async (conversationId: string, history: ModelMessage[], modelId: string) => {
     reportGuestResult(await guestReplies.run({ conversationId, history, modelId }))

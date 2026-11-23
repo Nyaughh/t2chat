@@ -1,9 +1,17 @@
-import { query, mutation, action, internalMutation, internalQuery, type ActionCtx } from './_generated/server'
+import {
+  query,
+  mutation,
+  action,
+  internalMutation,
+  internalQuery,
+  type ActionCtx,
+  type MutationCtx,
+} from './_generated/server'
 import { internal } from './_generated/api'
 import { ConvexError, v, type Infer } from 'convex/values'
 import { Doc, Id } from './_generated/dataModel'
 import { getAuthUserId } from './auth'
-import { DEFAULT_MODEL_ID } from '../src/lib/models'
+import { DEFAULT_MODEL_ID, PROVIDER_DISPLAY_NAMES } from '../src/lib/models'
 
 export const apiKeyServiceValidator = v.union(
   v.literal('gemini'),
@@ -398,5 +406,57 @@ export const updateDisabledModels = mutation({
         disabledModels,
       })
     }
+  },
+})
+
+const MAX_MODEL_ID_LENGTH = 200
+
+const patchUserSettings = async (
+  ctx: MutationCtx,
+  userId: Id<'users'>,
+  patch: Partial<Omit<Doc<'userSettings'>, '_id' | '_creationTime' | 'userId'>>,
+) => {
+  const existingSettings = await ctx.db
+    .query('userSettings')
+    .withIndex('by_user', (q) => q.eq('userId', userId))
+    .first()
+  if (existingSettings) {
+    await ctx.db.patch(existingSettings._id, patch)
+  } else {
+    await ctx.db.insert('userSettings', { userId, ...patch })
+  }
+}
+
+/** Provider on/off switches and the "show only available models" switch (Settings → Models). */
+export const updateModelVisibility = mutation({
+  args: {
+    disabledProviders: v.optional(v.array(v.string())),
+    showOnlyAvailableModels: v.optional(v.boolean()),
+  },
+  handler: async (ctx, { disabledProviders, showOnlyAvailableModels }) => {
+    const userId = await getAuthUserId(ctx)
+    if (!userId) throw new ConvexError('Not authenticated')
+
+    const patch: Partial<Doc<'userSettings'>> = {}
+    if (disabledProviders !== undefined) {
+      const known = Object.keys(PROVIDER_DISPLAY_NAMES)
+      patch.disabledProviders = [...new Set(disabledProviders)].filter((provider) => known.includes(provider))
+    }
+    if (showOnlyAvailableModels !== undefined) patch.showOnlyAvailableModels = showOnlyAvailableModels
+    if (Object.keys(patch).length === 0) return
+
+    await patchUserSettings(ctx, userId as Id<'users'>, patch)
+  },
+})
+
+/** Saves the model last picked in the composer so it is restored on reload and other devices. */
+export const setSelectedModel = mutation({
+  args: { modelId: v.string() },
+  handler: async (ctx, { modelId }) => {
+    const userId = await getAuthUserId(ctx)
+    if (!userId) throw new ConvexError('Not authenticated')
+    if (!modelId || modelId.length > MAX_MODEL_ID_LENGTH) throw new ConvexError('Invalid model.')
+
+    await patchUserSettings(ctx, userId as Id<'users'>, { selectedModelId: modelId })
   },
 })

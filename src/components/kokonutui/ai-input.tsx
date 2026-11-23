@@ -7,11 +7,10 @@ import { cn } from '@/lib/utils'
 import { useAutoResizeTextarea } from '@/hooks/resize-textarea'
 import {
   ArrowUpCircle,
-  Paperclip,
+  Check,
   Globe,
   ChevronDown,
   Sparkles,
-  Lightbulb,
   Plus,
   Square,
   X,
@@ -20,7 +19,6 @@ import {
   Upload,
   ArrowUp,
   Mic,
-  Eye,
   Code,
   MountainIcon,
   Phone,
@@ -29,8 +27,8 @@ import {
 } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { getProviderColor, getProviderDisplayName, getVendorColor, ModelInfo, models } from '@/lib/models'
-import { useQuery } from 'convex/react'
-import { api } from '../../../convex/_generated/api'
+import { useModelPreferences } from '@/hooks/useModelPreferences'
+import { getPickerModels, isModelUsable } from '@/lib/modelPreferences'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { buttonVariants } from '@/components/ui/button'
 import { ItemHighlight } from '@/components/ui/item-highlight'
@@ -65,6 +63,20 @@ interface AIInputProps {
   onVoiceChatToggle?: () => void
 }
 
+const PICKER_PROVIDER_ORDER = ['openai', 'anthropic', 'gemini', 'groq', 'openrouter'] as const
+
+/**
+ * What sets a model apart. Most current models handle web search, images and files, so only
+ * reasoning and missing attachment support are worth a label.
+ */
+const modelTraits = (model: ModelInfo): string[] => {
+  const traits: string[] = []
+  if (model.supportsThinking) traits.push('Reasoning')
+  if (!model.attachmentsSuppport.image && !model.attachmentsSuppport.pdf) traits.push('Text only')
+  else if (!model.attachmentsSuppport.pdf) traits.push('No PDFs')
+  return traits
+}
+
 export default function AIInput({
   value,
   onValueChange,
@@ -86,10 +98,8 @@ export default function AIInput({
   onVoiceChatToggle,
 }: AIInputProps) {
   const [showModelSelect, setShowModelSelect] = useState(false)
-  const [thinkingEnabled, setThinkingEnabled] = useState(true)
   const [webSearchEnabled, setWebSearchEnabled] = useState(false)
   const [imageGenEnabled, setImageGenEnabled] = useState(false)
-  const [groupBy, setGroupBy] = useState<'provider' | 'vendor'>('provider')
   const [isDragOver, setIsDragOver] = useState(false)
   const { textareaRef, adjustHeight } = useAutoResizeTextarea({
     minHeight: 40,
@@ -104,11 +114,7 @@ export default function AIInput({
   const recognitionRef = useRef<any>(null)
   const originalTextRef = useRef('')
 
-  const apiKeys = useQuery(api.api_keys.getApiKeys) || []
-  const disabledModels = useQuery(api.api_keys.getDisabledModels) || []
-
-  // Providers the user has added their own API key for
-  const hasKeyForProvider = (provider: ModelInfo['provider']) => apiKeys.some((key) => key.service === provider)
+  const { prefs: modelPrefs, access: modelAccess, isLoading: modelPrefsLoading } = useModelPreferences()
 
   // Speech Recognition setup
   useEffect(() => {
@@ -166,39 +172,18 @@ export default function AIInput({
     setIsListening(!isListening)
   }
 
-  // Function to check if a model is available to the user
-  const isModelAvailable = (model: ModelInfo) => {
-    // Check if model is disabled by user
-    if (disabledModels.includes(model.id)) {
-      return false
-    }
-
-    // If user is not signed in, only free models are available
-    if (!isSignedIn && !model.isFree) {
-      return false
-    }
-
-    // If model requires API key and user doesn't have one for that provider, disable it
-    if (model.isApiKeyOnly) {
-      return hasKeyForProvider(model.provider)
-    }
-
-    return true
-  }
-
-  // Show all models but filter available ones for selection fallback
-  const availableModels = models.filter(isModelAvailable)
+  // Models listed in the picker (Settings → Models decides which are hidden; never empty).
+  const pickerModels = getPickerModels(modelPrefs, modelAccess)
+  const hiddenModelCount =
+    models.length - getPickerModels(modelPrefs, { ...modelAccess, serverUnavailable: [] }).length
+  // While the user's keys load, don't grey out key-only models they may well have a key for.
+  const isModelAvailable = (model: ModelInfo) => modelPrefsLoading || isModelUsable(model, modelAccess)
 
   const supportsAttachments = selectedModel.attachmentsSuppport.image || selectedModel.attachmentsSuppport.pdf
   const maxFiles = 2
 
   // Load UI preferences from localStorage
   useEffect(() => {
-    const savedThinkingEnabled = localStorage.getItem('thinkingEnabled')
-    if (savedThinkingEnabled !== null) {
-      setThinkingEnabled(savedThinkingEnabled === 'true')
-    }
-
     const savedWebSearchEnabled = localStorage.getItem('webSearchEnabled')
     if (savedWebSearchEnabled !== null) {
       setWebSearchEnabled(savedWebSearchEnabled === 'true')
@@ -208,17 +193,7 @@ export default function AIInput({
     if (savedImageGenEnabled !== null) {
       setImageGenEnabled(savedImageGenEnabled === 'true')
     }
-
-    const savedGroupBy = localStorage.getItem('groupBy')
-    if (savedGroupBy === 'provider' || savedGroupBy === 'vendor') {
-      setGroupBy(savedGroupBy)
-    }
   }, [])
-
-  // Save thinking mode preference
-  useEffect(() => {
-    localStorage.setItem('thinkingEnabled', thinkingEnabled.toString())
-  }, [thinkingEnabled])
 
   // Save web search preference
   useEffect(() => {
@@ -229,18 +204,6 @@ export default function AIInput({
   useEffect(() => {
     localStorage.setItem('imageGenEnabled', imageGenEnabled.toString())
   }, [imageGenEnabled])
-
-  // Save groupBy preference
-  useEffect(() => {
-    localStorage.setItem('groupBy', groupBy)
-  }, [groupBy])
-
-  // If selected model is no longer available, switch to a default available one
-  useEffect(() => {
-    if (!isModelAvailable(selectedModel) && availableModels.length > 0) {
-      setSelectedModel(availableModels[0])
-    }
-  }, [selectedModel, availableModels, setSelectedModel])
 
   useEffect(() => {
     adjustHeight()
@@ -324,53 +287,18 @@ export default function AIInput({
     // For 'button', no keyboard shortcut for sending
   }
 
-  // When thinking mode is toggled, ensure selected model is compatible
-  const handleThinkingToggle = (enabled: boolean) => {
-    setThinkingEnabled(enabled)
-
-    // If disabling thinking mode and current model requires thinking,
-    // switch to a model that doesn't require thinking
-    if (!enabled && selectedModel.supportsThinking) {
-      // Find the first model that doesn't require thinking
-      const nonThinkingModel = availableModels.find((m) => !m.supportsThinking)
-      if (nonThinkingModel) {
-        setSelectedModel(nonThinkingModel)
-      }
-    }
-  }
-
-  const groupedModels = models.reduce(
-    (acc, model) => {
-      const groupKey = groupBy === 'provider' ? model.provider : model.vendor
-      if (!acc[groupKey]) {
-        acc[groupKey] = []
-      }
-      acc[groupKey].push(model)
-      return acc
-    },
-    {} as Record<string, ModelInfo[]>,
-  )
-
-  // Sort groups and models within groups
-  const sortedGroupedModels = Object.entries(groupedModels)
-    .sort(([a], [b]) => a.localeCompare(b))
-    .reduce(
-      (acc, [groupKey, groupModels]) => {
-        // Sort models within each group
-        const sortedModels = groupModels.sort((a, b) => {
-          if (groupBy === 'provider') {
-            // When grouped by provider, sort by vendor first, then by name
-            if (a.vendor !== b.vendor) {
-              return a.vendor.localeCompare(b.vendor)
-            }
-          }
-          return a.name.localeCompare(b.name)
-        })
-        acc[groupKey] = sortedModels
-        return acc
-      },
-      {} as Record<string, ModelInfo[]>,
-    )
+  // Free models (server key, daily limits) first, then one group per provider for models that run
+  // on the user's own key. A free model the user has their own key for is listed under its provider.
+  const runsFree = (model: ModelInfo) => !!model.isFree && !modelAccess.keyProviders.includes(model.provider)
+  const pickerGroups = [
+    { key: 'free', label: 'Free', note: 'Daily limits', models: pickerModels.filter(runsFree) },
+    ...PICKER_PROVIDER_ORDER.map((provider) => ({
+      key: provider,
+      label: getProviderDisplayName(provider),
+      note: undefined as string | undefined,
+      models: pickerModels.filter((model) => model.provider === provider && !runsFree(model)),
+    })),
+  ].filter((group) => group.models.length > 0)
 
   return (
     <div className="relative">
@@ -552,7 +480,7 @@ export default function AIInput({
                     >
                       {/* Header */}
                       <div className="flex items-center justify-between px-3 py-2 border-b border-border/70">
-                        <h3 className="text-sm font-semibold text-foreground">Select Model</h3>
+                        <h3 className="text-sm font-medium text-foreground">Model</h3>
                         <button
                           type="button"
                           onClick={() => {
@@ -571,200 +499,84 @@ export default function AIInput({
                         </button>
                       </div>
 
-                      {/* Compact Controls */}
-                      <div className="px-3 py-2 border-b border-border/70">
-                        <div className="flex items-center justify-between gap-3">
-                          {/* Thinking Mode Toggle */}
-                          <div className="flex items-center gap-2">
-                            <Lightbulb className="size-3.5 text-rose-500/70 dark:text-rose-300/70" />
-                            <span className="text-xs text-foreground/80">Thinking</span>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                handleThinkingToggle(!thinkingEnabled)
-                              }}
-                              className={cn(
-                                'relative w-8 h-4 rounded-full transition-colors duration-200 cursor-pointer',
-                                thinkingEnabled ? 'bg-rose-500 dark:bg-rose-400' : 'bg-foreground/15',
-                              )}
-                            >
-                              <div
-                                className={cn(
-                                  'absolute top-0.5 left-0.5 w-3 h-3 bg-white rounded-full transition-transform duration-200',
-                                  thinkingEnabled ? 'translate-x-4' : 'translate-x-0',
-                                )}
-                              />
-                            </button>
-                          </div>
-
-                          {/* Group By Toggle */}
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs text-foreground/80">Group by</span>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                setGroupBy(groupBy === 'provider' ? 'vendor' : 'provider')
-                              }}
-                              className={cn(buttonVariants({ variant: 'default', size: 'sm' }), 'h-6 w-16 px-2 text-xs')}
-                            >
-                              {groupBy === 'provider' ? 'Provider' : 'Vendor'}
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-
                       <div
                         className="max-h-[300px] overflow-y-auto"
                         style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgb(244 63 94 / 0.3) transparent' }}
                       >
-                        {/* Grouped Models */}
-                        {Object.entries(sortedGroupedModels).map(([groupKey, groupModels]) => (
-                          <div
-                            key={groupKey}
-                            className="p-2 border-b border-border/60 last:border-b-0"
-                          >
-                            <div className="flex items-center gap-1.5 mb-1.5">
-                              <div
-                                className={cn(
-                                  'w-2.5 h-2.5 rounded-full bg-gradient-to-r',
-                                  getVendorColor(
-                                    groupBy === 'provider' ? groupModels[0]?.provider || groupKey : groupKey,
-                                  ),
-                                )}
-                              ></div>
-                              <span className="text-xs font-medium text-rose-500/70 dark:text-rose-300/70 capitalize">
-                                {groupBy === 'provider' ? getProviderDisplayName(groupKey) : groupKey}
-                              </span>
-                              <span className="text-xs text-rose-400/60 dark:text-rose-400/60">
-                                ({groupModels.length})
-                              </span>
+                        {pickerGroups.map((group) => (
+                          <div key={group.key} className="px-1.5 py-1.5 border-b border-border/60 last:border-b-0">
+                            <div className="flex items-baseline justify-between px-2 pt-0.5 pb-1">
+                              <span className="text-[11px] font-medium text-muted-foreground">{group.label}</span>
+                              {group.note && <span className="text-[11px] text-muted-foreground/70">{group.note}</span>}
                             </div>
-                            <div className="space-y-1">
-                              {groupModels
-                                .filter((model) => !disabledModels.includes(model.id))
-                                .map((model) => (
-                                  <button
-                                    key={model.id}
-                                    onClick={() => {
-                                      if (isModelAvailable(model)) {
-                                        setSelectedModel(model)
-                                        setShowModelSelect(false)
-                                      }
-                                    }}
-                                    className={cn(
-                                      'group w-full px-2 py-1.5 transition-colors duration-150 ease-[0.25,1,0.5,1] relative overflow-hidden text-left cursor-pointer',
-                                      selectedModel.id === model.id
-                                        ? 'text-rose-600 dark:text-rose-300'
-                                        : 'hover:text-rose-600 dark:hover:text-rose-300 text-foreground/80',
-                                      !thinkingEnabled && model.supportsThinking && 'opacity-40 cursor-not-allowed',
-                                      !isModelAvailable(model) && 'opacity-40 cursor-not-allowed',
-                                    )}
-                                    disabled={(!thinkingEnabled && model.supportsThinking) || !isModelAvailable(model)}
-                                    title={
-                                      !isModelAvailable(model)
-                                        ? model.isApiKeyOnly
-                                          ? `Requires ${getProviderDisplayName(model.provider)} API key`
-                                          : !isSignedIn && !model.isFree
-                                            ? 'Sign in required'
-                                            : 'Not available'
-                                        : !thinkingEnabled && model.supportsThinking
-                                          ? 'Enable thinking mode to use this model'
-                                          : undefined
+                            {group.models.map((model) => {
+                              const usable = isModelAvailable(model)
+                              const selected = selectedModel.id === model.id
+                              const traits = modelTraits(model)
+                              return (
+                                <button
+                                  key={model.id}
+                                  type="button"
+                                  onClick={() => {
+                                    if (usable) {
+                                      setSelectedModel(model)
+                                      setShowModelSelect(false)
                                     }
-                                  >
-                                    <ItemHighlight active={selectedModel.id === model.id} />
-
-                                    <div className="flex items-center justify-between relative z-10">
-                                      <div className="flex items-center gap-1.5 min-w-0 flex-1">
-                                        <span className="text-sm truncate">{model.name}</span>
-                                        {groupBy === 'vendor' && model.provider === 'openrouter' && (
-                                          <span className="text-[10px] font-medium text-rose-600 dark:text-rose-300 bg-rose-500/10 dark:bg-rose-300/10 px-1.5 py-0.5 rounded-full">
-                                            OpenRouter
-                                          </span>
-                                        )}
-                                      </div>
-
-                                      <div className="flex items-center gap-1">
-                                        {/* Feature icons - ordered: web, vision, imagegen */}
-                                        {model.features.includes('web') && (
-                                          <Tooltip>
-                                            <TooltipTrigger asChild>
-                                              <span className="text-xs text-rose-500/60 dark:text-rose-300/60 px-1 py-0.5 rounded-full">
-                                                <Globe className="w-3.5 h-3.5" />
-                                              </span>
-                                            </TooltipTrigger>
-                                            <TooltipContent side="top">Web search enabled</TooltipContent>
-                                          </Tooltip>
-                                        )}
-                                        {model.features.includes('vision') && (
-                                          <Tooltip>
-                                            <TooltipTrigger asChild>
-                                              <span className="text-xs text-rose-500/60 dark:text-rose-300/60 px-1 py-0.5 rounded-full">
-                                                <Eye className="w-3.5 h-3.5" />
-                                              </span>
-                                            </TooltipTrigger>
-                                            <TooltipContent side="top">Vision capabilities</TooltipContent>
-                                          </Tooltip>
-                                        )}
-                                        {model.features.includes('imagegen') && (
-                                          <Tooltip>
-                                            <TooltipTrigger asChild>
-                                              <span className="text-xs text-rose-500/60 dark:text-rose-300/60 px-1 py-0.5 rounded-full">
-                                                <Image className="w-3.5 h-3.5" />
-                                              </span>
-                                            </TooltipTrigger>
-                                            <TooltipContent side="top">Image generation enabled</TooltipContent>
-                                          </Tooltip>
-                                        )}
-
-                                        {/* Attachment icons - ordered: image, pdf */}
-                                        {model.attachmentsSuppport.image && (
-                                          <Tooltip>
-                                            <TooltipTrigger asChild>
-                                              <span className="text-xs text-rose-500/60 dark:text-rose-300/60 px-1 py-0.5 rounded-full">
-                                                <Paperclip className="w-3.5 h-3.5" />
-                                              </span>
-                                            </TooltipTrigger>
-                                            <TooltipContent side="top">Supports attachments</TooltipContent>
-                                          </Tooltip>
-                                        )}
-                                        {model.attachmentsSuppport.pdf && (
-                                          <Tooltip>
-                                            <TooltipTrigger asChild>
-                                              <span className="text-xs text-rose-500/60 dark:text-rose-300/60 px-1 py-0.5 rounded-full">
-                                                <FileText className="w-3.5 h-3.5" />
-                                              </span>
-                                            </TooltipTrigger>
-                                            <TooltipContent side="top">Supports PDF attachments</TooltipContent>
-                                          </Tooltip>
-                                        )}
-
-                                        {/* Thinking icon - always rightmost */}
-                                        {model.supportsThinking && (
-                                          <Tooltip>
-                                            <TooltipTrigger asChild>
-                                              <span className="text-xs text-rose-500/60 dark:text-rose-300/60 px-1 py-0.5 rounded-full">
-                                                <Lightbulb
-                                                  className={cn(
-                                                    'w-3.5 h-3.5',
-                                                    thinkingEnabled && selectedModel.id === model.id
-                                                      ? 'text-rose-600 dark:text-rose-300'
-                                                      : undefined,
-                                                  )}
-                                                />
-                                              </span>
-                                            </TooltipTrigger>
-                                            <TooltipContent side="top">Thinking mode enabled</TooltipContent>
-                                          </Tooltip>
-                                        )}
-                                      </div>
-                                    </div>
-                                  </button>
-                                ))}
-                            </div>
+                                  }}
+                                  disabled={!usable}
+                                  title={
+                                    usable
+                                      ? model.description
+                                      : model.isApiKeyOnly
+                                        ? `Needs your ${getProviderDisplayName(model.provider)} API key`
+                                        : 'Sign in to use this model'
+                                  }
+                                  className={cn(
+                                    'relative w-full overflow-hidden rounded-md px-2 py-1.5 text-left transition-colors duration-150',
+                                    selected ? 'text-rose-600 dark:text-rose-300' : 'text-foreground/85 hover:text-foreground',
+                                    usable ? 'cursor-pointer' : 'cursor-not-allowed text-foreground/40',
+                                  )}
+                                >
+                                  <ItemHighlight active={selected} />
+                                  <span className="relative z-10 flex items-center gap-2">
+                                    <span
+                                      className={cn('size-1.5 shrink-0 rounded-full bg-gradient-to-r', getVendorColor(model.vendor))}
+                                    />
+                                    <span className="min-w-0 flex-1 truncate text-sm">{model.name}</span>
+                                    {usable ? (
+                                      traits.map((trait) => (
+                                        <span key={trait} className="shrink-0 text-[11px] text-muted-foreground">
+                                          {trait}
+                                        </span>
+                                      ))
+                                    ) : (
+                                      <span className="shrink-0 text-[11px]">{model.isApiKeyOnly ? 'Add key' : 'Sign in'}</span>
+                                    )}
+                                    {selected && <Check className="size-3.5 shrink-0" />}
+                                  </span>
+                                </button>
+                              )
+                            })}
                           </div>
                         ))}
                       </div>
+
+                      {/* Hidden models stay one click away, so the picker never strands the user */}
+                      {isSignedIn && hiddenModelCount > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowModelSelect(false)
+                            openSettings('models', { returnFocusTo: modelButtonRef.current })
+                          }}
+                          className="flex w-full cursor-pointer items-center justify-between border-t border-border/70 px-3 py-2 text-xs text-muted-foreground transition-colors hover:text-foreground"
+                        >
+                          <span>
+                            {hiddenModelCount} {hiddenModelCount === 1 ? 'model' : 'models'} hidden
+                          </span>
+                          <span>Manage models</span>
+                        </button>
+                      )}
                     </motion.div>
                   )}
                 </AnimatePresence>

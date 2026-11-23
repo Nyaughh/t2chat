@@ -49,11 +49,6 @@
       "count": 1
     }
   },
-  "src/components/settings/models-keys/ModelsKeysSettings.tsx": {
-    "react-hooks/set-state-in-effect": {
-      "count": 1
-    }
-  },
   "src/components/theme/AppearanceProvider.tsx": {
     "react-hooks/refs": {
       "count": 1

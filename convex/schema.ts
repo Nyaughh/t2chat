@@ -34,8 +34,25 @@ export default defineSchema({
     autoSave: v.optional(v.boolean()), // Deprecated. Existing settings may contain this field.
     showTimestamps: v.optional(v.boolean()),
     disabledModels: v.optional(v.array(v.string())), // Array of disabled model IDs
+    disabledProviders: v.optional(v.array(v.string())), // Providers hidden from the model picker
+    showOnlyAvailableModels: v.optional(v.boolean()), // Hide models the user can't currently use
+    selectedModelId: v.optional(v.string()), // Last model picked in the composer
     appearance: v.optional(appearanceValidator), // Theme, fonts, sizes (convex/appearance.ts)
   }).index('by_user', ['userId']),
+
+  // Daily request counters for models running on the server's API keys (convex/serverQuota.ts).
+  // key: `user:<userId>:<modelId>`, `guest:<subject>:<modelId>` or `global:<modelId>`
+  serverUsage: defineTable({
+    key: v.string(),
+    windowStart: v.number(),
+    count: v.number(),
+  }).index('by_key', ['key']),
+
+  // A server-key model paused after the provider returned a rate limit / quota error.
+  modelCooldowns: defineTable({
+    modelId: v.string(),
+    until: v.number(),
+  }).index('by_model', ['modelId']),
 
   apiKeys: defineTable({
     userId: v.id('users'),

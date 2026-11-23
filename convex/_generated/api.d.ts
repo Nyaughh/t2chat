@@ -20,6 +20,7 @@ import type * as chat_queries from "../chat/queries.js";
 import type * as chat_shared from "../chat/shared.js";
 import type * as chat_streaming from "../chat/streaming.js";
 import type * as http from "../http.js";
+import type * as serverQuota from "../serverQuota.js";
 import type * as tts from "../tts.js";
 import type * as users from "../users.js";
 
@@ -42,6 +43,7 @@ declare const fullApi: ApiFromModules<{
   "chat/shared": typeof chat_shared;
   "chat/streaming": typeof chat_streaming;
   http: typeof http;
+  serverQuota: typeof serverQuota;
   tts: typeof tts;
   users: typeof users;
 }>;

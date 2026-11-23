@@ -2,12 +2,12 @@
 
 import React, { useState, useEffect, useRef } from 'react'
 import { Check, Lightbulb, Globe, Eye, Image, Paperclip, FileText, RotateCcw } from 'lucide-react'
-import { models, ModelInfo } from '@/lib/models'
+import { ModelInfo } from '@/lib/models'
 import { cn } from '@/lib/utils'
 import { ItemHighlight } from '@/components/ui/item-highlight'
 import { AnimatePresence, motion } from 'framer-motion'
-import { useQuery } from 'convex/react'
-import { api } from '../../../convex/_generated/api'
+import { useModelPreferences } from '@/hooks/useModelPreferences'
+import { getSelectableModels } from '@/lib/modelPreferences'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 
 interface ModelDropdownProps {
@@ -55,7 +55,7 @@ export function ModelDropdown({
   const [isOpen, setIsOpen] = useState(true)
   const [showAbove, setShowAbove] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
-  const disabledModels = useQuery(api.api_keys.getDisabledModels) || []
+  const { prefs, access } = useModelPreferences()
 
   useEffect(() => {
     if (dropdownRef.current) {
@@ -83,25 +83,11 @@ export function ModelDropdown({
 
   if (!isOpen) return null
 
-  const availableModels = models.filter((model) => {
-    // Check if model is disabled by user
-    if (disabledModels.includes(model.id)) {
-      return false
-    }
-
-    // Free models are always available
-    if (model.isFree) return true
-
-    // For non-authenticated users, only show free models
-    if (!isSignedIn) return false
-
-    // For pro models, check if user has the required API key
-    if (model.isApiKeyOnly) {
-      return apiKeys.some((key) => key.service === model.provider)
-    }
-
-    // For other models, they're available to signed-in users
-    return true
+  // Retry offers the models the user can use and hasn't hidden in Settings → Models.
+  const availableModels = getSelectableModels(prefs, {
+    isSignedIn,
+    keyProviders: apiKeys.map((key) => key.service),
+    serverUnavailable: access.serverUnavailable,
   })
 
   return (
